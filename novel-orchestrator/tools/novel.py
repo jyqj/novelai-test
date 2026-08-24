@@ -1098,6 +1098,8 @@ def check_window(proj, rep=None):
             if r["kind"] in BIG_PAYOFF_KINDS:
                 big[n] = big.get(n, 0) + 1
 
+    # route=traditional 时窗口纪律降级为建议（modes/route-traditional.md §3）
+    win_level = "FAIL" if proj.config.get("route", "web") == "web" else "WARN"
     v3 = []
     for i in nums:
         win = [i, i + 1, i + 2]
@@ -1105,7 +1107,7 @@ def check_window(proj, rep=None):
             if not any(realized.get(n) for n in win):
                 v3.append("ch%04d–ch%04d 零已兑现爽点" % (i, i + 2))
     if v3:
-        rep.add("FAIL", "3 章小爽窗口破（rubrics/payoff.md §二）", v3)
+        rep.add(win_level, "3 章小爽窗口破（rubrics/payoff.md §二）", v3)
     else:
         rep.add("PASS", "3 章小爽窗口全绿（%d 章）" % len(nums))
 
@@ -1116,7 +1118,7 @@ def check_window(proj, rep=None):
             if not any(big.get(n) for n in win):
                 v10.append("ch%04d–ch%04d 无处境级释放（upgrade/reveal/reversal）" % (i, i + 9))
     if v10:
-        rep.add("FAIL", "10 章大爽窗口破", v10[:5])
+        rep.add(win_level, "10 章大爽窗口破", v10[:5])
     elif len(nums) >= 10:
         rep.add("PASS", "10 章大爽窗口全绿")
     else:
