@@ -127,6 +127,11 @@ def main():
             wbf.write_text(json.dumps(wb, ensure_ascii=False), encoding="utf-8")
             run(["commit", tid, "--chapter", str(cand), "--writeback", str(wbf),
                  "-m", "长程第 %d 章" % n], cwd=proj)
+            (proj / ("reviews/%s.light.md" % cid)).write_text(
+                "---\nid: review_%s_light\nkind: review\nchapter: %s\ndepth: light\n"
+                "verdict: pass\nrev_reviewed: 1\ndate: 2026-08-24\n---\n\n"
+                "## 问题清单\n\n- [全章] 无阻塞 → 通过\n" % (cid, cid),
+                encoding="utf-8")
             run(["task", "done", tid, "--note", "light=pass"], cwd=proj)
             run(["tree", "set-status", cid, "approved"], cwd=proj)
             run(["publish", cid], cwd=proj)
@@ -139,7 +144,9 @@ def main():
         run(["check", "--project"], cwd=proj)
 
         cache = json.loads((proj / "state/ngram_cache.json").read_text(encoding="utf-8"))
-        must(len(cache) == 8, "ngram_cache 按窗口裁剪至 8 章（实际 %d）" % len(cache))
+        n8_active = sum(1 for v in cache.values() if isinstance(v, dict) and v.get("n8"))
+        must(n8_active == 8, "ngram 8-gram 滚动窗口保留 8 章（实际 %d）" % n8_active)
+        must(len(cache) == N_CH, "ngram 12-gram 全史保留 %d 章" % N_CH)
         must(all(isinstance(v, dict) and "n12" in v and "n8" in v for v in cache.values()),
              "两级指纹（n12+n8）齐全")
 

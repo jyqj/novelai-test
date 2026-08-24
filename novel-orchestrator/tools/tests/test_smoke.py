@@ -421,16 +421,35 @@ def main():
         payoff = (proj / "ledgers/payoff.tsv").read_text(encoding="utf-8")
         must("payoff_0001_1" in payoff and "\t1" in payoff, "爽点台账已登记 realized=1")
         power = (proj / "ledgers/power.tsv").read_text(encoding="utf-8")
-        must("ch_0001\tchar_linwan\t持牌孤徒\t入局者" in power, "P1-6 power 台账已追加")
+        must("ch_0001\t1\tchar_linwan\t持牌孤徒\t入局者" in power,
+             "P1-6 power 台账已写入（含 rev 列）")
 
-        # ---- P1-5 approved 回执闸门：无回执拒绝 → 回执后通过
+        # ---- P1-5 approved 回执闸门：无回执拒绝 → 评审文件通过后通过；note 自证拒绝
         run(["tree", "set-status", "ch_0001", "approved"], cwd=proj, expect=1)
-        (proj / "reviews/ch_0001.light.md").write_text(REVIEW_PASS, encoding="utf-8")
         run(["task", "done", tid2, "--note", "light=pass"], cwd=proj)
+        run(["tree", "set-status", "ch_0001", "approved"], cwd=proj, expect=1)  # note 不可自证
+        (proj / "reviews/ch_0001.light.md").write_text(REVIEW_PASS, encoding="utf-8")
         run(["tree", "set-status", "ch_0001", "approved"], cwd=proj)
         must("approved_evidence" in
              (proj / "chapters/ch_0001.md").read_text(encoding="utf-8"),
-             "P1-5 approved 回执已记录")
+             "P1-5 approved 回执已记录（仅 reviews/ 落盘文件）")
+
+        # ---- P0-0 revise 台账不双计：revise 重提交后物化视图仍 1 行
+        tid_rev = run(["task", "add", "revise", "ch_0001"], cwd=proj).strip().splitlines()[-1]
+        wb_rev = wb_variant(
+            summary_after="修订版概要",
+            thread_ops=[{"id": "thread_heimuxia", "op": "tangle", "note": "修订后加深纠葛"}],
+        )
+        wb_rev_path = tmp / "wb_rev.json"
+        wb_rev_path.write_text(json.dumps(wb_rev, ensure_ascii=False), encoding="utf-8")
+        run(["commit", tid_rev, "--chapter", str(cand), "--writeback", str(wb_rev_path),
+             "-m", "修订"], cwd=proj)
+        run(["task", "done", tid_rev], cwd=proj)
+        out_payoff = run(["ledger", "payoff"], cwd=proj)
+        must(out_payoff.count("ch_0001") == 1, "revise 后物化 payoff 仍 1 行（不双计）")
+        (proj / "reviews/ch_0001.light.md").write_text(
+            REVIEW_PASS.replace("rev_reviewed: 1", "rev_reviewed: 2"), encoding="utf-8")
+        run(["tree", "set-status", "ch_0001", "approved"], cwd=proj)
 
         # 窗口/全库检查 + 发布
         run(["check", "--window"], cwd=proj)

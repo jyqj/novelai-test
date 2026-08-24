@@ -11,7 +11,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 1. **文件即记忆**：上下文会丢，写进项目文件的才存在。一切共识（设定、决策、进度）落盘后才算发生。
 2. **commit 是唯一写路径**：任何产物先机检（`novel.py check`）后落盘（`novel.py commit`）；机检不绿不入库。`published` 章**永不改写**，修错走 retcon（`protocol/serial-ops.md` §3）。
-3. **运行期读 rubrics（判据卡），深读才回 knowledge**：rubrics/ 已把 knowledge/ 的 111 块知识蒸馏为带阈值的判据。写作与评审只引用 rubrics；仅当「诊断疑难/设计庭深读」时，经 `knowledge-map.md` 定位后按块读 knowledge/，读完即弃，不进简报。
+3. **运行期读 rubrics（判据卡），深读才回 knowledge**：rubrics/ 已把 knowledge/ 的 **111 块**知识中的 **16 块**蒸馏为带阈值的判据（实账见 `knowledge-map.md` 末行；59 块庭审附件池、36 块 learn-only）。写作与评审只引用 rubrics；仅当「诊断疑难/设计庭深读」时，经 `knowledge-map.md` 定位后按块读 knowledge/，读完即弃，不进简报。
 
 ## 1. 能力探测（进入任务先答三问）
 

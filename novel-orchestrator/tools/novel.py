@@ -83,6 +83,7 @@ UNIT_NEEDS_REVIEW = [
     "爽点兑现有效性：触发条件成立、非空转（rubrics/payoff.md §一/§六）",
     "毒点七问与负面节拍降档（rubrics/toxicity.md）",
     "与前章尾 500 字的衔接、与后章任务卡是否顶牛（roles/critic-light.md 四）",
+    "spoiler>0 事实是否在正文明写泄露（对照简报 §6【读者未知】标记）",
 ]
 
 CJK_RE = re.compile(r"[\u4e00-\u9fff]")
@@ -385,30 +386,7 @@ class Project:
                 return t
         return None
 
-    # ---- 台账
-    def payoff_rows(self):
-        f = self.p("ledgers", "payoff.tsv")
-        rows = []
-        if f.is_file():
-            lines = read(f).splitlines()
-            for ln in lines[1:]:
-                c = ln.split("\t")
-                if len(c) >= 5:
-                    rows.append({"chapter": c[0], "payoff_id": c[1], "kind": c[2],
-                                 "intent": c[3], "realized": c[4].strip() == "1"})
-        return rows
-
-    def power_rows(self):
-        f = self.p("ledgers", "power.tsv")
-        rows = []
-        if f.is_file():
-            for ln in read(f).splitlines()[1:]:
-                c = ln.split("\t")
-                if len(c) >= 4:
-                    rows.append({"chapter": c[0], "entity": c[1], "from": c[2],
-                                 "to": c[3], "note": c[4] if len(c) > 4 else ""})
-        return rows
-
+    # ---- 台账（journal 语义：写入带 rev，读取物化最新 rev）
     def facts_files(self):
         return sorted(self.p("ledgers", "facts").glob("*.json"))
 
@@ -455,6 +433,94 @@ class Project:
         return sum(1 for c in self.chapters()
                    if c["meta"].get("status") == "approved"
                    and ch_num(c["id"]) > cur["last_published"])
+
+    def _read_ledger(self, name, cols_with_rev, cols_legacy):
+        f = self.p("ledgers", name)
+        if not f.is_file():
+            return []
+        lines = read(f).splitlines()
+        if len(lines) < 2:
+            return []
+        header = lines[0].split("\t")
+        has_rev = "rev" in header
+        rows = []
+        for ln in lines[1:]:
+            c = ln.split("\t")
+            if has_rev and len(c) >= len(cols_with_rev):
+                rows.append(dict(zip(cols_with_rev, c[:len(cols_with_rev)])))
+            elif not has_rev and len(c) >= len(cols_legacy):
+                d = dict(zip(cols_legacy, c[:len(cols_legacy)]))
+                d["rev"] = "1"
+                rows.append(d)
+        return materialize_ledger_latest_rev(rows)
+
+    def payoff_rows(self):
+        rows = self._read_ledger(
+            "payoff.tsv",
+            ["chapter", "rev", "payoff_id", "kind", "intent", "realized"],
+            ["chapter", "payoff_id", "kind", "intent", "realized"])
+        for r in rows:
+            r["realized"] = str(r.get("realized", "0")).strip() == "1"
+        return rows
+
+    def timeline_rows(self):
+        return self._read_ledger(
+            "timeline.tsv",
+            ["chapter", "rev", "story_date", "elapsed", "note"],
+            ["chapter", "story_date", "elapsed", "note"])
+
+    def power_rows(self):
+        return self._read_ledger(
+            "power.tsv",
+            ["chapter", "rev", "entity", "from", "to", "note"],
+            ["chapter", "entity", "from", "to", "note"])
+
+
+def materialize_ledger_latest_rev(rows):
+    """物化视图：每章只保留最新 rev 的行。"""
+    ch_rev = {}
+    for r in rows:
+        ch = r["chapter"]
+        rev = int(r.get("rev") or 1)
+        ch_rev[ch] = max(ch_rev.get(ch, 0), rev)
+    return [r for r in rows if int(r.get("rev") or 1) == ch_rev[r["chapter"]]]
+
+
+def strip_chapter_log_lines(body, ch_id):
+    """revise 重提交时剔除同章旧事件行，避免实体/线索日志双计。"""
+    pat = re.compile(r"^- %s:.*(?:\n|$)" % re.escape(ch_id), re.M)
+    return pat.sub("", body).rstrip()
+
+
+def ledger_upsert(path, header, chapter, rev, new_lines):
+    """台账 journal 语义：替换 (chapter, rev) 的全部行后追加新行。"""
+    cols = header.split("\t")
+    rows = []
+    old_header = ""
+    if path.is_file():
+        lines = read(path).splitlines()
+        if lines:
+            old_header = lines[0]
+            has_rev = "rev" in old_header.split("\t")
+            for ln in lines[1:]:
+                c = ln.split("\t")
+                if not c or not c[0]:
+                    continue
+                if has_rev:
+                    if c[0] == chapter and len(c) > 1 and c[1] == str(rev):
+                        continue
+                    rows.append(c)
+                else:
+                    # 旧格式迁移：无 rev 列视为 rev=1
+                    if c[0] == chapter and rev == 1:
+                        continue
+                    rows.append([c[0], "1"] + c[1:])
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(header + "\n")
+        for c in rows:
+            f.write("\t".join(c) + "\n")
+        for ln in new_lines:
+            f.write(ln + "\n")
 
 
 def find_root(args):
@@ -532,7 +598,7 @@ def cmd_init(args):
         die("目标已是项目：%s" % root)
     for d in ("tree", "chapters", "briefs", "entities", "threads", "ledgers/facts",
               "court/transcripts", "reviews", "data/feedback", "data/compliance",
-              "tasks", "state/court", "state/reports", "corpus"):
+              "tasks", "state/court", "state/reports", "state/staging", "state/digests", "corpus"):
         (root / d).mkdir(parents=True, exist_ok=True)
     cfg = json.loads(read(TEMPLATES / "config.json"))
     cfg["name"] = args.name or root.name
@@ -541,9 +607,9 @@ def cmd_init(args):
     for t, dest in (("book.md", "tree/book.md"), ("style.md", "tree/style.md"),
                     ("world.md", "tree/world.md")):
         write(root / dest, instantiate(t, rep))
-    write(root / "ledgers/timeline.tsv", "chapter\tstory_date\telapsed\tnote\n")
-    write(root / "ledgers/payoff.tsv", "chapter\tpayoff_id\tkind\tintent\trealized\n")
-    write(root / "ledgers/power.tsv", "chapter\tentity\tfrom\tto\tnote\n")
+    write(root / "ledgers/timeline.tsv", "chapter\trev\tstory_date\telapsed\tnote\n")
+    write(root / "ledgers/payoff.tsv", "chapter\trev\tpayoff_id\tkind\tintent\trealized\n")
+    write(root / "ledgers/power.tsv", "chapter\trev\tentity\tfrom\tto\tnote\n")
     write(root / "ledgers/lessons.md", "# lessons（一行一课，编排者经 commit 附笔追加）\n")
     write(root / "ledgers/recap.md",
           "# recap（全局梗概；编排者维护：卷末 checkpoint 必更，期间每 ~10 章可追加）\n"
@@ -715,17 +781,23 @@ def next_task_id(q):
 
 # ---------------------------------------------------------------- tree
 def approval_receipt(proj, ch_id):
-    """P1-5：drafted→approved 需评审 pass 回执。查 reviews/ 与任务 note。"""
+    """P1-5 hardened：drafted→approved 仅认 reviews/ 落盘文件，且 rev_reviewed 须匹配当前章 rev。"""
+    ch_meta = {}
+    for c in proj.chapters():
+        if c["id"] == ch_id:
+            ch_meta = c["meta"]
+            break
+    current_rev = int(ch_meta.get("rev") or 1)
     for depth in ("light", "deep"):
         f = proj.p("reviews", "%s.%s.md" % (ch_id, depth))
         if f.is_file():
             meta, _ = parse_frontmatter(read(f))
-            if (meta or {}).get("verdict") == "pass":
-                return "reviews/%s.%s.md verdict=pass" % (ch_id, depth)
-    for t in proj.queue()["tasks"]:
-        if t.get("target") == ch_id and re.search(
-                r"(light|review|deep)\s*[=:]\s*pass", t.get("note", "")):
-            return "%s note「%s」" % (t["id"], t.get("note", "")[:60])
+            if (meta or {}).get("verdict") != "pass":
+                continue
+            rr = (meta or {}).get("rev_reviewed")
+            if rr is None or int(rr) != current_rev:
+                continue
+            return "reviews/%s.%s.md verdict=pass rev_reviewed=%s" % (ch_id, depth, rr)
     return None
 
 
@@ -765,11 +837,11 @@ def cmd_tree(args):
             die("非法迁移：%s %s→%s（合法表见 protocol/formats.md §3）" % (args.id, old, new), 1)
         if kind == "chapter" and new == "approved":
             receipt = approval_receipt(proj, args.id)
-            if not receipt and not getattr(args, "evidence", None):
-                die("approved 需评审 pass 回执：reviews/%s.light|deep.md verdict=pass，"
-                    "或任务 note 含 light=pass，或 --evidence \"<回执>\"（pipeline §1 步骤 8）"
+            if not receipt:
+                die("approved 需评审 pass 回执：reviews/%s.light|deep.md 须存在、"
+                    "verdict=pass 且 rev_reviewed=当前章 rev（pipeline §1 步骤 8）"
                     % args.id, 1)
-            meta["approved_evidence"] = getattr(args, "evidence", None) or receipt
+            meta["approved_evidence"] = receipt
         meta["status"] = new
         meta["updated_at"] = NOW()
         write(path, dump_frontmatter(meta) + "\n" + body.lstrip("\n"))
@@ -833,7 +905,8 @@ def cmd_task(args):
             print("（队列空或全部阻塞）")
             return 0
         t = proj.task(tid)
-        print(json.dumps(t, ensure_ascii=False, indent=1))
+        _, gates = gate_check(proj, tid)
+        print(json.dumps({**t, "gates": gates}, ensure_ascii=False, indent=1))
         # P1-10 深评逾期提醒
         cur = proj.cursor()
         last_deep = proj.last_deep_review_ch()
@@ -1024,6 +1097,25 @@ def cmd_brief(args):
         if rl:
             parts2.append("### 全局 recap（ledgers/recap.md 尾段）\n" + "\n".join(rl[-12:]))
             prov.append(("ledgers/recap.md", "-", "§2 recap"))
+    # 弧/卷文摘（commit 自动 rollup，protocol/memory.md）
+    arc_id = task.get("arc")
+    if arc_id and not str(arc_id).startswith("["):
+        ap = proj.p("state", "digests", arc_id + ".json")
+        if ap.is_file():
+            data = json.loads(read(ap))
+            sums = data.get("summaries", [])[-8:]
+            if sums:
+                parts2.append("### 本弧文摘（state/digests/%s.json）\n" % arc_id
+                              + "\n".join("- %s：%s" % (s["chapter"], s["summary"]) for s in sums))
+                prov.append((str(ap.relative_to(proj.root)), "-", "§2 弧文摘"))
+    vp = proj.p("state", "digests", cur_vol + ".json")
+    if vp.is_file():
+        vdata = json.loads(read(vp))
+        vsums = vdata.get("summaries", [])[-5:]
+        if vsums:
+            parts2.append("### 本卷文摘（state/digests/%s.json）\n" % cur_vol
+                          + "\n".join("- %s：%s" % (s["chapter"], s["summary"]) for s in vsums))
+            prov.append((str(vp.relative_to(proj.root)), "-", "§2 卷文摘"))
     s2 = "\n\n".join(parts2) or "（首章，无上文）"
 
     # §3 实体状态卡
@@ -1182,11 +1274,20 @@ def cmd_brief(args):
         return "\n\n".join(parts) + "\n"
 
     text = render()
-    for sec in ("7 写作提示", "6 相关事实与设定", "4 活跃线索", "3 出场实体状态卡"):
+    # 条目级预算裁剪（必含集：§0 任务卡、§8 回写契约、must_not_drop 线索、spoiler facts 永不整节丢弃）
+    trimmable = [
+        ("7 写作提示", False),
+        ("6 相关事实与设定", False),
+        ("4 活跃线索", False),
+        ("3 出场实体状态卡", False),
+        ("5 弧内位置", True),
+        ("2 直接上文", True),
+        ("1 文风与禁忌", True),
+    ]
+    for sec, allow_full_drop in trimmable:
         if len(text) <= budget:
             break
         if sec == "3 出场实体状态卡":
-            # 末位裁剪：实体卡只裁「设定要点」，保留现状与最近事件（写手底线信息）
             slim = []
             for ref in task.get("cast", []):
                 eid = proj.resolve_entity(ref)
@@ -1194,12 +1295,37 @@ def cmd_brief(args):
                     slim.append("- 【缺卡】%s" % ref)
                     continue
                 e = ents[eid]
-                slim.append("### %s\n（设定要点超预算已裁剪，见 entities/%s.md）\n\n现状：\n%s"
-                            % (eid, eid, get_section(e["body"], "现状") or ""))
+                voice = get_section(e["body"], "声纹") or get_section(e["body"], "设定") or ""
+                voice_lines = "\n".join(voice.splitlines()[:5])
+                slim.append("### %s\n声纹要点：\n%s\n\n现状：\n%s"
+                            % (eid, voice_lines or "（见 entities/%s.md）" % eid,
+                               get_section(e["body"], "现状") or ""))
             sections[sec] = "\n\n".join(slim) or "（任务卡未列 cast）"
-        else:
-            sections[sec] = "（超预算已裁剪；原始来源见溯源表）"
-        trimmed.append(sec)
+        elif sec == "6 相关事实与设定" and parts6:
+            kept, dropped = [], []
+            for line in parts6:
+                if "【读者未知" in line or "已被覆盖" in line:
+                    kept.append(line)
+                elif len("\n".join(kept)) + len(line) < budget // 3:
+                    kept.append(line)
+                else:
+                    dropped.append(line[:30])
+            sections[sec] = "\n".join(kept) if kept else "（无相关事实）"
+            if dropped:
+                trimmed.append(sec + " 条目裁剪 %d" % len(dropped))
+        elif sec == "4 活跃线索" and parts4:
+            must_lines = [l for l in parts4 if "must_not_drop" in l or "payoff 临近" in l]
+            other = [l for l in parts4 if l not in must_lines]
+            kept = list(must_lines)
+            for line in other:
+                if len("\n".join(kept)) + len(line) < budget // 4:
+                    kept.append(line)
+            sections[sec] = "\n".join(kept) if kept else "（无活跃线索命中）"
+            if len(kept) < len(parts4):
+                trimmed.append(sec + " 条目裁剪")
+        elif allow_full_drop:
+            sections[sec] = "（条目级裁剪后仍超预算；见 entities/threads/facts 原文件）"
+            trimmed.append(sec)
         text = render()
     write(prev_brief, text)
     git_autocommit(proj.root, "[brief] %s rev%d（保证 spawn 前基线干净）" % (ch_id, brief_rev))
@@ -1376,6 +1502,59 @@ def facts_conflict_scan(proj, num, wb, rep):
         rep.add("WARN", "facts 重复登记候选（同文已在其他章揭示）", dups)
 
 
+    if dups:
+        rep.add("WARN", "facts 重复登记候选（同文已在其他章揭示）", dups)
+
+
+def extract_reconcile(proj, text, wb, rep):
+    """双记账（机器半边）：正文已登记专名 vs cast_actual 漏报；位阶词命中 vs power_delta 缺报。"""
+    if not wb:
+        return
+    names = {}
+    for alias, eid in proj.aliases().items():
+        if len(str(alias)) >= 2:
+            names[str(alias)] = eid
+    for eid, e in proj.entities().items():
+        for a in e["meta"].get("aliases") or []:
+            if len(str(a)) >= 2:
+                names[str(a)] = eid
+    declared = set()
+    for ref in wb.get("cast_actual", []) or []:
+        eid = proj.resolve_entity(ref)
+        if eid:
+            declared.add(eid)
+    mentioned = set()
+    for name, eid in names.items():
+        if name in text:
+            mentioned.add(eid)
+    missing = sorted(mentioned - declared)
+    if missing:
+        rep.add("NEEDS_REVIEW", "extractor 对账：正文出现已登记专名但 cast_actual 漏报",
+                missing)
+    else:
+        rep.add("PASS", "cast_actual 覆盖正文已登记专名")
+    world_p = proj.p("tree", "world.md")
+    if world_p.is_file():
+        _, wbody = parse_frontmatter(read(world_p))
+        tiers = re.findall(r"^\|\s*([^|]+?)\s*\|", get_section(wbody, "力量体系与位阶") or "",
+                           re.M)
+        tiers = [t.strip() for t in tiers if t.strip() and t.strip() not in ("tier", "---")]
+        hit_tiers = [t for t in tiers if t and t in text]
+        pd_entities = set()
+        for d in wb.get("power_delta", []) or []:
+            for ref in d.get("entity_ids", []):
+                eid = proj.resolve_entity(ref)
+                if eid:
+                    pd_entities.add(eid)
+        if hit_tiers and not pd_entities:
+            rep.add("NEEDS_REVIEW", "extractor 对账：正文命中位阶词但 power_delta 空",
+                    hit_tiers[:5])
+    for d in wb.get("continuity_delta", []) or []:
+        if d.get("spoiler") and d.get("fact") and d.get("fact") in text:
+            rep.add("NEEDS_REVIEW", "spoiler 事实可能在正文明写",
+                    ["fact「%s」" % d.get("fact")[:40]])
+
+
 def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
     rep = rep or Report()
     num = ch_num(ch_id)
@@ -1520,6 +1699,7 @@ def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
             rep.add("PASS", "writeback 实体/线索引用全部可解析，线索迁移合法")
         # P0-1：facts 冲突扫描
         facts_conflict_scan(proj, num, wb, rep)
+        extract_reconcile(proj, text, wb, rep)
         route = proj.config.get("route", "web")
         close_ok = bool(wb.get("hooks_realized", {}).get("close"))
         if not close_ok:
@@ -1683,13 +1863,11 @@ def check_window(proj, rep=None, since=None):
             rep.add("PASS", "战力变动节奏无告警（台账 %d 行）" % len(power))
 
     # 时间线
-    tl = proj.p("ledgers", "timeline.tsv")
     neg = []
-    if tl.is_file():
-        for ln in read(tl).splitlines()[1:]:
-            c = ln.split("\t")
-            if len(c) >= 3 and c[2].strip().startswith("-"):
-                neg.append("%s elapsed=%s" % (c[0], c[2]))
+    for r in proj.timeline_rows():
+        elapsed = (r.get("elapsed") or "").strip()
+        if elapsed.startswith("-"):
+            neg.append("%s elapsed=%s" % (r["chapter"], elapsed))
     if neg:
         rep.add("FAIL", "时间线出现负 elapsed", neg)
     else:
@@ -1878,7 +2056,75 @@ def check_project(proj, rep=None):
         rep.add("WARN", "队列 target 悬空", q_fails)
     else:
         rep.add("PASS", "队列 target 全部可解析")
+    # 半事务检测（commit journal）
+    jp = proj.p("state", "commit_journal.jsonl")
+    if jp.is_file():
+        pending = {}
+        for ln in read(jp).splitlines():
+            if not ln.strip():
+                continue
+            try:
+                e = json.loads(ln)
+            except ValueError:
+                continue
+            key = (e.get("chapter"), e.get("rev"))
+            if e.get("status") == "started":
+                pending[key] = e
+            elif e.get("status") in ("completed", "aborted"):
+                pending.pop(key, None)
+        if pending:
+            rep.add("FAIL", "存在未完成 commit 事务（state/commit_journal.jsonl）",
+                    ["%s rev=%s task=%s——重跑 commit 或手工对账后追加 aborted 条目"
+                     % (k[0], k[1], v.get("task")) for k, v in pending.items()])
+        else:
+            rep.add("PASS", "commit journal 无半事务")
     return rep
+
+
+def gate_check(proj, task_id):
+    """L4 gate：输出任务前置谓词判定（编排内核化，pipeline gate 注释版配套）。"""
+    t = proj.task(task_id)
+    if not t:
+        return None, [{"gate": "task_exists", "ok": False, "detail": "任务不存在"}]
+    results = [{"gate": "task_exists", "ok": True, "detail": t["id"]}]
+    if t["state"] == "blocked":
+        results.append({"gate": "task_unblocked", "ok": False,
+                        "detail": "blocked_on=%s" % t.get("blocked_on")})
+        return t, results
+    results.append({"gate": "task_unblocked", "ok": True, "detail": t["state"]})
+    if t["type"] in ("write", "revise"):
+        ch_id = t["target"]
+        brief_p = proj.p("briefs", ch_id + ".brief.md")
+        task_p = proj.p("chapters", ch_id + ".task.json")
+        if not brief_p.is_file():
+            results.append({"gate": "brief_exists", "ok": False, "detail": "缺 briefs/%s.brief.md"
+                            % ch_id})
+        else:
+            fresh = not task_p.is_file() or brief_p.stat().st_mtime >= task_p.stat().st_mtime
+            results.append({"gate": "brief_fresh", "ok": fresh,
+                            "detail": "简报 mtime ≥ 任务卡" if fresh else "简报早于任务卡，须重跑 brief"})
+        if t["type"] == "revise":
+            ch_meta = next((c["meta"] for c in proj.chapters() if c["id"] == ch_id), {})
+            if ch_meta.get("status") == "published":
+                results.append({"gate": "not_published", "ok": False,
+                                "detail": "published 章不可 revise"})
+            else:
+                results.append({"gate": "not_published", "ok": True, "detail": "ok"})
+        receipt = approval_receipt(proj, ch_id) if t.get("note", "").find("await_approve") >= 0 else None
+        if receipt:
+            results.append({"gate": "review_receipt", "ok": True, "detail": receipt})
+    return t, results
+
+
+def cmd_gate(args):
+    proj = Project(find_root(args))
+    t, results = gate_check(proj, args.task_id)
+    if not t:
+        die("任务不存在：%s" % args.task_id)
+    all_ok = all(r["ok"] for r in results)
+    print(json.dumps({"task_id": args.task_id, "type": t["type"], "target": t.get("target"),
+                      "gates": results, "ready": all_ok}, ensure_ascii=False, indent=2))
+    return 0 if all_ok else 1
 
 
 def cmd_check(args):
@@ -1932,9 +2178,9 @@ def register_facts(proj, ch_id, wb):
     return added
 
 
-def apply_writeback(proj, ch_id, wb):
+def apply_writeback(proj, ch_id, wb, rev=1):
     """continuity_delta → 实体事件日志 + facts 登记；thread_ops → 推进日志+state（合法迁移表）；
-    payoff/timeline/power 台账。引用越权 = 硬失败（返回 (False, errors)，调用方拒绝落盘）。"""
+    payoff/timeline/power 台账（(chapter, rev) journal 语义）。引用越权 = 硬失败。"""
     errs = writeback_ref_errors(proj, ch_id, wb)
     if errs:
         return False, errs
@@ -1945,7 +2191,8 @@ def apply_writeback(proj, ch_id, wb):
         for ref in delta.get("entity_ids", []):
             eid = proj.resolve_entity(ref)
             e = ents[eid]
-            body = e["body"].rstrip() + "\n- %s: %s\n" % (ch_id, delta.get("fact", ""))
+            body = strip_chapter_log_lines(e["body"], ch_id)
+            body = body.rstrip() + "\n- %s: %s\n" % (ch_id, delta.get("fact", ""))
             meta = e["meta"]
             meta["last_event_ch"] = num
             meta["updated_at"] = NOW()
@@ -1957,7 +2204,8 @@ def apply_writeback(proj, ch_id, wb):
         t = threads[tid]
         meta = t["meta"]
         nxt = thread_next_state(meta.get("state"), op["op"])
-        body = t["body"].rstrip() + "\n- %s: %s %s\n" % (ch_id, op["op"], op.get("note", ""))
+        body = strip_chapter_log_lines(t["body"], ch_id)
+        body = body.rstrip() + "\n- %s: %s %s\n" % (ch_id, op["op"], op.get("note", ""))
         meta["state"] = nxt
         if op["op"] == "plant" and not meta.get("plant_ch"):
             meta["plant_ch"] = num  # P1-3：plant 回填 plant_ch
@@ -1969,33 +2217,39 @@ def apply_writeback(proj, ch_id, wb):
     if added:
         notes.append("facts 已登记：%s → ledgers/facts/%s.json"
                      % (" ".join(added), proj.vol_of_chapter(ch_id)))
-    # payoff 台账
+    # payoff 台账（journal：按 chapter+rev 替换）
     task = proj.chapter_task(ch_id) or {}
     quota = task.get("payoff_quota", [])
     realized = set(wb.get("payoff_realized", []))
-    with open(proj.p("ledgers", "payoff.tsv"), "a", encoding="utf-8") as f:
-        for i, q in enumerate(quota, 1):
-            pid = "payoff_%04d_%d" % (num, i)
-            f.write("%s\t%s\t%s\t%s\t%d\n" % (ch_id, pid, q.get("kind", "other"),
-                                              q.get("intent", ""), 1 if pid in realized else 0))
+    payoff_lines = []
+    for i, q in enumerate(quota, 1):
+        pid = "payoff_%04d_%d" % (num, i)
+        payoff_lines.append("%s\t%d\t%s\t%s\t%s\t%d" % (
+            ch_id, rev, pid, q.get("kind", "other"), q.get("intent", ""),
+            1 if pid in realized else 0))
+    ledger_upsert(proj.p("ledgers", "payoff.tsv"),
+                  "chapter\trev\tpayoff_id\tkind\tintent\trealized",
+                  ch_id, rev, payoff_lines)
     # timeline
     ta = wb.get("time_advance", {})
-    with open(proj.p("ledgers", "timeline.tsv"), "a", encoding="utf-8") as f:
-        f.write("%s\t%s\t%s\t\n" % (ch_id, ta.get("story_date", ""), ta.get("elapsed", "")))
+    ledger_upsert(proj.p("ledgers", "timeline.tsv"),
+                  "chapter\trev\tstory_date\telapsed\tnote",
+                  ch_id, rev, ["%s\t%d\t%s\t%s\t" % (
+                      ch_id, rev, ta.get("story_date", ""), ta.get("elapsed", ""))])
     # power 台账（P1-6，可选键）
     pd = wb.get("power_delta", []) or []
     if pd:
-        pf = proj.p("ledgers", "power.tsv")
-        if not pf.is_file():
-            write(pf, "chapter\tentity\tfrom\tto\tnote\n")
-        with open(pf, "a", encoding="utf-8") as f:
-            for d in pd:
-                for ref in d.get("entity_ids", []):
-                    eid = proj.resolve_entity(ref)
-                    f.write("%s\t%s\t%s\t%s\t%s\n"
-                            % (ch_id, eid, d.get("from", ""), d.get("to", ""),
-                               d.get("note", "")))
-        notes.append("power 台账已追加 %d 行" % sum(len(d.get("entity_ids", [])) for d in pd))
+        power_lines = []
+        for d in pd:
+            for ref in d.get("entity_ids", []):
+                eid = proj.resolve_entity(ref)
+                power_lines.append("%s\t%d\t%s\t%s\t%s\t%s" % (
+                    ch_id, rev, eid, d.get("from", ""), d.get("to", ""),
+                    d.get("note", "")))
+        ledger_upsert(proj.p("ledgers", "power.tsv"),
+                      "chapter\trev\tentity\tfrom\tto\tnote",
+                      ch_id, rev, power_lines)
+        notes.append("power 台账已写入 %d 行（rev=%d）" % (len(power_lines), rev))
     return True, notes
 
 
@@ -2006,7 +2260,11 @@ def update_ngram_cache(proj, ch_id, text):
     window = proj.config.get("ngram_window_chapters", 30)
     keys = sorted(cache, key=lambda k: ch_num(k) if re.match(r"ch_\d{4}$", k) else 0)
     for k in keys[:-window]:
-        cache.pop(k, None)
+        entry = cache.get(k)
+        if isinstance(entry, dict):
+            entry["n8"] = []  # 8-gram 滚动窗口；12-gram 全史保留
+        elif isinstance(entry, list):
+            cache[k] = {"n12": entry, "n8": []}
     write(proj.p("state", "ngram_cache.json"), json.dumps(cache, ensure_ascii=False))
 
 
@@ -2066,6 +2324,37 @@ def route_staged_file(proj, meta):
     return None
 
 
+def journal_append(proj, entry):
+    jp = proj.p("state", "commit_journal.jsonl")
+    with open(jp, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def digest_rollup(proj, ch_id, summary):
+    """commit 后自动 rollup 章摘要进弧/卷文摘（protocol/memory.md）。"""
+    if not (summary or "").strip():
+        return
+    arc_id = (proj.chapter_task(ch_id) or {}).get("arc")
+    vol = proj.vol_of_chapter(ch_id)
+    dig = proj.p("state", "digests")
+    dig.mkdir(parents=True, exist_ok=True)
+    if arc_id and not arc_id.startswith("["):
+        ap = dig / ("%s.json" % arc_id)
+        data = json.loads(read(ap)) if ap.is_file() else {"arc": arc_id, "summaries": []}
+        data["summaries"] = [s for s in data.get("summaries", [])
+                             if s.get("chapter") != ch_id]
+        data["summaries"].append({"chapter": ch_id, "summary": summary.strip(),
+                                  "updated_at": NOW()})
+        write(ap, json.dumps(data, ensure_ascii=False, indent=1))
+    vp = dig / ("%s.json" % vol)
+    vdata = json.loads(read(vp)) if vp.is_file() else {"volume": vol, "summaries": []}
+    vdata["summaries"] = [s for s in vdata.get("summaries", [])
+                          if s.get("chapter") != ch_id]
+    vdata["summaries"].append({"chapter": ch_id, "summary": summary.strip(),
+                               "updated_at": NOW()})
+    write(vp, json.dumps(vdata, ensure_ascii=False, indent=1))
+
+
 def cmd_commit(args):
     proj = Project(find_root(args))
     t = proj.task(args.task_id)
@@ -2090,17 +2379,22 @@ def cmd_commit(args):
         cand_meta, cand_body = parse_frontmatter(read(args.chapter))
         wb = json.loads(read(args.writeback))
         text = cand_body.split("## 正文", 1)[-1]
-        # 先做回写引用硬校验（引用越权=拒绝，不产生任何写入）
-        ok, msgs = apply_writeback(proj, ch_id, wb)
+        new_rev = ((old_meta.get("rev") or 0) + 1 if ttype == "revise"
+                   else max(old_meta.get("rev") or 1, 1))
+        journal_append(proj, {"status": "started", "task": args.task_id,
+                              "chapter": ch_id, "rev": new_rev, "at": NOW()})
+        ok, msgs = apply_writeback(proj, ch_id, wb, rev=new_rev)
         if not ok:
+            journal_append(proj, {"status": "aborted", "task": args.task_id,
+                                  "chapter": ch_id, "rev": new_rev, "at": NOW(),
+                                  "reason": "writeback_ref_errors"})
             print("[拒绝] writeback 引用越权，未落盘：")
             for e in msgs:
                 print("  - " + e)
             return 1
         new_meta = {
             "id": ch_id, "kind": "chapter", "status": "drafted",
-            "rev": (old_meta.get("rev") or 0) + 1 if ttype == "revise"
-                   else max(old_meta.get("rev") or 1, 1),
+            "rev": new_rev,
             "parent": cand_meta.get("parent") or old_meta.get("parent"),
             "updated_at": NOW(),
             "title": cand_meta.get("title", old_meta.get("title", "")),
@@ -2110,6 +2404,9 @@ def cmd_commit(args):
         write(proj.p("chapters", ch_id + ".meta.json"),
               json.dumps(wb, ensure_ascii=False, indent=1))
         update_ngram_cache(proj, ch_id, text)
+        digest_rollup(proj, ch_id, wb.get("summary_after", ""))
+        journal_append(proj, {"status": "completed", "task": args.task_id,
+                              "chapter": ch_id, "rev": new_rev, "at": NOW()})
         for w in msgs:
             print("[info] " + w)
         git_autocommit(proj.root, "[%s] %s(%s): %s" % (args.task_id, ttype, ch_id, msg))
@@ -2470,7 +2767,18 @@ def cmd_adopt(args):
                               {"[ch_0001]": ch_id,
                                "[arc_01_1]": args.parent or "[arc_01_1]"}))
     mp = proj.p("chapters", ch_id + ".meta.json")
-    if not mp.is_file():
+    if args.writeback:
+        wb_path = Path(args.writeback)
+        if not wb_path.is_file():
+            die("writeback 不存在：%s" % wb_path)
+        wb = json.loads(read(wb_path))
+        write(mp, json.dumps(wb, ensure_ascii=False, indent=1))
+        ok, msgs = apply_writeback(proj, ch_id, wb, rev=1)
+        if not ok:
+            die("writeback 引用越权：\n" + "\n".join(msgs), 1)
+        for m in msgs:
+            print("[info] " + m)
+    elif not mp.is_file():
         stub = {"summary_after": "", "continuity_delta": [],
                 "time_advance": {"elapsed": "", "story_date": ""}, "thread_ops": [],
                 "payoff_realized": [], "hooks_realized": {"open": False, "close": False},
@@ -2601,6 +2909,10 @@ def main(argv=None):
     p.add_argument("--as", dest="as_id", required=True, metavar="CH_ID")
     p.add_argument("--title")
     p.add_argument("--parent", help="所属弧 arc_NN_n（已有弧时填）")
+    p.add_argument("--writeback", help="补录 writeback JSON（facts/台账经 apply_writeback 写入）")
+
+    p = sub.add_parser("gate", help="任务前置 gate 谓词判定（L4 编排内核）")
+    p.add_argument("task_id")
 
     p = sub.add_parser("ledger", help="台账视图：payoff|promise|timeline|power")
     p.add_argument("which", choices=["payoff", "promise", "timeline", "power"])
@@ -2614,7 +2926,7 @@ def main(argv=None):
         "entity": cmd_entity, "thread": cmd_thread, "brief": cmd_brief,
         "check": cmd_check, "commit": cmd_commit, "publish": cmd_publish,
         "ledger": cmd_ledger, "retcon": cmd_retcon, "report": cmd_report,
-        "checkpoint": cmd_checkpoint, "adopt": cmd_adopt,
+        "checkpoint": cmd_checkpoint, "adopt": cmd_adopt, "gate": cmd_gate,
         "fsck": lambda a: check_project(Project(find_root(a))).render("fsck"),
     }
     return dispatch[args.cmd](args)
