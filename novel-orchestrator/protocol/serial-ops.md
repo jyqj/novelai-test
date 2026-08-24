@@ -40,9 +40,10 @@
   1 编排者写裁决记录 dec_NNN_{slug}.md(F§11:何错/为何不改旧文/选何策略)
       ——附笔,随本任务 commit 前一刻写入,同事务入库(court.md §3 附笔纪律)
   2 novel.py task add retcon <fact_id> --note "<dec_id>"
-  3 novel.py retcon --old <fact_id> --new "…" --strategy S --decision <dec_id>
-      # S ∈ reconcile|fade_out|explicit_fix(F§9);old_fact 或 decision 不存在 → 工具拒
-  4 novel.py task done <t>
+  3 手工登记 retcon(当前无 CLI 子命令):在对应 ledgers/facts/*.json 的 retcons[] 追加
+      {id, old_fact_id, new_fact, strategy, decision_ref},并给旧 fact 填 superseded_by
+      # S ∈ reconcile|fade_out|explicit_fix(F§9);引用完整性由 check --project 校验(断链即 FAIL)
+  4 novel.py check --project ; novel.py task done <t>
 效果: 旧 fact 填 superseded_by;此后简报第 6 节命中该实体自动连带 retcon 条目(F§9 纪律)
       ——写手无需被通知,包内自带;strategy=explicit_fix 时,编排者在最近一次排批的
       task.json beats 中排入「文内圆回」拍。
@@ -54,8 +55,10 @@
 触发:卷内最后一章 approved(或用户宣布收卷)。**checkpoint 未完成不开下卷卷庭。**
 
 ```
-1 novel.py report volume <n>          # 卷报告: exports 对账底稿+线索健康+战力变化+payoff 统计
-    (可先 novel.py check --project ; novel.py fsck 确认全仓一致)
+1 汇编卷报告(当前无 report 子命令,编排者以下列输出为素材手工汇编一页:
+    novel.py status ; ledger payoff|promise|timeline ; check --window)
+    内容: exports 对账底稿+线索健康+战力变化+payoff 统计
+    (先 novel.py check --project 确认全仓一致)
 2 exports 逐条对账(编排者对照报告与台账),每条标三态:
     兑现 — 卷内已落实,记支撑章号
     移交 — 未兑现且仍要 → 写入下卷 imports 预填草案

@@ -1,7 +1,8 @@
 # formats.md — v2 文件格式与工具接口契约(实施期 SSOT)
 
-> 本文件钉死**项目侧全部文件格式**与 **novel.py CLI 接口**。实施期与 `novel-workflow-v2-spec-20260813.md` 冲突时,**以本文件为准**(偏差记录见 §0.2)。
-> 读者:全部实施 agent(工具/模板/角色/协议)与后续运行期编排者。
+> 本文件钉死**项目侧全部文件格式**与 **novel.py CLI 接口**,是本 skill 的机器契约 SSOT。
+> (历史注:文中 `spec §x` 指外部设计稿 `novel-workflow-v2-spec-20260813.md`,该文件**不随本库分发**,仅作出处溯源;一切以本文件为准,偏差记录见 §0.2。)
+> 读者:全部实施 agent(工具/模板/角色/协议)与后续运行期编排者。CLI 实现覆盖表见 `tools/README.md`;未覆盖命令按对应协议人工执行。
 
 ---
 
@@ -187,7 +188,7 @@ frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass
 ## 13. config.json(init 默认)
 
 ```json
-{"preset":"standard","word_target":[2000,4500],
+{"preset":"standard","route":"web","word_target":[2000,4500],
  "buffer":{"target":3,"min_before_publish":1},
  "critic":{"light_every":1,"deep_every":5},
  "approvals":{"book_commit":true,"volume_commit":true,"publish":true,"checkpoint":true},
@@ -196,6 +197,8 @@ frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass
  "models":{"writer":"","critic":"","reader":""},
  "ngram_window_chapters":30}
 ```
+
+`route ∈ {web, traditional}`:traditional 差分(无 buffer/publish、章尾钩与爽点窗口降级)见 `modes/route-traditional.md`;`check` 按此键自动切换断言级别。
 
 ## 14. 生成物(禁手改)
 
@@ -207,8 +210,8 @@ frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass
 
 ```
 novel.py init <dir> [--name X]            # 脚手架+git init+首 commit
-novel.py status                           # 重算 index+dashboard,打印 dashboard
-novel.py tree add <kind> <id> [--parent P]   # 由模板实例化空壳节点
+novel.py status                           # 重算 index+dashboard,打印 dashboard 与可恢复断点
+novel.py tree add <kind> <id> [--parent P]   # 由模板实例化空壳节点(volume|arc|chapter)
 novel.py tree show [id]
 novel.py tree set-status <id> <status>    # 含迁移合法性校验
 novel.py task add <type> <target> [--note N] [--blocked-on t_x] [--evidence E]
@@ -216,16 +219,19 @@ novel.py task next|list [--state S]
 novel.py task start|done|fail <id> [--note N]
 novel.py brief <ch_id>                    # §6 机械装配;重跑 brief_rev+1;生成后自动 git commit(保证 spawn 前基线干净)
 novel.py commit <task_id> [--file F ...] [--chapter F --writeback F] [-m 摘要]   # --file 可多值
-novel.py check --unit <ch_id> | --window | --project
-novel.py entity show|log <id> ; entity due ; entity update <id> --file F
+novel.py check --unit <ch_id> [--candidate F --writeback F] | --window | --project
+                                          # --candidate/--writeback = 未落盘 staging 机检
+novel.py entity new|show|log <id> ; entity due ; entity update <id> --file F
+novel.py thread new <id> [--kind K]       # 线索登记
 novel.py ledger payoff|promise|timeline   # 窗口统计视图
 novel.py publish <ch_from> [<ch_to>]      # 连续性谓词;approved→published
-novel.py retcon --old <fact_id> --new "…" --strategy S --decision <dec_id>
-novel.py report volume <n>                # 卷报告(checkpoint 输入)
-novel.py fsck                             # 全仓一致性
+novel.py fsck                             # = check --project
+--- 以下为协议动作,当前无 CLI 子命令,按对应协议人工执行(facts/retcon 引用完整性由 check --project 兜底) ---
+retcon    → serial-ops §3(手工编辑 ledgers/facts/*.json + decision)
+report / checkpoint / reconcile 汇总 → serial-ops §4–5(以 status/ledger 输出为素材)
 ```
 
-全部命令执行前自动增量刷新 index(`--no-refresh` 跳过)。项目根定位:cwd 或 `--root`。
+`status` 重算 index/dashboard;其余命令按需读取。项目根定位:cwd 向上探测或 `--root`。实现覆盖表与差异细节见 `tools/README.md`。
 
 ## 16. commit 按 task.type 行为表(唯一写路径)
 
@@ -239,13 +245,14 @@ novel.py fsck                             # 全仓一致性
 | reconcile | `--file`(实体现状节) | 目标实体存在 | entity update;last_reconcile_ch=游标 |
 | publish | 章号区间 | 连续自 last_published+1;各章 approved;buffer 满足 | status→published;index;git |
 | retcon | retcon 参数 | old_fact 存在;decision 存在 | facts 更新+superseded_by;git |
-| checkpoint | 卷号 | report volume 已生成;exports 对账清单处理完 | 卷 status 归档标记;下卷 imports 预填;git |
+| checkpoint | 卷号 | 卷报告已汇编;exports 对账清单处理完 | 卷 status 归档标记;下卷 imports 预填;git |
 
 git 提交消息:`[t_000231] write(ch_0212): 摘要`。
+实现映射:write/revise/design/revise_design/review_deep 走 `commit`;reconcile 走 `entity update`;publish 走 `publish` 命令;retcon/checkpoint 当前手工执行(serial-ops §3–4),任务仍入队留痕。
 
 ## 17. check 断言集
 
-**--unit <ch>**:字数 ∈ word_target±15%;style.md 禁忌命中=0(列出行);连续 3 句同首词;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章 4-gram** 对 ngram_cache 重复句(列出);meta.json schema 齐全。
+**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章 12 字级指纹**对 ngram_cache 重复(列出;以 12-gram 实现防句级套话,较 4-gram 少误报);meta.json schema 齐全;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
 **--window**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ active)余额 ∈[2,5];promise >15 章无推进;timeline elapsed 非负;buffer 计数与章 status 一致。
 **--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集(含 status,无 rev/updated_at);`review` 查 §12 键集(无 status/rev/updated_at);brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用 → FAIL;facts schema + superseded 引用存在;published 连续无空洞;必需标题节(§4);queue target 均存在。
 
@@ -260,19 +267,20 @@ git 提交消息:`[t_000231] write(ch_0212): 摘要`。
 ## 20. skill 侧目录与所有权(实施期)
 
 ```
-skills/novel-orchestrator/
-  SKILL.md README.md          # B3(编排者手册 ≤20KB / 快速入门)
-  protocol/formats.md         # 本文件(主 agent 持有)
-  protocol/court.md pipeline.md serial-ops.md   # A5
-  tools/novel.py tools/README.md                # A1(B1 测试修复)
-  templates/                  # A2(init 母版,清单见下)
-  roles/                      # A3(11 角色)
-  rubrics/                    # A3(共享判据卡,自包含 ≤120 行/张)
-  personas/                   # A4(读者人设卡 ≥6)
-  rhythm/                     # A4(5 节奏模板,含结构评审检查单)
-  knowledge/ knowledge-blocks.md   # 不动(learn 图书馆)
-  knowledge-map.md            # B2(111 块归属)
-  legacy/                     # 只读参考(旧 runtime/phases/templates/tools/SKILL)
+novel-orchestrator/
+  SKILL.md README.md          # L0 入口(薄路由 ≤20KB)/ 人类快速开始
+  modes/                      # 三模式:mode-orchestrated / mode-solo / route-traditional
+  protocol/formats.md         # 本文件(机器契约 SSOT)
+  protocol/court.md pipeline.md serial-ops.md glossary.md
+  tools/novel.py tools/validate.py tools/README.md tools/tests/
+  templates/                  # init/tree add 母版(清单见下)
+  roles/                      # 11 角色卡
+  rubrics/                    # 8 张共享判据卡(自包含 ≤120 行/张)
+  personas/                   # 7 张读者人设卡
+  rhythm/                     # 5 节奏模板(含结构评审检查单)
+  knowledge/ knowledge-blocks.md knowledge-index.md   # 深读图书馆(经 knowledge-map 进入)
+  knowledge-map.md            # 111 块归属 + 防膨胀规则
+  legacy/                     # v1 只读存档(见 legacy/README.md),勿作为入口
 ```
 
 **templates/ 清单(A2)**:`config.json` `book.md` `style.md` `world.md` `volume.md` `arc.md` `chapter.md` `chapter.task.json` `chapter.meta.json` `entity-char.md` `entity-item.md` `entity-loc.md` `entity-fac.md` `thread.md` `decision.md` `review.md` `README.md`(清单+init 映射)。模板占位一律 `[方括号]`;frontmatter 合法可解析(占位不破坏解析)。

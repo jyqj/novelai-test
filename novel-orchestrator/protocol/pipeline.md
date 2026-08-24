@@ -24,9 +24,8 @@
     确保基线干净后再进 4(§5 注)
 4 写手: spawn T2(只附简报这一个文件)→ 返回 正文 + writeback JSON 双产出
 5 提取: 双产出分存 <tmp>/ch_NNNN.md(信封+## 正文,F§5)与 <tmp>/ch_NNNN.writeback.json
-6 机检: novel.py check --unit ch_NNNN
-    # 若当前实现不支持对未落盘候选执行:等效兜底=直接走 8 的 commit,
-    #   以其内嵌校验的拒绝输出作为机检问题清单(F§16 write 行含 check --unit 绿)
+6 机检: novel.py check --unit ch_NNNN --candidate <tmp章> --writeback <tmp json>
+    # 对未落盘候选执行 staging 机检(novel.py 已支持);NEEDS_REVIEW 项转 7 轻评裁定
     不绿 → 输出并入 §2 修订循环(计一次修订)
 7 轻评: spawn T3(附:简报+候选正文+前章尾 500 字+后章任务卡+rubrics)→ verdict(F§12):
     pass     → 8

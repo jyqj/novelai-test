@@ -1,5 +1,6 @@
 {
   "preset": "standard",
+  "route": "web",
   "word_target": [2000, 4500],
   "buffer": {"target": 3, "min_before_publish": 1},
   "critic": {"light_every": 1, "deep_every": 5},

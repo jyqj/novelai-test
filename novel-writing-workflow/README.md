@@ -1,5 +1,8 @@
 # novel-writing-workflow
 
+> **⚠️ 已废弃**：本 skill 已被 [`../novel-orchestrator/`](../novel-orchestrator/SKILL.md) 取代，
+> 请从那里进入；迁移说明见本目录 [`DEPRECATED.md`](DEPRECATED.md)。以下为冻结原文。
+
 通用小说创作**工程化** Skill：薄路由入口 + runtime 契约链 + 只读知识服务。
 
 > **非目标**：文学理论课、单书项目手册。禁止绑定具体书名/角色/作品目录作为规范。

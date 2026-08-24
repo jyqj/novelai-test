@@ -1,6 +1,9 @@
 ---
 name: novel-writing-workflow
 description: |
+  【已废弃 DEPRECATED】本 skill 已被 novel-orchestrator 取代——请改为加载
+  ../novel-orchestrator/SKILL.md（统一入口，含多代理/单代理/传统长篇三模式与 novel.py 工具链）；
+  迁移映射见 ../novel-orchestrator/protocol/glossary.md。以下原文仅供已开工的 v1 旧项目收尾使用。
   小说创作全流程工程化工作流（薄路由入口）。
   管线 intent → mode → load_policy → run → writeback；
   六阶段契约链 P1–P6；资产类型 + 门禁 + 召回预算 + 分歧裁决；

@@ -21,7 +21,7 @@
 | S2 | 架构师×2(stance:体系派/代价派)/ 设定×1 + 读者×1 | S1 暂存稿+dec_001;金手指与体系诉求;rubrics/power.md;world.md 必需节结构(F§4) | world.md 四节 + book.md「世界观核心/金手指与力量体系」素材 + dec_002 | 5 + R4 预留 |
 | S3 | 架构师×2(stance:人物派/冲突派)/「结构+设定」合并×1 + 读者×1 | S1–S2 暂存稿+dec;rubrics/structure.md、power.md(锚定表核对)、voice.md(声纹种子);人设卡 | book.md「主线电缆/人物主阵容/反派梯队」素材 + 实体卡种子清单 + dec_003 | 5 + R4 预留 |
 | S4 | 架构师×1(分卷推演,无需方案对撞)/ 结构×1 + 安全×1 + 读者×1 | S1–S3 全部暂存稿+dec;rhythm/ 五模板(弧划分选配);volume.md 九节结构(F§4);rubrics/redline.md、payoff.md | book.md「分卷草案/红线自查结论」+ vol_01/volume.md + style.md 定稿(承 S1 题材与 S3 声纹;范文锚可引 corpus/ 或留占位)+ dec_004 | 5 + R4 预留 |
-| 卷庭 | 架构师×2 /「结构+安全」合并×1 + 读者×1 | 上卷 exports+卷报告(`novel.py report volume <n>`)+imports 预填;book.md/world.md;主线电缆当前位置;所选 rhythm 模板;rubrics/power.md、redline.md、payoff.md | vol_NN/volume.md 九节 + dec_*(session: volume) | 5(无 R4) |
+| 卷庭 | 架构师×2 /「结构+安全」合并×1 + 读者×1 | 上卷 exports+卷报告(编排者据 `novel.py status` + `ledger payoff|promise|timeline` 汇编,见 serial-ops §4)+imports 预填;book.md/world.md;主线电缆当前位置;所选 rhythm 模板;rubrics/power.md、redline.md、payoff.md | vol_NN/volume.md 九节 + dec_*(session: volume) | 5(无 R4) |
 | 弧 | 架构师×1 / 合并评审×1(结构检查单+读者投票) | 卷蓝图(弧划分行)+前弧收尾摘要+active threads+payoff/promise 窗口(`novel.py ledger payoff|promise|timeline`)+所选 rhythm 模板检查单 | arc_NN_n.md 六节 + dec_*(简式) | 3 |
 
 注:读者代表**每场必到、必投票**(spec §4.3 R2)。「合并评审」=单次运行附两份角色文件与判据,产出分两节。安全审查在 S1 把题材红线、在 S4 签署书级与卷级「红线自查结论」节。
