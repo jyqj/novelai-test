@@ -35,10 +35,10 @@ knowledge/ 是深读库，**运行期默认零加载**。本表回答唯一问�
 | K-CONCEPT-010 | 电缆理论 | 蒸馏→rubrics/structure.md | 主线电缆判据 |
 | K-CONCEPT-011 | 引线系统 | 蒸馏→rubrics/structure.md | 线索纪律判据 |
 | K-CONCEPT-012 | 支线系统 | 蒸馏→rubrics/structure.md | 支线配比判据 |
-| K-CONCEPT-013 | 主控思想公式 | 庭审附件·S1 | book 主旨节 |
-| K-CONCEPT-014 | 思想与反思想辩证 | 庭审附件·S1 | 主旨对抗设计 |
+| K-CONCEPT-013 | 主控思想公式 | 蒸馏→rubrics/theme.md | 主控思想公式判据（S1 改附 rubric 卡） |
+| K-CONCEPT-014 | 思想与反思想辩证 | 蒸馏→rubrics/theme.md | 思想-反思想对抗判据 |
 | K-CONCEPT-015 | 三种结局模式 | 庭审附件·S4 | 分卷草案收束设计 |
-| K-CONCEPT-016 | 规避说教 | 仅 learn | 深评诊断素材 |
+| K-CONCEPT-016 | 规避说教 | 蒸馏→rubrics/theme.md | 说教检测判据 |
 | K-CONCEPT-017 | 类型常规提炼法 | 庭审附件·S1 | 题材定位 |
 | K-CONCEPT-018 | 类型混合策略 | 庭审附件·S1 | 题材定位 |
 | K-CONCEPT-019 | 网文类型体系 | 庭审附件·S1 | 平台/赛道选择 |
@@ -50,7 +50,7 @@ knowledge/ 是深读库，**运行期默认零加载**。本表回答唯一问�
 
 | K-ID | 名称 | 归属 | 说明 |
 |---|---|---|---|
-| K-STRUCT-001 | 故事三角 | 仅 learn | 理论基座 |
+| K-STRUCT-001 | 故事三角 | 蒸馏→rubrics/scene-value.md | 场景=价值变化单位（判据化） |
 | K-STRUCT-002 | 五级单元 | 仅 learn | 理论基座 |
 | K-STRUCT-003 | 23序列法总论 | 庭审附件·S4/卷庭 | 操作面已进 rhythm/classic24.md |
 | K-STRUCT-004 | 序列0–6详解 | 庭审附件·S4/卷庭 | 同上 |
@@ -59,10 +59,10 @@ knowledge/ 是深读库，**运行期默认零加载**。本表回答唯一问�
 | K-STRUCT-007 | 序列19–23详解 | 庭审附件·S4/卷庭 | 同上 |
 | K-STRUCT-008 | 激励事件设计 | 庭审附件·S1 | 开局设计 |
 | K-STRUCT-009 | 故事五部分结构 | 仅 learn | 理论基座 |
-| K-STRUCT-010 | 场景转折点 | 庭审附件·弧/细纲 | 细纲拍设计 |
+| K-STRUCT-010 | 场景转折点 | 蒸馏→rubrics/scene-value.md | 价值翻转/turn 验收判据 |
 | K-STRUCT-011 | 鸿沟机制 | 仅 learn | 深评诊断素材 |
 | K-STRUCT-012 | 回报递减定理 | 庭审附件·卷庭 | 跨卷升级预算 |
-| K-STRUCT-013 | 场景设计五步法 | 庭审附件·弧/细纲 | 细纲拍设计 |
+| K-STRUCT-013 | 场景设计五步法 | 蒸馏→rubrics/scene-value.md | 场景五步完整性判据（弧/细纲改附 rubric 卡） |
 | K-STRUCT-014 | 危机设计 | 庭审附件·弧/细纲 | 高潮前铺排 |
 | K-STRUCT-015 | 高潮设计 | 庭审附件·卷庭 | 卷高潮设计 |
 | K-STRUCT-016 | 结局设计 | 庭审附件·卷庭 | 卷末/全书收束 |
@@ -150,9 +150,9 @@ knowledge/ 是深读库，**运行期默认零加载**。本表回答唯一问�
 | K-WRITE-012 | 长篇分段创作 | 仅 learn | 操作面已进卷/弧协议 |
 | K-WRITE-013 | 读者兴趣三策略 | 庭审附件·弧/细纲 | 期待操作表设计 |
 | K-WRITE-014 | 惊奇与巧合处理 | 仅 learn | 深评诊断素材 |
-| K-WRITE-015 | 意象系统（形象系统） | 庭审附件·S4 | style 比喻与意象纪律 |
+| K-WRITE-015 | 意象系统（形象系统） | 蒸馏→rubrics/imagery.md | 意象系统纪律判据（S4 style 定稿改附 rubric 卡） |
 | K-WRITE-016 | 对话写作技巧 | 仅 learn | 写手不读库；深评诊断用 |
-| K-WRITE-017 | 描写写作技巧 | 仅 learn | 同上 |
+| K-WRITE-017 | 描写写作技巧 | 蒸馏→rubrics/imagery.md | 描写六要诀/感官锚判据 |
 | K-WRITE-018 | 口癖与句式重复防治 | 蒸馏→rubrics/prose-disease.md | 黑名单机制（机检已实现） |
 | K-WRITE-019 | 打斗场面技法 | 蒸馏→rubrics/prose-disease.md | 打斗判据 |
 | K-WRITE-020 | 章内微结构 | 蒸馏→rubrics/prose-disease.md | 500字信息密度/章尾钩 |
@@ -162,8 +162,10 @@ knowledge/ 是深读库，**运行期默认零加载**。本表回答唯一问�
 
 ## 统计与对账
 
-- 合计 111 块：蒸馏→rubric **16**（8 张卡）；庭审附件 **59**（S1×15、S2×11、S3×14、
-  S4×9（含标注"S4/卷庭"的 6 块）、卷庭×5、弧/细纲×5）；仅 learn **36**。
+- 合计 111 块：蒸馏→rubric **24**（11 张卡）；庭审附件 **54**（S1×13、S2×11、S3×14、
+  S4×8（含标注"S4/卷庭"的 6 块）、卷庭×5、弧/细纲×3）；仅 learn **33**。
+  （rev 2 变更：K-CONCEPT-013/014/016→theme、K-STRUCT-001/010/013→scene-value、
+  K-WRITE-015/017→imagery——traditional 路线补齐自有判据卡；原庭审附件场次改附对应 rubric 卡。）
 - 对账口径：本表行数与 `knowledge-blocks.md` 登记处一致；rubrics 卡脚注的 K-ID 引用
   与「蒸馏」列一致（`grep -o 'K-[A-Z]*-[0-9]*' rubrics/*.md` 可验证）。
 - 新增知识块时：先登记 knowledge-blocks.md，再在本表补一行归属；无归属的块不得引用。
