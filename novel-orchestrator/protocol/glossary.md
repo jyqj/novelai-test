@@ -39,7 +39,7 @@
 
 ## 2. v1 → v2 迁移映射
 
-v1 = `legacy/`（原 novel-writing-workflow）。旧词只在读 legacy 时会遇到；新文档禁用。
+v1 = 原 `novel-writing-workflow` skill（**已随技术债清理整体移除**，本表是其术语与资产的唯一存续映射）。旧词只在迁移按 v1 格式建的旧项目时会遇到；新文档禁用。
 
 | v1 术语/资产 | v2 对应 | 说明 |
 |---|---|---|
@@ -58,10 +58,10 @@ v1 = `legacy/`（原 novel-writing-workflow）。旧词只在读 legacy 时会�
 | writeback-acceptance（M01–M13） | `check --unit/--window/--project` + commit 闸门 | 机器化断言进 CLI；主观项 NEEDS_REVIEW |
 | conflict-playbook | court §4 否决案台账 + revise_design 升级 + stale 传播 | 冲突分类不再单列文档 |
 | web-serial-playbook（Fast-Start/缓冲） | `protocol/serial-ops.md` | buffer 语义化为水位动作表 |
-| validate.py | `tools/novel.py check`（v2 项目）；validate.py 收编为 legacy 项目/知识库锚点校验 | 见 tools/README.md |
+| validate.py | `tools/novel.py check`（全部机检断言已收编并扩展） | v1 校验器已随清理移除 |
 | route: traditional/web + dual_track | `config.json "route"` + modes/route-traditional.md | dual_track/hybrid 取消：混合需求按卷切 route |
 | knowledge-index（diagnose/learn 意图） | `knowledge-map.md`（归属）+ `knowledge-index.md`（症状检索，收编） | 运行期默认不进知识库 |
 | 阶段门禁（phase gate） | 机检闸门 + 设计庭 R0–R4 + 审批点（formats §19） | gate 谓词机器化的部分全部进 CLI |
 | 恢复点（Status.mode/current_phase） | `tasks/queue.json` + `novel.py status` | 断点=队列头，不依赖会话记忆 |
 | 洋葱五层（surface…wound） | 实体卡「设定」节自由结构 + `rubrics/voice.md` 声纹判据 | 五层可作写卡参考，不再机器校验 |
-| 别名归一（ProseUnit/ThreadMap 等废弃名） | 本表 §1 即归一登记处 | legacy 文档中出现照旧，勿迁移 |
+| 别名归一（ProseUnit/ThreadMap 等废弃名） | 本表 §1 即归一登记处 | 旧项目文件中出现照旧，勿迁移 |

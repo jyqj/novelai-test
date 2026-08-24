@@ -8,7 +8,7 @@
 - **只在两种情形打开本文件**：① 诊断疑难（症状→K-ID，用「四、高频问题诊断」与「二、场景索引」）；
   ② 用户求教/学习导航。**常规运行期归属以 `knowledge-map.md` 为准**——运行期读 rubrics，
   庭审附件按 knowledge-map 场次白名单投递；与本文件流程索引冲突时以 knowledge-map 为准。
-- 本文件正文沿用 v1 的 P1–P6 阶段编号（收编自 legacy），对照 v2 工序按下表换算：
+- 本文件正文沿用 v1 的 P1–P6 阶段编号（收编自已移除的 v1 skill），对照 v2 工序按下表换算：
 
 | v1 阶段 | v2 工序 |
 |---|---|
@@ -146,7 +146,7 @@
 
 ### 2.0 症状域枚举（diagnose 分类 → 小节路由）
 
-`run_diagnose` 的 `classify_symptom` 必须归入下列闭集之一（复合症状取 primary）；web 轨点分标签（v1 文档见 `legacy/runtime/web-serial-playbook.md` §11.2，v2 对应 `protocol/serial-ops.md` §6 反馈分类）按第三列归并。
+`run_diagnose` 的 `classify_symptom` 必须归入下列闭集之一（复合症状取 primary）；web 轨点分标签（源自 v1 连载手册 §11.2，现行定义见 `protocol/serial-ops.md` §6 反馈分类）按第三列归并。
 
 | domain id | 路由小节 | web 轨标签归并 |
 |-----------|----------|----------------|

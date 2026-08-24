@@ -18,7 +18,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 | 探测 | 判定方法 | 结果 |
 |---|---|---|
 | 能否 spawn 子代理？ | 产品是否提供 Task/subagent 类工具 | 能 → `orchestrated`；不能 → `solo` |
-| 有无 shell + python3？ | 尝试 `python3 tools/novel.py --help` | 有 → 全部机检交给 CLI；无 → 降级：按 `protocol/formats.md` 手工维护文件 + 自查清单（强烈建议争取 shell） |
+| 有无 shell + python3？ | 尝试 `python3 tools/novel.py --help` | 有 → 全部机检交给 CLI；无 → **有损降级**：文件仍按 `protocol/formats.md` 契约手工维护，可人工项按 `protocol/manual-check.md` §1 逐条自查，但跨章指纹/队列自动化/facts 冲突扫描/git 事务等能力**直接丢失**（同文件 §2 损失清单），须在项目启动时向用户明示并强烈建议争取 shell |
 | 人是否在环？ | 用户是否会回复审批请求 | 在 → 关键闸门（开书/卷末/发布）报批；不在 → `config.json` 设 `unattended: true`，按 `protocol/formats.md` §19 降级为「执行 + note: pending_human_review 留痕」 |
 
 ## 2. 三模式路由
@@ -57,7 +57,8 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 | 红线安全审 | `roles/safety-auditor.md`、`rubrics/redline.md` | — |
 | 发布/缓冲运营 | `protocol/serial-ops.md` §1–2 | `roles/data-analyst.md` |
 | 卷末结账 | `protocol/serial-ops.md` §4–5 | `rubrics/structure.md` |
-| 改已发布内容 | `protocol/serial-ops.md` §3（retcon） | `templates/decision.md` |
+| 改已发布内容 | `protocol/serial-ops.md` §3（retcon，CLI：`novel.py retcon`） | `templates/decision.md` |
+| 存量旧稿收编/半途接管 | `protocol/adopt.md`（CLI：`novel.py adopt`） | `protocol/formats.md` §15 |
 | 冲突/翻案 | `protocol/court.md` §4（否决案台账） | 相关 `court/dec_*.md` |
 | 诊断疑难/学理深读 | `knowledge-map.md` → 定位 K-ID → `knowledge-blocks.md` 找锚点 → 按块读 | `knowledge-index.md`（症状→K-ID 检索） |
 | 术语歧义 | `protocol/glossary.md`（SSOT） | — |
@@ -86,24 +87,27 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 ```
 候选产物 → novel.py check --unit <ch> --candidate <草稿> --writeback <json>
          → 绿（0 FAIL；WARN/NEEDS_REVIEW 可带走）→ novel.py commit <task_id> …
-         → CLI 自动回写：实体事件日志 / 线索推进与状态 / 爽点·时间线台账 / ngram 指纹
+         → CLI 自动回写：实体事件日志 / 线索推进与状态 / 爽点·时间线·战力台账 / facts 登记 / 两级 ngram 指纹
 ```
 
-- NEEDS_REVIEW 项 = 机器不可判的主观项（声纹遮名指认、智商漂移、爽点有效性等），**必须**由轻/深评审按对应 rubric 裁定，不得视为通过。
-- 无 shell 时：按 `protocol/formats.md` §17 清单逐条人工自查，并在 writeback 的 `issues` 里声明「人工机检」。
+- 回写引用**先验后写**：`cast_actual`/`thread_ops`/`continuity_delta` 出现未登记实体或线索、线索状态迁移非法 → FAIL 整体阻断，零部分落盘。
+- NEEDS_REVIEW 项 = 机器不可判的主观项（声纹遮名指认、智商漂移、爽点有效性、facts 冲突候选等），**必须**由轻/深评审按对应 rubric 裁定，不得视为通过。
+- 无 shell 时：按 `protocol/manual-check.md` §1 可人工项逐条自查，结论写进 writeback 的 `issues`（前缀 `manual-check:`）；§2 所列不可判定项（跨章指纹等）如实向用户声明丢失，**不得假装等效**。
 
 ## 8. 目录速查
 
 ```
 SKILL.md(本文件)  README.md(人类快速开始)  knowledge-map.md(111 块知识归属)
 modes/      三模式作业手册（orchestrated / solo / traditional 差分）
-protocol/   pipeline(产线) court(设计庭) serial-ops(连载运营) formats(文件与CLI契约) glossary(术语SSOT)
+protocol/   pipeline(产线) court(设计庭) serial-ops(连载运营) formats(文件与CLI契约)
+            glossary(术语SSOT) manual-check(无shell人工自查) adopt(存量收编)
 roles/      11 张角色卡（spawn 提示词/帽子定义）    rubrics/  8 张判据卡（运行期唯一评审依据）
 personas/   7 张读者人设卡（庭审投票用）            rhythm/   5 张节奏模板（弧/卷规划用）
 templates/  全部资产模板（novel.py init/tree add 的源）
-tools/      novel.py(核心 CLI) validate.py(v1 收编) tests/(冒烟测试) README.md(覆盖表)
+tools/      novel.py(核心 CLI) tests/(冒烟+长程测试) README.md(覆盖表)
 knowledge/ + knowledge-blocks.md + knowledge-index.md   深读知识库（经 knowledge-map 进入）
-legacy/     v1 只读存档，勿作为入口（见 legacy/README.md）
 ```
+
+（前身 `novel-writing-workflow`（v1）已随技术债清理移除；旧项目迁移对照 `protocol/glossary.md` §2。）
 
 **先跑 `python3 tools/novel.py --help`，再按 §2 选模式。祝开书顺利。**

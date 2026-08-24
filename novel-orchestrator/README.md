@@ -4,7 +4,7 @@
 
 - **Agent 入口**：只读 [`SKILL.md`](SKILL.md)（L0 薄路由），按任务契约表加载最小文件集。
 - **人类入口**：本文件 + `protocol/formats.md`（文件与 CLI 契约）。
-- 前身 `novel-writing-workflow`（v1）已废弃，见 `legacy/README.md` 与迁移映射 `protocol/glossary.md`。
+- 前身 `novel-writing-workflow`（v1）已随技术债清理**移除**；旧项目迁移对照 `protocol/glossary.md` §2 的 v1→v2 映射表。
 
 ## 设计概要
 
@@ -24,7 +24,7 @@
 
 ## 快速开始（5 分钟绿路径）
 
-需要 python3（仅标准库）。以下命令均已在冒烟测试覆盖（`tools/tests/test_smoke.py`，31 步全绿）：
+需要 python3（仅标准库）。以下命令均已在冒烟测试覆盖（`tools/tests/test_smoke.py`，101 步全绿，含 15 条负例）：
 
 ```bash
 cd novel-orchestrator
@@ -44,28 +44,29 @@ python3 tools/novel.py brief ch_0001              # 机械装配十节简报（�
 # …（写手按简报产出 候选章.md + writeback.json）
 python3 tools/novel.py check --unit ch_0001 --candidate 草稿.md --writeback 回写.json
 python3 tools/novel.py commit t_000001 --chapter 草稿.md --writeback 回写.json -m 首章
-python3 tools/novel.py check --window             # 3 章小爽/10 章大爽/线索余额
-python3 tools/novel.py tree set-status ch_0001 approved
+python3 tools/novel.py check --window             # 3 章小爽/10 章大爽/线索余额/战力频率
+python3 tools/novel.py task done t_000001 --note "light=pass"   # 评审回执
+python3 tools/novel.py tree set-status ch_0001 approved         # 需 pass 回执才放行
 python3 tools/novel.py publish ch_0001            # 连续性谓词，approved→published
 ```
 
-冒烟测试关键输出摘要（真实运行）：
+连载运营与收编（同样有 CLI，全部在冒烟测试覆盖）：
 
-```
-OK 16: novel.py check --unit ch_0001 --candidate (exit=0)   # 合规候选放行
-OK 17: novel.py check --unit ch_0001 --candidate (exit=1)   # 黑名单命中被拒（负例）
-OK 21: 实体事件日志已回写
-OK 22: 线索推进已回写
-OK 23: 爽点台账已登记 realized=1
-OK 31: novel.py publish ch_0003 (exit=1)                    # 跳章发布被拒（负例）
-SMOKE PASS：31 步全绿（含 2 条负例拒绝）
+```bash
+python3 tools/novel.py retcon --old-fact <fact_id> --new "修正后事实" --decision dec_XXX \
+    --strategy soft_override                      # 已发布内容修错（facts 作废链）
+python3 tools/novel.py report volume vol_01       # 卷末导出对账报告 state/reports/
+python3 tools/novel.py checkpoint vol_01          # 卷末结账（报告绿才放行）
+python3 tools/novel.py adopt 旧稿.md --as ch_0001 --parent arc_01_1   # 存量旧稿收编
+python3 tools/novel.py check --leak 草稿.md --brief briefs/ch_0002.brief.md   # 泄漏扫描
 ```
 
-复跑：`python3 tools/tests/test_smoke.py`。
+复跑测试：`python3 tools/tests/test_smoke.py`（101 步端到端）与
+`python3 tools/tests/test_longrun.py`（35 章长程合成，验证规模化不变量）。
 
 ## 一致性核查的三级闸门
 
-1. **机器闸门**（`novel.py check`）：信封/必需节/状态机/三件套对账、style 黑名单逐条扫描、连续同首句、章内 4-gram 重复率、跨章 12 字指纹、3 章小爽 / 10 章大爽窗口、promise 余额、时间线非负、published 连续性、facts/retcon 引用完整性。
+1. **机器闸门**（`novel.py check`）：信封/必需节/状态机/三件套对账、style 黑名单逐条扫描、连续同首句、章内 4-gram 重复率、跨章两级指纹（12 字复读 FAIL 级告警 + 8 字撞梗 WARN）、回写引用越权（未登记实体/线索 FAIL）、线索状态机迁移表、payoff id 章号匹配、facts 冲突扫描、3 章小爽 / 10 章大爽窗口、promise 余额、战力变更频率、时间线非负、published 连续性、facts/retcon 引用完整性、decision/review 文件契约、泄漏扫描（`check --leak`）。
 2. **角色评审**（LLM 判定，机检输出 `NEEDS_REVIEW` 的项）：声纹遮名指认、智商漂移、爽点有效性、毒点七问——按 `rubrics/` 对应卡执行，逐章轻评、抽样深评。
 3. **人工审批**（可配置）：开书 commit、卷末 checkpoint、发布、红线上报。
 
@@ -75,6 +76,6 @@ SMOKE PASS：31 步全绿（含 2 条负例拒绝）
 
 ## 已知限制
 
-- `retcon / checkpoint / report` 尚无 CLI 子命令，按 `protocol/serial-ops.md` 手工执行（文件契约完备，机检覆盖 facts/retcon 引用完整性）。
 - 机检不能判定主观质量（是否好看、爽点是否有效）；这些永远走角色评审，工具只保证「不可判项被显式列出」而非假装通过。
-- 无 python3 环境时协议仍可人工执行（`protocol/formats.md` §17 自查清单），但强烈建议提供 shell。
+- 无 python3 环境属**有损降级**：可人工项与直接丢失能力清单见 `protocol/manual-check.md`，须向用户明示，强烈建议提供 shell。
+- 增量章级 index 基于文件 mtime 判断新旧；极端情况（时钟回拨、批量 touch）需 `status` 全量重算兜底（自动发生，仅性能差异）。

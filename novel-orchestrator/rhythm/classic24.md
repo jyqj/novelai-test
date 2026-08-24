@@ -25,7 +25,7 @@ updated_at: 2026-08-13T15:45:00+08:00
 | act_2b 深化 | 13–18 | ≈25% | 新目标、胜利假象、All-in,以惊人意外#2(至暗)收幕 |
 | act_3 终局 | 19–23 | ≈21% | 重整反攻→白热化→最终高潮→收束 |
 
-完整锚点表(提取自 legacy `runtime/phase-contracts.md` §1.1 与 `runtime/glossary.md` §4.3;锚点闭集:`hook | shock1 | growth1 | midpoint | growth2 | shock2 | growth3 | growth4 | climax | resolution`):
+完整锚点表(提取自 v1 契约文档,v1 已移除、本表即锚点闭集的现行 SSOT:`hook | shock1 | growth1 | midpoint | growth2 | shock2 | growth3 | growth4 | climax | resolution`):
 
 | # | 节点名 | 锚点 | 语义一句话 |
 |---|---|---|---|

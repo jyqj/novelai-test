@@ -1,8 +1,8 @@
 # route-traditional — 传统长篇差分层
 
 适用：出版向长篇/严肃文学/一次写完再发、无连载压力。**这不是独立模式**：先按能力选
-`mode-orchestrated` 或 `mode-solo`，再叠加本文件的覆盖规则。收编自 v1 的
-`route_delta` 双轨差分（legacy/runtime/phase-contracts.md §9，映射见 protocol/glossary.md）。
+`mode-orchestrated` 或 `mode-solo`，再叠加本文件的覆盖规则。收编自 v1（已移除）的
+`route_delta` 双轨差分思想（术语映射见 protocol/glossary.md §2）。
 
 启用：`config.json` 设 `"route": "traditional"`。CLI 已按此降级相应断言（见 §3）。
 
