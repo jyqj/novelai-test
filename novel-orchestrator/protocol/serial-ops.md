@@ -1,6 +1,6 @@
 # serial-ops.md — 连载运营协议(编排者操作手册)
 
-> 依据 spec §5.6/§10;buffer/发布顺序谓词/retcon/卷末 checkpoint 教义迁移自 `legacy/runtime/web-serial-playbook.md`(**只迁思想,不迁机制**);格式与 CLI 以 `protocol/formats.md`(F§n)为准。
+> 依据 spec §5.6/§10;buffer/发布顺序谓词/retcon/卷末 checkpoint 教义收编自 v1 连载手册(v1 已移除,只迁思想不迁机制);格式与 CLI 以 `protocol/formats.md`(F§n)为准。
 
 ## 1. buffer 语义与水位动作表
 
@@ -40,14 +40,17 @@
   1 编排者写裁决记录 dec_NNN_{slug}.md(F§11:何错/为何不改旧文/选何策略)
       ——附笔,随本任务 commit 前一刻写入,同事务入库(court.md §3 附笔纪律)
   2 novel.py task add retcon <fact_id> --note "<dec_id>"
-  3 手工登记 retcon(当前无 CLI 子命令):在对应 ledgers/facts/*.json 的 retcons[] 追加
-      {id, old_fact_id, new_fact, strategy, decision_ref},并给旧 fact 填 superseded_by
-      # S ∈ reconcile|fade_out|explicit_fix(F§9);引用完整性由 check --project 校验(断链即 FAIL)
+  3 novel.py retcon <fact_id> --new "<新事实>" --strategy reconcile|fade_out|explicit_fix \
+        --decision <dec_id> [--entity char_x ...]
+      # CLI 校验: old_fact 存在且未被覆盖 + decision 文件在 court/ 真实存在,全过才落盘
+      # 自动: retcons[] 追加 {id, old_fact_id, new_fact, strategy, decision_ref},
+      #       旧 fact 填 superseded_by,git 入库
   4 novel.py check --project ; novel.py task done <t>
 效果: 旧 fact 填 superseded_by;此后简报第 6 节命中该实体自动连带 retcon 条目(F§9 纪律)
       ——写手无需被通知,包内自带;strategy=explicit_fix 时,编排者在最近一次排批的
-      task.json beats 中排入「文内圆回」拍。
+      task.json beats 中排入「文内圆回」拍(CLI 会打印此提醒)。
 禁: 重写已发布正文 | 删改 facts 既有记录 | 未发布章误走 retcon(未发布 → pipeline.md §2 revise)
+   | 对已覆盖 fact 重复 retcon(CLI 拒绝;再改先按 F§9 登记新 fact 再覆盖)
 ```
 
 ## 4. 卷末 checkpoint
@@ -55,23 +58,24 @@
 触发:卷内最后一章 approved(或用户宣布收卷)。**checkpoint 未完成不开下卷卷庭。**
 
 ```
-1 汇编卷报告(当前无 report 子命令,编排者以下列输出为素材手工汇编一页:
-    novel.py status ; ledger payoff|promise|timeline ; check --window)
-    内容: exports 对账底稿+线索健康+战力变化+payoff 统计
-    (先 novel.py check --project 确认全仓一致)
-2 exports 逐条对账(编排者对照报告与台账),每条标三态:
-    兑现 — 卷内已落实,记支撑章号
-    移交 — 未兑现且仍要 → 写入下卷 imports 预填草案
-    废止 — 不再兑现 → 写 dec_NNN(理由+reopen_requires),防幽灵承诺复活
+0 novel.py check --project                 # 先确认全仓一致
+1 novel.py report volume vol_NN            # 汇编卷报告 → state/reports/vol_NN.md
+    内容: exports 对账底稿(每条预标 [待对账])+线索健康+payoff 统计+战力变化(power 台账)
+          +窗口告警快照+checkpoint 前置清单
+2 exports 逐条对账: 编辑 state/reports/vol_NN.md(唯一允许手改处,F§14),每条改三态:
+    [兑现 ch_NNNN] — 卷内已落实,记支撑章号
+    [移交]         — 未兑现且仍要 → checkpoint 自动写入下卷 imports 预填
+    [废止 dec_xxx] — 不再兑现 → 先写 dec_NNN(理由+reopen_requires),防幽灵承诺复活
 3 卷级深评: novel.py task add review_deep <卷末章> → spawn critic-deep 卷级变体
-    (附件改为: 卷蓝图+卷报告+三态对账草案+active threads+ledger 统计;
-     判卷弧光兑现/未收线健康/期待账户/跨卷撞梗)
+    (附件改为: 卷蓝图+卷报告+三态对账草案+active threads+ledger 统计+rubrics/power.md;
+     判卷弧光兑现/未收线健康/期待账户/战力预算对账/跨卷撞梗)
     → lessons 附笔 → novel.py commit <t> --file <review>(pipeline.md §4 同款)
-4 呈报用户确认(卷报告+三态对账+深评要点);unattended=true → 执行+note: pending_human_review
-    (spec §5.6 要求此确认;F§13 approvals 无独立键,按 unattended 总开关降级)
-5 novel.py task add checkpoint vol_NN → novel.py commit <t>
-    # F§16 checkpoint 行: 校验 report 已生成+对账清单处理完;落盘 卷归档标记+下卷 imports 预填
-6 novel.py task add design vol_{N+1} --note "卷庭"    # 开庭规程见 court.md §2/§3
+4 更新 ledgers/recap.md: 追加本卷段落(3–6 行,F§9)——checkpoint 后简报 §2 靠它接续
+5 呈报用户确认(卷报告+三态对账+深评要点);unattended=true → 执行+note: pending_human_review
+6 novel.py task add checkpoint vol_NN → novel.py checkpoint vol_NN → task done <t>
+    # F§16 checkpoint 行: 机检 报告存在+三态无残留+卷内无未完稿章;
+    # 落盘 卷 checkpoint_at 标记 + 下卷 volume.md(缺则实例化)imports 预填
+7 novel.py task add design vol_{N+1} --note "卷庭"    # 开庭规程见 court.md §2/§3
 ```
 
 ## 5. 实体对账轮(reconcile)
@@ -107,9 +111,9 @@ spawn 数据分析(T-da): 附 新反馈文件、游标与近 10 章清单、revi
   无动作         → 症状要点记 task note 归档,不动工(单条差评不足以立项)
 ```
 
-**T-da 数据分析 spawn 模板**
+**T-da 数据分析 spawn 模板**(`<skill根>` = 本 skill 在产品中的实际安装路径,spawn 时填充)
 ```
-你是数据分析。先读:skills/novel-orchestrator/roles/data-analyst.md
+你是数据分析。先读:<skill根>/roles/data-analyst.md
 附件:data/feedback/ 新文件、游标与章清单、近期评审 verdict 摘要、payoff/promise 统计。
 任务:把原始反馈翻译成症状(弃读点/爽点断供/人设崩/设定矛盾/节奏拖沓),逐条给证据与
 建议动作类型(revise_design|retcon|revise|无动作);不替编排者做裁决,不给改稿方案。
@@ -119,4 +123,4 @@ spawn 数据分析(T-da): 附 新反馈文件、游标与近 10 章清单、revi
 
 ---
 
-*rev 1 · 2026-08-13 · Wave1-A5;与 formats.md rev 1 对齐。*
+*rev 2 · 2026-08-24 · retcon/report/checkpoint 全面 CLI 化;补 recap 维护步骤与 power 对账;与 formats.md rev 2 对齐。*

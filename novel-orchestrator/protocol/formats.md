@@ -40,12 +40,17 @@
   briefs/ch_0001.brief.md
   entities/{char|item|loc|fac}_{slug}.md   entities/aliases.json
   threads/thread_{slug}.md
-  ledgers/timeline.tsv  payoff.tsv  facts/vol_01.json  lessons.md
+  ledgers/timeline.tsv  payoff.tsv  power.tsv  facts/vol_01.json  lessons.md  recap.md
   court/dec_001_{slug}.md   court/transcripts/*.md
   reviews/ch_0001.light.md  ch_0001.deep.md
   data/feedback/            # 读者反馈收件箱(自由格式)
-  tasks/queue.json
+  data/compliance/          # 平台合规材料:敏感词表/审核规范/申诉记录(自由格式,
+                            # safety-auditor 与发布前自查按需读取,编排者只读)
+  tasks/queue.json  tasks/archive.json      # archive = task archive 归档的 done 任务
   state/index.json  dashboard.md  ngram_cache.json   # 生成物,禁止手改
+  state/reports/vol_NN.md   # 卷报告(report volume 生成;唯一可编辑处=对账三态标注)
+  state/court/              # 庭审中间态工作区(R0 简报/R1 提案/R2 评审/R3 主编稿,
+                            # 按场次建子目录;中断恢复用,永不入简报召回,checkpoint 后可清)
   corpus/                   # 用户自备范文(可空)
 ```
 
@@ -99,14 +104,18 @@
 **chapters/ch_0212.meta.json**(writeback 持久化;写手回写块与此同构):
 
 ```json
-{"summary_after":"3–8句","continuity_delta":[{"fact":"…","entity_ids":["char_a"],"spoiler":0}],
+{"summary_after":"3–8句","continuity_delta":[{"fact":"…","entity_ids":["char_a"],"spoiler":0,"key":"持有"}],
  "time_advance":{"elapsed":"2天","story_date":""},
  "thread_ops":[{"id":"thread_x","op":"advance","note":"…"}],
  "payoff_realized":["payoff_0212_1"],"hooks_realized":{"open":true,"close":true},
- "cast_actual":["char_a"],"issues":[],"word_count":3120}
+ "cast_actual":["char_a"],
+ "power_delta":[{"entity_ids":["char_a"],"from":"炼气三层","to":"炼气四层","note":"…"}],
+ "issues":[],"word_count":3120}
 ```
 
-`payoff_*.kind` 枚举:`dopamine|upgrade|reveal|reversal|emotion|humor|other`。`thread op` 枚举:`plant|advance|payoff|tangle`。
+`payoff_*.kind` 枚举:`dopamine|upgrade|reveal|reversal|emotion|humor|other`。`thread op` 枚举:`plant|advance|payoff|tangle|ready`。
+可选键:`continuity_delta[].key`(实体状态键位,如 位置/持有/知晓——填了可让 facts 冲突扫描精确到同键矛盾);`power_delta`(战力/位阶变化时必填,commit 追加 `ledgers/power.tsv`)。
+**越权纪律**:`cast_actual`/`continuity_delta`/`thread_ops`/`power_delta` 引用的实体与线索必须已登记(entities/aliases/threads),否则 `check --unit` FAIL、commit 拒绝落盘——写手不得发明实体,缺卡走 issues。`continuity_delta` 每条必含 fact/entity_ids/spoiler。
 
 ## 6. 简报 briefs/ch_NNNN.brief.md(`novel.py brief` 生成)
 
@@ -126,7 +135,8 @@ frontmatter:`id: brief_ch_0212`, `kind: review` 除外——用 `kind: brief` �
 ## 附 溯源             (表:资产|rev|用途——本简报引用的每个文件)
 ```
 
-预算:超 `brief_budget_chars` 时按 7→6→4 顺序裁剪并在溯源节留痕。已存在则 `brief_rev+1` 重写(git 保历史)。
+预算:超 `brief_budget_chars` 时按 7→6→4→3 顺序裁剪并在溯源节留痕(第 3 节为末位:只裁实体卡「设定要点」,保留现状与最近事件)。已存在则 `brief_rev+1` 重写(git 保历史)。
+第 2 节尾部注入 `ledgers/recap.md` 尾 12 行(存在且非空时);第 4 节召回=任务卡 threads ∪ live 态线中(must_not_drop ∪ volume_scope 含本卷 ∪ payoff_planned 命中本卷或 ≤15 章内,后者加【payoff 临近】标记);第 7 节按 `config.route` 切换 web/traditional 提示组。
 
 ## 7. 实体卡 entities/*.md
 
@@ -143,23 +153,36 @@ frontmatter:`id`, `kind: entity`, `entity_type: char|item|loc|fac`, `status: act
 
 frontmatter:`id`, `kind: thread`, `thread_kind: fuse|subplot|relationship|mystery|promise|other`, `state: planted|active|tangled|payoff_ready|paid_off|dropped`, `must_not_drop: true|false`, `volume_scope: ["vol_01"]`, `plant_ch: int|null`, `payoff_planned: "vol_03"|"ch_0250"|null`, `status: active`, `rev`, `updated_at`。
 节:`## 陈述`(一段);`## 推进日志`(`- ch_0212: advance 一句话`,commit 追加自 thread_ops)。
-纪律:`must_not_drop=true` 的线置 `dropped` 需 decision 引用(commit 校验 note 含 dec_id);`paid_off/dropped` 不入简报召回。
+
+**状态机合法迁移表**(novel.py 强制;非法迁移 = check FAIL,commit 拒绝):
+
+| op \ 当前态 | planted | active | tangled | payoff_ready | paid_off/dropped |
+|---|---|---|---|---|---|
+| plant(回填 plant_ch) | planted | ✗ | ✗ | ✗ | ✗ |
+| advance | active | active | active | payoff_ready(仅记日志) | ✗ |
+| tangle | tangled | tangled | tangled | tangled | ✗ |
+| ready | payoff_ready | payoff_ready | payoff_ready | payoff_ready | ✗ |
+| payoff | paid_off | paid_off | paid_off | paid_off | ✗ |
+
+纪律:`paid_off/dropped` 为终态,复活需 decision + 登记新线;`must_not_drop=true` 的线置 `dropped` 需 decision 引用且该 dec 文件在 court/ 真实存在(check --project 校验);`paid_off/dropped` 不入简报召回。`dropped` 由编排者手工置(附 dec 引用),不经 thread_ops。
 
 ## 9. 台账(novel.py 独占维护)
 
 - `ledgers/timeline.tsv`:`chapter	story_date	elapsed	note`
 - `ledgers/payoff.tsv`:`chapter	payoff_id	kind	intent	realized`(0/1)
-- `ledgers/facts/vol_NN.json`:
+- `ledgers/power.tsv`:`chapter	entity	from	to	note`(commit 自 writeback 可选 `power_delta` 追加;`check --window` 对近 10 章同实体 ≥3 次变动告警;设定审计/深评按 rubrics/power.md 对账卷预算)
+- `ledgers/facts/vol_NN.json`(**commit 自动登记**:自 continuity_delta 分配全局递增 `fact_id` 写入本章所属卷文件,同文同章去重;`key` 可选,继承自 delta):
 
 ```json
-{"facts":[{"id":"fact_0001","fact":"…","entity_ids":["char_a"],"revealed_ch":212,"spoiler":0,"superseded_by":null}],
+{"facts":[{"id":"fact_0001","fact":"…","entity_ids":["char_a"],"revealed_ch":212,"spoiler":0,"superseded_by":null,"key":"持有"}],
  "retcons":[{"id":"ret_001","entity_ids":[],"old_fact_id":"fact_0001","new_fact":"…",
              "strategy":"reconcile|fade_out|explicit_fix","decision_ref":"dec_00x"}]}
 ```
 
 - `ledgers/lessons.md`:`- [ch_0212|vol_02|book] 教训一句话(来源 review id)`——例外:本台账由**编排者**经 commit 附笔追加(格式固定),非 novel.py 生成
+- `ledgers/recap.md`:全局梗概,**编排者维护**(卷末 checkpoint 必更,期间每 ~10 章可追加一段,每段 3–6 行);`novel.py brief` 注入尾 12 行进 §2——长程记忆的轻量层,与 summary_after 链/实体卡互补
 
-纪律:retcon 落盘时旧 fact 填 `superseded_by`;简报第 6 节命中此类 fact 必须连带 retcon 条目。
+纪律:retcon 经 `novel.py retcon` 落盘(校验 old_fact 存在未覆盖 + decision 存在),旧 fact 填 `superseded_by`;简报第 6 节命中此类 fact 必须连带 retcon 条目。
 
 ## 10. 任务队列 tasks/queue.json
 
@@ -172,6 +195,7 @@ frontmatter:`id`, `kind: thread`, `thread_kind: fuse|subplot|relationship|myster
 `type` 枚举:`design | revise_design | write | revise | review_deep | publish | retcon | checkpoint | reconcile`。
 `state` 枚举:`pending | blocked | running | done | failed`。
 纪律:`write/revise` 同 target `attempts ≥ 2` 再 fail → novel.py 自动追加一条 `revise_design` 任务(升级);`revise_design` 创建须带 `--evidence`,novel.py 提示比对 court/ 否决案。
+队列自动化:`blocked` 任务在 `blocked_on` 全部 done 后由任意 task/status 命令自动解锁 → `pending`;`task reset <id>` 将 failed/running 拉回 pending(done 不可 reset,负例拒绝);`task archive [--keep N]` 把多余 done 任务移入 `tasks/archive.json` 防队列膨胀。
 
 ## 11. 裁决记录 court/dec_NNN_{slug}.md
 
@@ -194,67 +218,76 @@ frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass
  "approvals":{"book_commit":true,"volume_commit":true,"publish":true,"checkpoint":true},
  "unattended":false,"reconcile_every":10,"brief_budget_chars":24000,
  "volume_defaults":{"arcs":[5,12],"chapters":[80,250]},
- "models":{"writer":"","critic":"","reader":""},
  "ngram_window_chapters":30}
 ```
 
-`route ∈ {web, traditional}`:traditional 差分(无 buffer/publish、章尾钩与爽点窗口降级)见 `modes/route-traditional.md`;`check` 按此键自动切换断言级别。
+`route ∈ {web, traditional}`:traditional 差分(无 buffer/publish、章尾钩与爽点窗口降级、简报 §7 提示切换)见 `modes/route-traditional.md`;`check`/`brief` 按此键自动切换。(历史注:早期草案含 `models` 键为各角色预留模型档位,从未被读取,已删除;角色模型选择属产品层配置,不入项目 config。)
 
-## 14. 生成物(禁手改)
+## 14. 生成物(禁手改;标注例外除外)
 
-- `state/index.json`:`{generated_at, nodes[], chapters[], entities[], threads[], tasks:{pending,blocked,head}, cursor:{last_published,last_drafted,last_approved}, warnings[]}`(元素含 id/kind/status/rev/parent/path)
-- `state/dashboard.md` 段落:项目一行 · 树进度表(卷|弧|章区间|状态)· 游标与 buffer · 队列头 5 条 · 告警(check --window 摘要)· 最近 3 次 git commit
-- `state/ngram_cache.json`:`{"ch_0210": ["4gram指纹…"]}`,保留最近 `ngram_window_chapters` 章,commit 更新
+- `state/index.json`:`{generated_at, nodes[], chapters[], entities[], threads[], tasks:{pending,blocked,head}, cursor:{last_published,last_drafted,last_approved}, last_deep_review_ch, warnings[]}`(nodes 含 id/kind/status/rev/parent/path;chapters 含 id/status/rev/parent/mtime——mtime 用于 `status` 的章级增量重算,未变更章直接复用旧条目)
+- `state/dashboard.md` 段落:项目一行(含深评游标与逾期提醒)· 树进度表(卷|状态|弧|章数)· 树节点 · 章按状态 · 队列头 5 条 · 告警(check --window 摘要)· 最近 3 次 git commit
+- `state/ngram_cache.json`:`{"ch_0210": {"n12": […], "n8": […]}}` 两级指纹,保留最近 `ngram_window_chapters` 章,commit 更新(旧版扁平数组格式读取时视为 n12,兼容)
+- `state/reports/vol_NN.md`:`report volume` 生成;**例外**——「exports 对账」节的三态标注(`[待对账]` → `[兑现 ch_NNNN]|[移交]|[废止 dec_xxx]`)由编排者手工编辑,checkpoint 机检
+- `state/court/`:庭审中间态工作区(非生成物,编排者按场次存 R0–R4 中间产物;见 court.md §3)
 
 ## 15. novel.py CLI(退出码:0=通过 / 1=校验失败 / 2=用法或环境错误)
 
 ```
 novel.py init <dir> [--name X]            # 脚手架+git init+首 commit
-novel.py status                           # 重算 index+dashboard,打印 dashboard 与可恢复断点
+novel.py status                           # 重算 index+dashboard(章级增量),打印 dashboard、深评逾期提醒与可恢复断点
 novel.py tree add <kind> <id> [--parent P]   # 由模板实例化空壳节点(volume|arc|chapter)
 novel.py tree show [id]
-novel.py tree set-status <id> <status>    # 含迁移合法性校验
+novel.py tree set-status <id> <status> [--evidence E]
+                                          # 含迁移合法性校验;chapter→approved 需评审 pass 回执
+                                          # (reviews/ 文件、任务 note 含 light=pass、或 --evidence)
 novel.py task add <type> <target> [--note N] [--blocked-on t_x] [--evidence E]
-novel.py task next|list [--state S]
-novel.py task start|done|fail <id> [--note N]
+novel.py task next|list [--state S]       # next 附深评逾期提醒;blocked 依赖完成自动解锁
+novel.py task start|done|fail|reset <id> [--note N]   # reset: failed/running → pending
+novel.py task archive [--keep N]          # done 任务归档 tasks/archive.json(默认留 20)
 novel.py brief <ch_id>                    # §6 机械装配;重跑 brief_rev+1;生成后自动 git commit(保证 spawn 前基线干净)
-novel.py commit <task_id> [--file F ...] [--chapter F --writeback F] [-m 摘要]   # --file 可多值
-novel.py check --unit <ch_id> [--candidate F --writeback F] | --window | --project
-                                          # --candidate/--writeback = 未落盘 staging 机检
+novel.py commit <task_id> [--file F ...] [--chapter F --writeback F] [--draft] [-m 摘要]
+                                          # --file 可多值;--draft = 设计节点 draft 态部分落盘(见 §16)
+novel.py check --unit <ch_id> [--candidate F --writeback F] | --window [--since CH] | --project
+                                          # --candidate/--writeback = 未落盘 staging 机检;--since = 窗口增量起点
+novel.py check --leak <候选章> --brief <简报>   # 简报外已登记专名泄漏扫描(pipeline §5 机械辅助)
 novel.py entity new|show|log <id> ; entity due ; entity update <id> --file F
 novel.py thread new <id> [--kind K]       # 线索登记
-novel.py ledger payoff|promise|timeline   # 窗口统计视图
+novel.py ledger payoff|promise|timeline|power   # 窗口统计视图
 novel.py publish <ch_from> [<ch_to>]      # 连续性谓词;approved→published
+novel.py retcon <old_fact_id> --new … --strategy reconcile|fade_out|explicit_fix --decision dec_id [--entity E ...]
+                                          # serial-ops §3:old_fact 存在未覆盖 + decision 存在才落盘
+novel.py report volume <vol_NN>           # 卷报告汇编 → state/reports/vol_NN.md(exports 预标 [待对账])
+novel.py checkpoint <vol_NN>              # 卷末结账:报告存在+三态齐+卷内无未完稿章 → 卷标记+下卷 imports 预填
+novel.py adopt <file> --as ch_NNNN [--parent arc] [--title T]   # 外部文稿收编(protocol/adopt.md)
 novel.py fsck                             # = check --project
---- 以下为协议动作,当前无 CLI 子命令,按对应协议人工执行(facts/retcon 引用完整性由 check --project 兜底) ---
-retcon    → serial-ops §3(手工编辑 ledgers/facts/*.json + decision)
-report / checkpoint / reconcile 汇总 → serial-ops §4–5(以 status/ledger 输出为素材)
 ```
 
-`status` 重算 index/dashboard;其余命令按需读取。项目根定位:cwd 向上探测或 `--root`。实现覆盖表与差异细节见 `tools/README.md`。
+reconcile 汇总仍按 serial-ops §5 由编排者执行(`entity due` + `entity update` 已覆盖机械部分)。`status` 重算 index/dashboard;其余命令按需读取。项目根定位:cwd 向上探测或 `--root`。实现覆盖表与差异细节见 `tools/README.md`。
 
 ## 16. commit 按 task.type 行为表(唯一写路径)
 
 | type | 输入 | 校验(全过才落盘) | 落盘动作 |
 |---|---|---|---|
-| write | `--chapter`(信封+##正文) `--writeback`(json) | `check --unit` 绿;task.json 存在;writeback schema;hooks_realized.close=true(config 网文默认);payoff_realized ⊆ quota∪已登记 | 章 md(status=drafted)+meta.json;实体事件日志追加;thread 推进日志+state;payoff/timeline 台账;ngram_cache;index;git commit |
-| revise | 同 write | 同 write;目标章非 published | 章 rev+1,余同 |
-| design | `--file F ...`(节点 md;**可附带**裁决记录 dec_*.md、新实体卡、transcript) | 主文件必需节齐全非空;信封合法;附带文件各按其 kind 校验 | 全部落盘(节点 committed);index;git 一次提交 |
-| revise_design | `--file F ...` + task.evidence 非空 | 同上 + evidence | 落盘;**受影响下游标 stale**(依 parent 链+实体引用);git |
+| write | `--chapter`(信封+##正文) `--writeback`(json) | `check --unit` 绿;task.json 存在;writeback schema;**引用越权=拒绝**(cast_actual/delta/thread_ops/power_delta 的实体线索必须已登记,thread 迁移必须合法);hooks_realized.close=true(config 网文默认);payoff_realized ⊆ quota 且章号匹配 | 章 md(status=drafted)+meta.json;实体事件日志追加;**facts 登记**(自 continuity_delta 分配 fact_id 写 ledgers/facts/vol_NN.json);thread 推进日志+state+plant_ch 回填;payoff/timeline/power 台账;ngram_cache(两级);git commit |
+| revise | 同 write | 同 write;目标章非 published | 章 rev+1,余同(facts 同文同章去重,不重复登记) |
+| design | `--file F ...`(节点 md;**可附带**裁决记录 dec_*.md、新实体卡、transcript) | 主文件必需节齐全非空;信封合法;附带文件各按其 kind 校验。**`--draft`** 例外:跳过必需节校验,节点以 status=draft 部分落盘(书庭中间态持久化,不算定稿,不触发 stale) | 全部落盘(节点 committed;--draft 时 draft);git 一次提交 |
+| revise_design | `--file F ...` + task.evidence 非空 | 同上 + evidence | 落盘;**受影响下游沿 parent 链递归标 stale(卷→弧→章)**;git |
 | review_deep | `--file`(review md) | frontmatter 合法 | 落 reviews/;verdict=escalate 时自动开 revise_design 任务 |
 | reconcile | `--file`(实体现状节) | 目标实体存在 | entity update;last_reconcile_ch=游标 |
-| publish | 章号区间 | 连续自 last_published+1;各章 approved;buffer 满足 | status→published;index;git |
-| retcon | retcon 参数 | old_fact 存在;decision 存在 | facts 更新+superseded_by;git |
-| checkpoint | 卷号 | 卷报告已汇编;exports 对账清单处理完 | 卷 status 归档标记;下卷 imports 预填;git |
+| publish | 章号区间 | 连续自 last_published+1;各章 approved;buffer 满足 | status→published;git |
+| retcon | `retcon` 命令参数 | old_fact 存在且未被覆盖;decision 文件存在;strategy 枚举 | retcons[] 追加+旧 fact 填 superseded_by;git |
+| checkpoint | `checkpoint <vol_NN>` | 卷 committed;`state/reports/vol_NN.md` 存在;exports 三态标注无残留 `[待对账]`;卷内无 planned/drafted/stale 章 | 卷 frontmatter 记 checkpoint_at;下卷 volume.md(缺则实例化)imports 节预填(移交项+未收 must_not_drop 线+终章摘要);git |
 
 git 提交消息:`[t_000231] write(ch_0212): 摘要`。
-实现映射:write/revise/design/revise_design/review_deep 走 `commit`;reconcile 走 `entity update`;publish 走 `publish` 命令;retcon/checkpoint 当前手工执行(serial-ops §3–4),任务仍入队留痕。
+实现映射:write/revise/design/revise_design/review_deep 走 `commit`;reconcile 走 `entity update`;publish/retcon/checkpoint 各走同名命令;任务仍入队留痕(task add → 执行命令 → task done)。
 
 ## 17. check 断言集
 
-**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章 12 字级指纹**对 ngram_cache 重复(列出;以 12-gram 实现防句级套话,较 4-gram 少误报);meta.json schema 齐全;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
-**--window**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ active)余额 ∈[2,5];promise >15 章无推进;timeline elapsed 非负;buffer 计数与章 status 一致。
-**--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集(含 status,无 rev/updated_at);`review` 查 §12 键集(无 status/rev/updated_at);brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用 → FAIL;facts schema + superseded 引用存在;published 连续无空洞;必需标题节(§4);queue target 均存在。
+**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章两级指纹**——12-gram 精确重复(防句级套话)WARN + 单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
+**--window [--since CH]**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ live)余额 ∈[2,5];promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;timeline elapsed 非负;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。
+**--leak <候选> --brief <简报>**:候选正文中出现、但简报未投递的**已登记专名**(aliases.json + 实体卡 aliases)→ FAIL(信息沙箱违规);未登记的新发明专名机器无法枚举 → NEEDS_REVIEW 交轻评(pipeline §5)。
+**--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;published 连续无空洞;必需标题节(§4);queue target 均存在。
 
 ## 18. git 纪律
 
@@ -272,7 +305,9 @@ novel-orchestrator/
   modes/                      # 三模式:mode-orchestrated / mode-solo / route-traditional
   protocol/formats.md         # 本文件(机器契约 SSOT)
   protocol/court.md pipeline.md serial-ops.md glossary.md
-  tools/novel.py tools/validate.py tools/README.md tools/tests/
+  protocol/manual-check.md    # 无 shell 环境人工自查清单(可判项 vs 丢失能力,诚实降级)
+  protocol/adopt.md           # 存量文稿/半途项目收编协议
+  tools/novel.py tools/README.md tools/tests/
   templates/                  # init/tree add 母版(清单见下)
   roles/                      # 11 角色卡
   rubrics/                    # 8 张共享判据卡(自包含 ≤120 行/张)
@@ -280,11 +315,13 @@ novel-orchestrator/
   rhythm/                     # 5 节奏模板(含结构评审检查单)
   knowledge/ knowledge-blocks.md knowledge-index.md   # 深读图书馆(经 knowledge-map 进入)
   knowledge-map.md            # 111 块归属 + 防膨胀规则
-  legacy/                     # v1 只读存档(见 legacy/README.md),勿作为入口
 ```
+
+(历史注:v1 前身 `novel-writing-workflow` 与其只读存档 `legacy/` 已随技术债清理移除;
+v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧项目时查阅。)
 
 **templates/ 清单(A2)**:`config.json` `book.md` `style.md` `world.md` `volume.md` `arc.md` `chapter.md` `chapter.task.json` `chapter.meta.json` `entity-char.md` `entity-item.md` `entity-loc.md` `entity-fac.md` `thread.md` `decision.md` `review.md` `README.md`(清单+init 映射)。模板占位一律 `[方括号]`;frontmatter 合法可解析(占位不破坏解析)。
 
 ---
 
-*rev 1 · 2026-08-13 · 主 agent 起草;实施 agent 不得修改本文件,发现矛盾报告主 agent 裁决。*
+*rev 2 · 2026-08-24 · 落地增补:facts 生产环/越权机检/线索状态机表/retcon·report·checkpoint·adopt CLI/两级 ngram/power·recap 台账/队列自动化/state.court 与 --draft/decision·review 机检;删除 models 死键与 legacy 引用。*

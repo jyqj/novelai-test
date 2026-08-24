@@ -33,12 +33,12 @@ court_session(场, node):
   R0 编排者备设计简报(手工装配;F§15 无设计简报子命令):
      内容 = 议题与决策清单(本场要定什么,逐条)
           + 上游约束(已 committed 节点/前场暂存稿)
-          + 兄弟契约(卷庭:上卷 exports+卷报告)
+          + 兄弟契约(卷庭:上卷 exports+卷报告 state/reports/vol_NN.md)
           + 市场输入(用户诉求/平台定位/人设集摘要)
           + 判据附件路径清单(按 §2 投递列)
           + 本节点相关否决案(court/dec_* 的「## 否决案」节全文)
      纪律: transcripts 永不入简报(F§11);体量对齐 brief_budget_chars(F§13)
-     存项目外临时目录;路径记入 task note
+     存 state/court/<场次>/(如 state/court/S2/、state/court/vol_03/);路径记入 task note
   R1 提案(并行,一轮,不迭代):
      for 架构师 i in 阵容: spawn(T-arch, stance_i, 简报)  # 互相独立,不见他案
      → 各返回一份完整提案(按目标节点必需标题节组织,F§4)
@@ -59,6 +59,16 @@ court_session(场, node):
      每场末向用户一页纸呈报(非阻塞;spec §10)
 ```
 
+**庭审中间态落盘约定(state/court/)**:每场建子目录 `state/court/<场次>/`,内放
+R0 设计简报、R1 各提案、R2 各评审与读者票、R3 主编稿、R4 补丁(文件名自拟,建议
+`r1_arch_a.md` 式前缀)。作用=会话中断的恢复点:重进会话后读该目录即可续场,不重跑
+已完成回合。纪律:**永不进入任何简报召回或角色附件路径之外的投递**;场次定稿后
+transcript 归档 `court/transcripts/`,`state/court/<场次>/` 可整目录删除(checkpoint
+时统一清理亦可)。此外,书庭跨场的节点半成品可用
+`novel.py commit <t> --file <暂存稿> --draft` 以 draft 态**部分落盘**到 tree/
+(跳过必需节校验,F§16 design 行)——git 版本化的中断保险,不算定稿,S4 收尾仍须
+完整节校验的正式 commit。
+
 ```
 定稿落盘(书庭在 S4 收尾后一次性;卷庭/弧当场):
   审批(F§19): book/volume 定稿呈报用户当轮确认;unattended=true → 执行+note: pending_human_review
@@ -72,7 +82,7 @@ court_session(场, node):
 ```
 
 - 附笔纪律:编排者自写的附属产物(dec/transcripts/实体种子/lessons 等)**只允许在某次 `novel.py commit` 前一刻写入**,随该事务入库;任何 worker 运行期间工作区必须干净(pipeline.md §5)。
-- 书庭中间场次(S1–S3)产物只暂存不落盘:节不齐的 book.md 过不了 design 校验(F§16「必需节齐全非空」)。会话中断 → 当场作废重跑(≤6 次,廉价);已定稿场次不受影响。
+- 书庭中间场次(S1–S3)产物默认暂存 state/court/;需要 git 保险时用 `--draft` 部分落盘(见 §3 中间态约定)。正式定稿必须过完整节校验(F§16「必需节齐全非空」)。会话中断 → 从 state/court/ 恢复,或当场作废重跑(≤6 次,廉价);已定稿场次不受影响。
 - 书庭期间对同一节点的多场累积**属首次定稿过程**,不触发重开纪律;重开纪律自定稿 commit 起生效(§4)。
 
 ## 4. 超限处置与收敛纪律
@@ -91,10 +101,24 @@ court_session(场, node):
 2 命中且无满足 reopen_requires 的新证据 → 拒绝重提,回引 dec_id 与所需证据类型
 3 有新证据 → novel.py task add revise_design <node> --evidence "<新证据,引用 dec_id>"
      # --evidence 必填;novel.py 创建时提示比对 court/ 否决案(F§10)
-4 开庭前编排者出影响面报告: 依 state/index.json 的 parent 链与实体/线索引用,
-     列受影响子树、章区间、预计返工量(无专用子命令,读生成物汇总),呈报用户后才开庭
-5 修订庭定稿 commit 后,novel.py 自动将受影响下游标 stale(F§16 revise_design 行);
-     stale 的卷/弧/章由编排者按队列重排(design/revise/write 任务)
+4 开庭前编排者出影响面报告(模板见下): 依 state/index.json 的 parent 链与实体/线索引用,
+     列受影响子树、章区间、预计返工量(读生成物汇总),呈报用户后才开庭
+5 修订庭定稿 commit 后,novel.py 自动将受影响下游沿 parent 链递归标 stale
+     (卷→弧→章,F§16 revise_design 行);stale 的卷/弧/章由编排者按队列重排
+     (design/revise/write 任务)
+```
+
+**影响面报告模板**(呈报用户 + 存 state/court/<场次>/impact.md;逐节填,无内容写「无」):
+
+```
+# 影响面报告 — revise_design <节点id>
+- 证据: <task.evidence 原文;引用的 dec_id 与新证据类型>
+- 受影响子树: <依 index.nodes 的 parent 链列出将被标 stale 的卷/弧节点>
+- 受影响章区间: <依章 parent 归属列出;区分 published(不可改,走 retcon)与未发布(可 revise)>
+- 受影响实体/线索: <设定变更波及的 entities/threads;须跑对账或改状态的列出>
+- 受影响 facts: <需 retcon 的既有事实(published 章已揭示者)>
+- 预计返工量: <revise 章数 + 重开设计节点数 + retcon 条数>
+- 不做的后果: <一句话,给用户决策留基准>
 ```
 
 **transcript 归档纪律**:R1–R4 原文汇编唯一去处=`court/transcripts/`(随定稿附笔入库);**永不进入任何简报、召回或角色附件**(F§11);复盘用 dec 记录+`git log`,不重放 transcript。沉淀物只有节点资产与裁决记录。
@@ -102,10 +126,11 @@ court_session(场, node):
 ## 5. 附录:spawn prompt 模板(各庭型通用,按 §2 填槽)
 
 通用尾注(每模板必含):**产出只放最终回复;禁止写入任何文件、禁止执行任何写命令;除资料员外不读仓库,以附件为准。**
+路径约定:`<skill根>` = 本 skill 在当前产品中的实际安装路径(spawn 时由编排者填充,不同产品挂载点不同)。
 
 **T-arch 架构师(书庭/卷庭;弧简流程单人复用)**
 ```
-你是本场设计庭的架构师。先读你的角色文件:skills/novel-orchestrator/roles/architect.md
+你是本场设计庭的架构师。先读你的角色文件:<skill根>/roles/architect.md
 stance:<市场派|概念派|稳健派|体系派|代价派|人物派|冲突派>;独立提案,不揣测他案。(建议异族模型)
 本场议题:<§2 对应场次议题 + 决策清单>
 附件(只读):设计简报 <临时路径>;<按 §2 投递列的文件路径,逐个列出>
@@ -158,4 +183,4 @@ stance:<市场派|概念派|稳健派|体系派|代价派|人物派|冲突派>;�
 
 ---
 
-*rev 1 · 2026-08-13 · Wave1-A5;与 formats.md rev 1 对齐。*
+*rev 2 · 2026-08-24 · 新增 state/court/ 中间态落盘约定与 --draft 部分落盘;影响面报告模板;spawn 路径去硬编码;与 formats.md rev 2 对齐。*

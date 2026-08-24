@@ -32,8 +32,10 @@
     revise   → §2 修订循环
     escalate → §3 升级
 8 提交: novel.py commit <t> --chapter <tmp章> --writeback <tmp json> -m "摘要"   # → drafted(F§16)
+    novel.py task done <t> --note "light=pass; <轻评要点一行>"   # 回执先落 note
     novel.py tree set-status ch_NNNN approved       # 轻评 pass + check 绿(F§3)
-    novel.py task done <t> --note "light=pass; <轻评要点一行>"
+      # CLI 校验回执(P1-5):reviews/ 有 verdict=pass、或任务 note 含 light=pass、
+      # 或 --evidence "<回执>";三者皆无 → 拒绝置 approved
 9 深评采样(§4) → lessons 摘录(§4)
 ※ 每个 worker 返回后先执行 §5 泄漏检查,再处理其产出。
 ```
@@ -92,6 +94,9 @@ F§18 原文:
 2 输出非空 → git checkout -- . && git clean -fd
     task note 追记「违规: <角色>/<任务>/<文件清单>」;worker 产出仍以最终回复文本为准(未丢失)
 3 输出为空 → 继续处理产出
+4 写手产出另跑机械泄漏扫描: novel.py check --leak <tmp章> --brief briefs/ch_NNNN.brief.md
+    # 已登记专名(aliases/实体卡)出现在正文但简报未投递 → FAIL,产物作废重 spawn(F§17);
+    # 新发明专名机器无法枚举,仍靠轻评对照简报人工抽查(本条的主观半边)
 中断恢复: 同款清理未提交内容;任务回 pending 重跑(临时文件按 task note 路径找回,找不到则整任务重跑)
 ```
 
@@ -111,10 +116,11 @@ F§18 原文:
 ## 7. 附录:spawn prompt 模板
 
 通用尾注(每模板必含):**产出只放最终回复;禁止写入任何文件、禁止执行任何写命令。**(资料员可只读仓库;写手只见简报;评审只见附件。)
+路径约定:`<skill根>` = 本 skill 在当前产品中的实际安装路径(spawn 时由编排者填充)。
 
 **T0 排批委派(quality 档)**
 ```
-你是架构师,担任排批助理。先读:skills/novel-orchestrator/roles/architect.md
+你是架构师,担任排批助理。先读:<skill根>/roles/architect.md
 附件:arc_NN_n.md、本批前一批各章 task.json(衔接)、payoff/promise 窗口摘要。
 任务:为 ch_A..ch_B 逐章草拟 task.json 内容——goal/beats(3–6 拍)/hook(close 必填)/payoff_quota/threads/cast,
 schema 与枚举以附件样例为准(formats.md §5)。
@@ -153,13 +159,14 @@ rubrics/prose-disease.md、voice.md、payoff.md。
 ```
 你是深评。先读:roles/critic-deep.md
 附件:采样窗各章正文与 meta 摘要、arc_NN_n.md、volume.md、active threads、
-ledger payoff|promise 统计输出、rubrics/structure.md、payoff.md、anti-plagiarism.md。
+ledger payoff|promise|power 统计输出、rubrics/structure.md、payoff.md、
+anti-plagiarism.md、**power.md(必附:战力预算与越阶配额对账)**。
 任务:方向偏航(本窗价值走向 vs 弧/卷计划)/期待账户余额/伏笔健康(threads 逐线过)/
-跨章重复与撞梗风险;给出 verdict 与问题清单。
+战力账本(power 台账 vs 卷预算与锚定表)/跨章重复与撞梗风险;给出 verdict 与问题清单。
 产出:一份完整 review 文件文本(formats.md §12:frontmatter depth: deep + 问题清单 + ## 教训 节,
 教训至少一条或写「无」)。 [通用尾注]
 ```
 
 ---
 
-*rev 1 · 2026-08-13 · Wave1-A5;与 formats.md rev 1 对齐。*
+*rev 2 · 2026-08-24 · 步骤 8 回执顺序对齐 P1-5;泄漏检查补 check --leak 机械半边;T4 必附 power 卡;spawn 路径去硬编码。*
