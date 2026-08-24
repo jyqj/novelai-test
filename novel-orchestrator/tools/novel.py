@@ -1057,8 +1057,10 @@ def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
             rep.add("PASS", "writeback schema 齐全")
         route = proj.config.get("route", "web")
         close_ok = bool(wb.get("hooks_realized", {}).get("close"))
-        if route == "web" and not close_ok:
-            if wb.get("issues"):
+        if not close_ok:
+            if route != "web":
+                rep.add("WARN", "hooks_realized.close=false（traditional 建议级，须在 issues 说明 turn）")
+            elif wb.get("issues"):
                 rep.add("WARN", "hooks_realized.close=false，但 issues 已说明（人工裁定）")
             else:
                 rep.add("FAIL", "route=web 章尾钩必须落实（close=false 且 issues 未说明）")
