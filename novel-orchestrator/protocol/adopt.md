@@ -24,9 +24,10 @@ for 每章旧稿（按章号顺序）:
   # 同时写入 ngram 指纹（后续新章即可查跨章重复）
 ```
 
-- 已发布过的旧章：adopt 后依次 `task done --note "light=pass（存量既发）"` →
-  `tree set-status approved` → `publish`，把游标推到真实断更位置
-  （publish 连续性谓词要求从 ch_0001 开始依序补齐状态）。
+- 已发布过的旧章：adopt 后依次 `review add ch_NNNN --depth light --verdict pass
+  --note "存量既发，免评审"` → `tree set-status approved` → `publish`，把游标推到
+  真实断更位置（publish 连续性谓词要求从 ch_0001 开始依序补齐状态；approved
+  闸门只认 reviews/ 落盘回执，存量章也不例外——回执 note 里写明免评来由）。
 - 未发布的存稿章：停在 drafted/approved，按 buffer 语义参与后续发布。
 
 ## 3. 补录（收编的核心账，宁缺勿假）
@@ -35,10 +36,10 @@ for 每章旧稿（按章号顺序）:
 
 1. **summary_after**（每章 3–8 句）——简报 §2 的记忆链，缺了新章简报即断档。
 2. **continuity_delta**——只补"后文还会用到"的事实（实体获得物/身份/位置/承诺），
-   经一次性脚本或手工誊入后，对新事实统一走一遍 facts 登记：最简做法是把补录的
-   delta 合入各章 meta.json 后，用 `retcon`/手工按 formats §9 写入
-   `ledgers/facts/vol_NN.json`（id 递增不回填旧号）。拿不准的事实**不录**，
-   宁可简报缺料让写手报 issues，也不录错账。
+   誊入各章 meta.json 后跑 **`novel.py facts import ch_A ch_B …`**：机械半边自动
+   分配递增 fact_id 入账 `ledgers/facts/vol_NN.json`（同文同章去重，幂等可重跑、
+   可分批），并顺带刷新 rollup。拿不准的事实**不录**，宁可简报缺料让写手报
+   issues，也不录错账。
 3. **thread_ops 追认**：threads/ 各线的推进日志手工补「- ch_NNNN: advance 一句话」
    到实情状态。
 4. 实体现状节：跑一轮对账（serial-ops §5，资料员读旧稿产出现状节）。
@@ -51,9 +52,10 @@ book/world/style committed + 主角实体卡 + aliases + 断更点前 3 章的 s
 ## 5. 收编后自查
 
 ```
-novel.py check --project      # 三件套/引用/facts 全绿
+novel.py check --project      # 三件套/引用/facts 全绿（含半事务检出）
 novel.py status               # 游标与 buffer 与实情一致
-novel.py brief <断更点+1 章>  # 人工读一遍简报：§2 记忆链与 §6 事实是否够写
+novel.py gate next            # 机器剧本确认无欠账动作
+novel.py brief <断更点+1 章>  # 人工读一遍简报：§2 记忆链（rollup 已接旧章）与 §6 事实是否够写
 ```
 
 简报读起来"像给新写手的完整交接"即收编完成，进入正常产线（pipeline §1）。

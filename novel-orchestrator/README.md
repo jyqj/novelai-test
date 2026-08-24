@@ -44,10 +44,12 @@ python3 tools/novel.py brief ch_0001              # 机械装配十节简报（�
 # …（写手按简报产出 候选章.md + writeback.json）
 python3 tools/novel.py check --unit ch_0001 --candidate 草稿.md --writeback 回写.json
 python3 tools/novel.py commit t_000001 --chapter 草稿.md --writeback 回写.json -m 首章
-python3 tools/novel.py check --window             # 3 章小爽/10 章大爽/线索余额/战力频率
-python3 tools/novel.py task done t_000001 --note "light=pass"   # 评审回执
-python3 tools/novel.py tree set-status ch_0001 approved         # 需 pass 回执才放行
+python3 tools/novel.py check --window             # 3 章小爽/10 章大爽/线索余额/战力频率/故事日历
+python3 tools/novel.py task done t_000001
+python3 tools/novel.py review add ch_0001 --depth light --verdict pass   # 评审回执落盘 reviews/
+python3 tools/novel.py tree set-status ch_0001 approved         # 仅认落盘回执（rev 匹配）才放行
 python3 tools/novel.py publish ch_0001            # 连续性谓词，approved→published
+python3 tools/novel.py gate next                  # 机器版调度剧本：下一步该干什么
 ```
 
 连载运营与收编（同样有 CLI，全部在冒烟测试覆盖）：
@@ -66,7 +68,7 @@ python3 tools/novel.py check --leak 草稿.md --brief briefs/ch_0002.brief.md   
 
 ## 一致性核查的三级闸门
 
-1. **机器闸门**（`novel.py check`）：信封/必需节/状态机/三件套对账、style 黑名单逐条扫描、连续同首句、章内 4-gram 重复率、跨章两级指纹（12 字复读 FAIL 级告警 + 8 字撞梗 WARN）、回写引用越权（未登记实体/线索 FAIL）、线索状态机迁移表、payoff id 章号匹配、facts 冲突扫描、3 章小爽 / 10 章大爽窗口、promise 余额、战力变更频率、时间线非负、published 连续性、facts/retcon 引用完整性、decision/review 文件契约、泄漏扫描（`check --leak`）。
+1. **机器闸门**（`novel.py check` / `gate`）：信封/必需节/状态机/三件套对账、style 黑名单逐条扫描、连续同首句、章内 4-gram 重复率、跨章分层指纹（窗口内 12 字复读 FAIL 级告警 + 8 字撞梗 WARN，窗口外归档采样覆盖全史）、回写引用越权（未登记实体/线索 FAIL）、**抽取器对账**（正文实测出场 vs 申报、新专名候选、剧透泄漏候选）、线索状态机迁移表、payoff id 章号匹配、facts 冲突扫描、3 章小爽 / 10 章大爽窗口、promise 余额、战力变更频率、**故事日历**（elapsed 数值化 + story_date 单调）、published 连续性、facts/retcon 引用完整性、decision/review 文件契约、泄漏扫描（`check --leak`）、半事务检出（`fsck`）。
 2. **角色评审**（LLM 判定，机检输出 `NEEDS_REVIEW` 的项）：声纹遮名指认、智商漂移、爽点有效性、毒点七问——按 `rubrics/` 对应卡执行，逐章轻评、抽样深评。
 3. **人工审批**（可配置）：开书 commit、卷末 checkpoint、发布、红线上报。
 

@@ -39,13 +39,14 @@ init（CLI）
 
 | 步 | 动作 | 命令/依据 |
 |---|---|---|
+| 0 | 会话开工 | `novel.py gate next`（机器剧本：修账/深评/对账欠账先清） |
 | 1 | 取任务 | `novel.py task next` → `task start <tid>` |
-| 2 | 装配简报 | `novel.py brief ch_NNNN`（自动裁剪到预算并留溯源） |
-| 3 | spawn 写手 | `roles/writer.md` + 简报全文 |
-| 4 | 机检候选 | `novel.py check --unit ch_NNNN --candidate 草稿.md --writeback 回写.json` |
+| 2 | 装配简报 | `novel.py brief ch_NNNN`（条目级预算裁剪并留溯源） |
+| 3 | spawn 写手 | 先 `novel.py gate write ch_NNNN`（排批齐/简报在/基线净）；过闸后投 `roles/writer.md` + 简报全文 |
+| 4 | 机检候选 | `novel.py check --unit ch_NNNN --candidate 草稿.md --writeback 回写.json`（含抽取器对账） |
 | 5 | 轻评审 | spawn `roles/critic-light.md`；裁定机检的 NEEDS_REVIEW 项 |
 | 6 | 落盘 | `novel.py commit <tid> --chapter 草稿.md --writeback 回写.json -m …` |
-| 7 | 收尾 | `task done <tid>`；`tree set-status ch_NNNN approved`（轻评 pass 后） |
+| 7 | 收尾 | `review add ch_NNNN --depth light --verdict pass`（回执落盘）→ `task done <tid>` → `tree set-status ch_NNNN approved` |
 | 8 | 周期项 | 每 5 章 `check --window`；每 `deep_every` 章深评；每 `reconcile_every` 章 `entity due` |
 
 修订循环、escalate 升级、深评采样的细则不在本文件重复——见 `protocol/pipeline.md` §2–4。

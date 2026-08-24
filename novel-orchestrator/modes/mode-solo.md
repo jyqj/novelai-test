@@ -23,7 +23,8 @@
 【写手】  只读简报 → 产出 候选章.md + writeback.json（回应契约=简报 §8）
 【CLI】   check --unit … --candidate … --writeback …   # FAIL → 写手帽返修（≤2 次）
 【轻评】  戴 critic-light 帽：按卡逐项过 + 裁定机检 NEEDS_REVIEW 项 → verdict
-【编排者】pass → commit → task done → set-status approved
+【编排者】pass → commit → review add ch_NNNN --depth light --verdict pass
+          → task done → set-status approved   # 回执必须落盘，solo 不豁免（formats §12）
           revise → 带问题清单回写手帽（pipeline §2 修订循环同样适用）
 ```
 

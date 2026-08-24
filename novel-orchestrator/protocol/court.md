@@ -30,7 +30,9 @@
 
 ```
 court_session(场, node):
-  R0 编排者备设计简报(手工装配;F§15 无设计简报子命令):
+  R0 编排者备设计简报:
+     novel.py court open <场次> --node <节点>   # 建 state/court/<场次>/ + r0_brief.md 骨架
+       # 骨架已列六节提纲与相关否决案索引;编排者手工填内容(设计简报内容判断重,不全自动)
      内容 = 议题与决策清单(本场要定什么,逐条)
           + 上游约束(已 committed 节点/前场暂存稿)
           + 兄弟契约(卷庭:上卷 exports+卷报告 state/reports/vol_NN.md)
@@ -38,7 +40,7 @@ court_session(场, node):
           + 判据附件路径清单(按 §2 投递列)
           + 本节点相关否决案(court/dec_* 的「## 否决案」节全文)
      纪律: transcripts 永不入简报(F§11);体量对齐 brief_budget_chars(F§13)
-     存 state/court/<场次>/(如 state/court/S2/、state/court/vol_03/);路径记入 task note
+     路径记入 task note;中断恢复先跑 novel.py court status 盘点已完成回合
   R1 提案(并行,一轮,不迭代):
      for 架构师 i in 阵容: spawn(T-arch, stance_i, 简报)  # 互相独立,不见他案
      → 各返回一份完整提案(按目标节点必需标题节组织,F§4)
@@ -59,12 +61,12 @@ court_session(场, node):
      每场末向用户一页纸呈报(非阻塞;spec §10)
 ```
 
-**庭审中间态落盘约定(state/court/)**:每场建子目录 `state/court/<场次>/`,内放
+**庭审中间态落盘约定(state/court/)**:场次目录由 `court open` 创建,内放
 R0 设计简报、R1 各提案、R2 各评审与读者票、R3 主编稿、R4 补丁(文件名自拟,建议
-`r1_arch_a.md` 式前缀)。作用=会话中断的恢复点:重进会话后读该目录即可续场,不重跑
-已完成回合。纪律:**永不进入任何简报召回或角色附件路径之外的投递**;场次定稿后
-transcript 归档 `court/transcripts/`,`state/court/<场次>/` 可整目录删除(checkpoint
-时统一清理亦可)。此外,书庭跨场的节点半成品可用
+`r1_arch_a.md` 式前缀)。作用=会话中断的恢复点:重进会话后 `court status` 盘点该目录
+即可续场,不重跑已完成回合。纪律:**永不进入任何简报召回或角色附件路径之外的投递**;
+场次定稿后 transcript 归档 `court/transcripts/`,再 `court close <场次> --dec <dec_id>`
+清理工作区(close 校验该 dec 已真实落盘 court/,防「先清场后忘记裁决」)。此外,书庭跨场的节点半成品可用
 `novel.py commit <t> --file <暂存稿> --draft` 以 draft 态**部分落盘**到 tree/
 (跳过必需节校验,F§16 design 行)——git 版本化的中断保险,不算定稿,S4 收尾仍须
 完整节校验的正式 commit。
@@ -183,4 +185,5 @@ stance:<市场派|概念派|稳健派|体系派|代价派|人物派|冲突派>;�
 
 ---
 
+*rev 3 · 2026-08-24 · R0/中间态接 court open|status|close CLI(工作区机械管理,close 校验裁决落盘)。*
 *rev 2 · 2026-08-24 · 新增 state/court/ 中间态落盘约定与 --draft 部分落盘;影响面报告模板;spawn 路径去硬编码;与 formats.md rev 2 对齐。*

@@ -24,7 +24,8 @@
 ```
 用户「发布 1–N」/ 计划发布到期:
   novel.py task add publish ch_NNNN --note "至 ch_MMMM"   # 计划性发布入队;用户当轮口头指令可免
-  前置自检: novel.py status(ready/缺口/告警;必要时 novel.py check --window)
+  前置自检: novel.py gate publish <ch_from> [<ch_to>]     # 连续性/approved/buffer 谓词试跑,不落盘
+            novel.py status(ready/缺口/告警;必要时 novel.py check --window)
   审批(如上)→ novel.py publish <ch_from> [<ch_to>]        # 各章 approved→published(F§16)
   novel.py task done <t>  ;  novel.py status 复核游标与 buffer
 拒绝速查: 区间含非 approved 章 | 区间不连续/有缺口 | 首发 buffer 不足 → 按 §1 补稿或改区间重试
@@ -72,7 +73,8 @@
     → lessons 附笔 → novel.py commit <t> --file <review>(pipeline.md §4 同款)
 4 更新 ledgers/recap.md: 追加本卷段落(3–6 行,F§9)——checkpoint 后简报 §2 靠它接续
 5 呈报用户确认(卷报告+三态对账+深评要点);unattended=true → 执行+note: pending_human_review
-6 novel.py task add checkpoint vol_NN → novel.py checkpoint vol_NN → task done <t>
+6 novel.py gate checkpoint vol_NN          # 前置谓词试跑(报告/三态/未完稿章),FAIL 即回步骤 1–4
+  novel.py task add checkpoint vol_NN → novel.py checkpoint vol_NN → task done <t>
     # F§16 checkpoint 行: 机检 报告存在+三态无残留+卷内无未完稿章;
     # 落盘 卷 checkpoint_at 标记 + 下卷 volume.md(缺则实例化)imports 预填
 7 novel.py task add design vol_{N+1} --note "卷庭"    # 开庭规程见 court.md §2/§3
@@ -123,4 +125,5 @@ spawn 数据分析(T-da): 附 新反馈文件、游标与近 10 章清单、revi
 
 ---
 
+*rev 3 · 2026-08-24 · publish/checkpoint 前置接 gate 谓词试跑(先判后写)。*
 *rev 2 · 2026-08-24 · retcon/report/checkpoint 全面 CLI 化;补 recap 维护步骤与 power 对账;与 formats.md rev 2 对齐。*
