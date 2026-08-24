@@ -5,7 +5,8 @@
 
 ## 0. 冷启动与会话纪律
 
-- 冷启动三步:`novel.py status`(读 dashboard)→ `novel.py task next` → 按本文时序干活。
+- 冷启动三步:`novel.py status`(读 dashboard)→ **`novel.py gate next`**(机器版调度剧本:修账>深评逾期>实体对账>发布缓冲>推进,直接照做)→ `novel.py task next` 取任务按本文时序干活。
+- 编排剧本的机器半边已入 CLI:各关口前先跑对应 `gate` 命令(下文步骤内标注),FAIL 即停——不允许「先干了再补检查」。
 - 每编排者会话处理 **≤8–10 个任务**(约 3–5 章)后轮换新会话;队列即记忆,零交接成本。轮换前把在跑任务收敛到可恢复点(commit 或 task note 记临时文件路径)。
 - worker 双产出与中间稿一律存**项目外**临时目录(如 `$TMPDIR/novel/<task_id>/`),防 git 污染;路径记入 task note 便于中断恢复。
 
@@ -18,24 +19,27 @@
       ——编排者唯一内容性动作;quality 档可委派架构师出草案(附录 T0),编排者仍负定稿
     novel.py task add write ch_NNNN
     排批参考: novel.py ledger payoff|promise|timeline(窗口欠账)、novel.py check --window(告警)
-1 novel.py task start <t>  ;  novel.py brief ch_NNNN        # 机械装配十节+溯源(F§6)
+1 novel.py task start <t>  ;  novel.py brief ch_NNNN        # 条目级预算装配+溯源(F§6)
 2 资料员审包: spawn T1 → 返回补漏/裁剪指令清单(资料员只读,不改文件)
 3 落简报: 编排者按指令修订 briefs/ch_NNNN.brief.md(溯源节追加一行 librarian_patch 摘要);
     确保基线干净后再进 4(§5 注)
-4 写手: spawn T2(只附简报这一个文件)→ 返回 正文 + writeback JSON 双产出
+4 写手闸门: novel.py gate write ch_NNNN     # 排批齐+简报在+git 基线净;FAIL=先修再 spawn
+  写手: spawn T2(只附简报这一个文件)→ 返回 正文 + writeback JSON 双产出
 5 提取: 双产出分存 <tmp>/ch_NNNN.md(信封+## 正文,F§5)与 <tmp>/ch_NNNN.writeback.json
 6 机检: novel.py check --unit ch_NNNN --candidate <tmp章> --writeback <tmp json>
-    # 对未落盘候选执行 staging 机检(novel.py 已支持);NEEDS_REVIEW 项转 7 轻评裁定
+    # 对未落盘候选执行 staging 机检(含抽取器对账:出场申报 vs 文本实测、新专名候选、
+    # 剧透泄漏候选,F§17);NEEDS_REVIEW 项转 7 轻评裁定
     不绿 → 输出并入 §2 修订循环(计一次修订)
 7 轻评: spawn T3(附:简报+候选正文+前章尾 500 字+后章任务卡+rubrics)→ verdict(F§12):
     pass     → 8
     revise   → §2 修订循环
     escalate → §3 升级
 8 提交: novel.py commit <t> --chapter <tmp章> --writeback <tmp json> -m "摘要"   # → drafted(F§16)
-    novel.py task done <t> --note "light=pass; <轻评要点一行>"   # 回执先落 note
-    novel.py tree set-status ch_NNNN approved       # 轻评 pass + check 绿(F§3)
-      # CLI 校验回执(P1-5):reviews/ 有 verdict=pass、或任务 note 含 light=pass、
-      # 或 --evidence "<回执>";三者皆无 → 拒绝置 approved
+    novel.py review add ch_NNNN --depth light --verdict pass --note "<轻评要点一行>"
+      # 回执落盘 reviews/(rev_reviewed 自动=章当前 rev)——唯一认可载体,note 自证通道已删(F§12)
+    novel.py task done <t>
+    novel.py gate approve ch_NNNN                   # 复核:drafted+回执 rev 匹配+机检绿
+    novel.py tree set-status ch_NNNN approved       # 闸门同款校验,FAIL 即拒
 9 深评采样(§4) → lessons 摘录(§4)
 ※ 每个 worker 返回后先执行 §5 泄漏检查,再处理其产出。
 ```
@@ -53,7 +57,7 @@ if 仍 revise:
     # F§10: write/revise 同 target attempts 达限后,novel.py 自动追加 revise_design 任务(升级)
 ```
 
-- 已 commit 章的返修(深评/反馈发起):`novel.py task add revise ch_NNNN --note "<来源 review id>"`,走同一链路;commit 走 revise 行(章 rev+1,F§16)。**published 章不可 revise**——走 serial-ops.md §3 retcon。
+- 已 commit 章的返修(深评/反馈发起):`novel.py task add revise ch_NNNN --note "<来源 review id>"`,走同一链路;commit 走 revise 行(章 rev+1;台账与日志撤销重放零双计,F§9/§16)。**revise 后旧回执自动失效**(rev_reviewed 不再匹配)——须复评再 `review add` 才能重新 approved。**published 章不可 revise**——走 serial-ops.md §3 retcon。
 
 ## 3. escalate 升级(开设计修订任务)
 
@@ -79,7 +83,7 @@ novel.py commit <t> --file <tmp review>  ;  novel.py task done <t>
 # verdict=escalate → novel.py 自动开 revise_design(F§16);verdict=revise → §2 返修任务
 ```
 
-- 轻评报告默认**不单独落盘**:pass 记 task note;revise/escalate 的问题清单作为修订/升级输入即可。确需存证时,按 F§12 格式(depth: light)另开 review_deep 任务落盘 reviews/。
+- 轻评结论一律经 `novel.py review add` 落盘 reviews/(P0-2 收紧,F§12):pass 是 approved 闸门的唯一回执;revise/escalate 的问题清单同时作为修订/升级输入。
 
 ## 5. 泄漏检查(每个 worker 返回后,强制)
 
@@ -100,7 +104,7 @@ F§18 原文:
 中断恢复: 同款清理未提交内容;任务回 pending 重跑(临时文件按 task note 路径找回,找不到则整任务重跑)
 ```
 
-注:检查有效的前提是 **spawn 时基线干净**——编排者附笔只在 commit 前一刻写;`novel.py brief` 若留下未提交改动(其 git 语义未在 F§15 定义),spawn 写手前先以 `git add`+`git commit`(message `[<t>] brief(ch_NNNN): 编译+补漏`)入库留痕。
+注:检查有效的前提是 **spawn 时基线干净**——编排者附笔只在 commit 前一刻写;`novel.py brief` 生成后自动 git commit,人工修订简报后同样入库留痕(message `[<t>] brief(ch_NNNN): 编译+补漏`)。`gate write` 把「基线干净」做成机器谓词,spawn 前必过。
 
 ## 6. 成本档位落地表(config.preset,F§13)
 
@@ -169,4 +173,5 @@ anti-plagiarism.md、**power.md(必附:战力预算与越阶配额对账)**。
 
 ---
 
+*rev 3 · 2026-08-24 · gate 版:冷启动接 gate next;步骤 4/8 接 gate write/approve;回执一律 review add 落盘(note 通道删除);机检说明补抽取器对账。*
 *rev 2 · 2026-08-24 · 步骤 8 回执顺序对齐 P1-5;泄漏检查补 check --leak 机械半边;T4 必附 power 卡;spawn 路径去硬编码。*

@@ -28,15 +28,19 @@
 | payoff_realized ⊆ quota 且章号匹配 | 数 quota 条数；核 id 中的章号 | 高 |
 | hooks_realized.close（web 强制） | 核 writeback；false 时 issues 必须说明 | 高 |
 | published 连续性 | 排 chapters/ 目录，确认 published 无空洞 | 高 |
-| 时间线 elapsed 非负 | 查 `ledgers/timeline.tsv` 第三列 | 高 |
+| 时间线 elapsed 非负 | 查 `ledgers/timeline.tsv` elapsed 列 | 高 |
+| story_date 不倒流 | timeline.tsv 按章号排序，story_date 逐行只增不减 | 中 |
+| 出场申报 vs 文本实测（抽取器） | 对 cast_actual 每个实体，拿其别名在正文搜一遍；再反向抽正文引号内反复出现的名字查登记 | 中（低召回） |
 | facts/retcon 引用完整 | retcons[] 的 old_fact_id 逐条回查 facts[] | 中 |
 | 必需标题节齐全（design 定稿前） | 对照 formats §4 节名清单逐节核对 | 高 |
-| 3 章/10 章爽点窗口 | 翻 `ledgers/payoff.tsv` 手数 realized | 中（章多后极易错） |
+| 3 章/10 章爽点窗口 | 翻 `ledgers/payoff.tsv` 手数 realized（只数各章最新 rev 行） | 中（章多后极易错） |
+| approved 回执 | 手写 `reviews/ch_NNNN.light.md`（formats §12 键集，rev_reviewed=章当前 rev）；set-status 前核对 | 高 |
 
 人工替代 CLI 回写动作（commit 的落盘副作用，全部要手做，漏一项台账即断）：
 实体事件日志追加、线索推进日志+state 迁移+plant_ch 回填、payoff/timeline/power 台账
-追加、**facts 登记（自 continuity_delta 手工分配递增 fact_id 写入
-`ledgers/facts/vol_NN.json`）**。
+追加（**行尾带 rev 列**；revise 时旧行留着、追加新 rev 行，读数只认最新 rev——
+实体/线索日志则须先删本章旧行再追加）、**facts 登记（自 continuity_delta 手工分配
+递增 fact_id 写入 `ledgers/facts/vol_NN.json`；revise 先剪本章旧事实）**。
 
 ## 2. 无 shell 时直接丢失的能力（不可判定项，须向用户明示）
 
@@ -48,8 +52,10 @@
 | 队列自动化（blocked 解锁/fail 升级/归档） | 依赖关系靠人脑，长队列必错 | 队列保持 ≤10 条 |
 | brief 机械装配与预算裁剪 | 简报靠手抄，溯源与预算不可保证 | 按 formats §6 十节清单手工装配 |
 | facts 冲突扫描 | 同实体矛盾候选无人提示 | 写入前人工回读该实体全部 facts |
-| 泄漏扫描（check --leak） | 已登记专名的机械比对丢失 | 轻评人工抽查 |
-| git 事务与工作区清洁检查 | 无回滚、无泄漏检查基线 | `.bak` 副本 + 单写者纪律自觉 |
+| 泄漏扫描（check --leak）与抽取器对账 | 已登记专名机械比对、未申报出场、剧透泄漏候选全丢 | 轻评人工抽查（§1 表内的手工版召回极低） |
+| rollup 自动卷积 | 弧/卷级前情摘要断供，远章简报只剩 recap | recap.md 手工勤更（每 ~10 章一段） |
+| gate 剧本与前置谓词 | 「先修账再写作」的调度纪律回到人脑 | 每会话开工前把 formats §17 清单扫一遍 |
+| git 事务与原子提交（state/txn） | 崩溃后半事务无人检出，台账悄悄断账 | `.bak` 副本 + 单写者纪律自觉 |
 
 **结论**：无 shell 属**有损降级**。协议与文件契约可继续执行，但一致性保障从
 "机器强制"退化为"人工尽力"。编排者必须在项目启动时向用户声明上表损失

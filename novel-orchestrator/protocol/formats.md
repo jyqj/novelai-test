@@ -47,10 +47,11 @@
   data/compliance/          # 平台合规材料:敏感词表/审核规范/申诉记录(自由格式,
                             # safety-auditor 与发布前自查按需读取,编排者只读)
   tasks/queue.json  tasks/archive.json      # archive = task archive 归档的 done 任务
-  state/index.json  dashboard.md  ngram_cache.json   # 生成物,禁止手改
+  state/index.json  dashboard.md  ngram_cache.json  rollup.json   # 生成物,禁止手改
+  state/txn/                # 原子提交事务日志(txn_begin/txn_end;done=false 残留 = 半事务,fsck 检出)
   state/reports/vol_NN.md   # 卷报告(report volume 生成;唯一可编辑处=对账三态标注)
   state/court/              # 庭审中间态工作区(R0 简报/R1 提案/R2 评审/R3 主编稿,
-                            # 按场次建子目录;中断恢复用,永不入简报召回,checkpoint 后可清)
+                            # court open/status/close 机械管理;中断恢复用,永不入简报召回)
   corpus/                   # 用户自备范文(可空)
 ```
 
@@ -68,7 +69,7 @@
 | kind | 枚举 | 说明 |
 |---|---|---|
 | book/volume/arc/world/style | `empty → draft → committed`;另 `stale / archived` | committed=设计庭/简流程定稿 |
-| chapter | `planned → drafted → approved → published`;另 `stale / archived` | drafted=写手落盘;approved=轻评 pass+check 绿;published=不可变 |
+| chapter | `planned → drafted → approved → published`;另 `stale / archived` | drafted=写手落盘;approved=**落盘回执**(§12)+check 绿;published=不可变 |
 | entity/thread/decision/review | `active / archived` | 线索业务状态另见 §8 `state` |
 
 **迁移纪律**:`draft→committed` 由编排者经 `novel.py commit` 执行;`committed→stale` 由 revise_design 波及标记;`published` 不可改,变更走 retcon(§9 facts);`stale` 节点修复后回原 status。
@@ -123,20 +124,22 @@ frontmatter:`id: brief_ch_0212`, `kind: review` 除外——用 `kind: brief` �
 固定十节:
 
 ```
-## 0 任务卡            (task.json 渲染)
-## 1 文风与禁忌        (style.md 摘录 + 范文锚)
-## 2 直接上文          (前章尾 500 字原文 + 前 3 章 summary_after)
-## 3 出场实体状态卡    (cast 对应实体卡的 设定要点+现状+最近3条事件)
-## 4 活跃线索          (active ∩ 本卷 或 payoff_planned 命中;spoiler>0 项前缀【读者未知,只可潜台词】)
-## 5 弧内位置          (弧因果链位置 + 前后章一句话目标)
-## 6 相关事实与设定    (facts 实体键查,superseded 者连带 retcon;world.md 相关规则条目)
-## 7 写作提示          (≤60 行;按主导内容类型选配)
-## 8 回写契约          (meta.json schema 原文 + 提交格式说明)
-## 附 溯源             (表:资产|rev|用途——本简报引用的每个文件)
+## 0 任务卡            (task.json 渲染;must-not-drop)
+## 1 文风与禁忌        (叙述基准+口癖禁忌 must;比喻纪律/范文锚可裁)
+## 2 直接上文          (前章尾 500 字+前 3 章 summary_after must;弧/卷 rollup 与 recap 可裁)
+## 3 出场实体状态卡    (声纹速查块+现状+最近3事件 must;「设定要点」可裁——先裁非主角)
+## 4 活跃线索          (任务卡 threads ∪ must_not_drop 线 must;scope/payoff 临近命中可裁)
+## 5 弧内位置          (弧因果链 + 前后章位置;可裁)
+## 6 相关事实与设定    (facts 实体键查逐条记分,superseded 者连带 retcon;world 规则;可裁)
+## 7 写作提示          (route 选配纪律速记 + lessons 尾 5 条;可裁)
+## 8 回写契约          (meta.json schema 原文;must-not-drop)
+## 附 溯源             (表:资产|rev|用途 + 裁剪留痕行)
 ```
 
-预算:超 `brief_budget_chars` 时按 7→6→4→3 顺序裁剪并在溯源节留痕(第 3 节为末位:只裁实体卡「设定要点」,保留现状与最近事件)。已存在则 `brief_rev+1` 重写(git 保历史)。
-第 2 节尾部注入 `ledgers/recap.md` 尾 12 行(存在且非空时);第 4 节召回=任务卡 threads ∪ live 态线中(must_not_drop ∪ volume_scope 含本卷 ∪ payoff_planned 命中本卷或 ≤15 章内,后者加【payoff 临近】标记);第 7 节按 `config.route` 切换 web/traditional 提示组。
+**条目级预算(P1-2)**:每个内容条目带优先级分与 must-not-drop 标记;超 `brief_budget_chars` 时从**最低分条目**逐条裁起(非整节丢弃),裁剪逐项记入对应节内提示行与溯源表。must-not-drop 集(永不裁):任务卡、回写契约、叙述基准+口癖禁忌、前章尾+summary 链、声纹速查、实体现状+最近事件、任务卡指定线与 must_not_drop 线。fact 条目按 时近(≤30 章 +10)/键位(+3)/retcon 连带(+5) 加分。已存在则 `brief_rev+1` 重写(git 保历史)。
+记忆分层(§2):近景=前章尾 500 字+前 3 章 summary 链(must);中景=本弧 rollup 行(距今 >3 章的章级卷积);远景=卷级 rollup 行+`ledgers/recap.md` 尾 12 行——距离越远颗粒越粗,百万字仍在预算内。
+**声纹速查(P1-3)**:cast 各实体卡「设定」内声纹条目(口癖/句式/禁词/例句)抽出为 §3 首个独立块,must-not-drop——设定可裁,声纹不裁(防千人一腔)。
+第 4 节召回=任务卡 threads ∪ live 态线中(must_not_drop ∪ volume_scope 含本卷 ∪ payoff_planned 命中本卷或 ≤15 章内,后者加【payoff 临近】标记);第 7 节按 `config.route` 切换 web/traditional 提示组。
 
 ## 7. 实体卡 entities/*.md
 
@@ -168,9 +171,11 @@ frontmatter:`id`, `kind: thread`, `thread_kind: fuse|subplot|relationship|myster
 
 ## 9. 台账(novel.py 独占维护)
 
-- `ledgers/timeline.tsv`:`chapter	story_date	elapsed	note`
-- `ledgers/payoff.tsv`:`chapter	payoff_id	kind	intent	realized`(0/1)
-- `ledgers/power.tsv`:`chapter	entity	from	to	note`(commit 自 writeback 可选 `power_delta` 追加;`check --window` 对近 10 章同实体 ≥3 次变动告警;设定审计/深评按 rubrics/power.md 对账卷预算)
+- `ledgers/timeline.tsv`:`chapter	story_date	elapsed	note	rev`
+- `ledgers/payoff.tsv`:`chapter	payoff_id	kind	intent	realized	rev`(realized 0/1)
+- `ledgers/power.tsv`:`chapter	entity	from	to	note	rev`(commit 自 writeback 可选 `power_delta` 追加;`check --window` 对近 10 章同实体 ≥3 次变动告警;设定审计/深评按 rubrics/power.md 对账卷预算)
+
+**(chapter, rev) 语义(P0-1)**:三张 TSV 文件本体 append-only(revise 追加新 rev 行,旧行保留为审计痕);一切**读取**(ledger 视图/check/深评统计)按 (chapter) 分组只取**最新 rev** 行——修订零双计。实体「事件日志」与线索「推进日志」在 revise commit 时先**撤销重放**:剔除本章旧 rev 行(实体 last_event_ch 回退、线索 state 以剩余日志重推),再追加新 rev 贡献——终态线(paid_off)在修订裁决撤回 payoff op 后可合法回到 active。facts 先剪后登:剪除本章旧 rev 登记的未被引用事实(fact_id 不复用),再登新 delta。
 - `ledgers/facts/vol_NN.json`(**commit 自动登记**:自 continuity_delta 分配全局递增 `fact_id` 写入本章所属卷文件,同文同章去重;`key` 可选,继承自 delta):
 
 ```json
@@ -207,7 +212,8 @@ transcripts 归档 `court/transcripts/`,**永不进入简报召回**。
 
 frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass|revise|escalate`, `rev_reviewed`(章 rev), `date`。
 节:`## 问题清单`(`- [定位≤20字] 问题 → 建议`,revise 时每条须可执行);`## 教训`(可选,编排者摘入 lessons)。
-落盘规则:deep 必落盘(commit type=review_deep);light 默认不落盘(结论记任务 note),verdict=revise|escalate 或需存证时按 review_deep 行为落盘、frontmatter `depth: light`。
+**落盘规则(P0-2 收紧)**:一切评审结论必须落盘 reviews/——轻评 pass 用 `novel.py review add <ch> --depth light --verdict pass [--note 要点]`(rev_reviewed 自动取章当前 rev);deep 经 commit type=review_deep 落盘。任务 note 的 `light=pass` 与 `--evidence` 自证通道**已删除**。
+**approved 闸门**:`tree set-status <ch> approved` 仅认 reviews/ 文件且 `verdict=pass ∧ rev_reviewed == 章当前 rev`——章 revise 后旧回执自动失效(打印过期告警),须对新 rev 复评。回执引用写入章 frontmatter `approved_evidence`。
 
 ## 13. config.json(init 默认)
 
@@ -218,7 +224,7 @@ frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass
  "approvals":{"book_commit":true,"volume_commit":true,"publish":true,"checkpoint":true},
  "unattended":false,"reconcile_every":10,"brief_budget_chars":24000,
  "volume_defaults":{"arcs":[5,12],"chapters":[80,250]},
- "ngram_window_chapters":30}
+ "ngram_window_chapters":30,"ngram_archive_sample":400}
 ```
 
 `route ∈ {web, traditional}`:traditional 差分(无 buffer/publish、章尾钩与爽点窗口降级、简报 §7 提示切换)见 `modes/route-traditional.md`;`check`/`brief` 按此键自动切换。(历史注:早期草案含 `models` 键为各角色预留模型档位,从未被读取,已删除;角色模型选择属产品层配置,不入项目 config。)
@@ -227,7 +233,9 @@ frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass
 
 - `state/index.json`:`{generated_at, nodes[], chapters[], entities[], threads[], tasks:{pending,blocked,head}, cursor:{last_published,last_drafted,last_approved}, last_deep_review_ch, warnings[]}`(nodes 含 id/kind/status/rev/parent/path;chapters 含 id/status/rev/parent/mtime——mtime 用于 `status` 的章级增量重算,未变更章直接复用旧条目)
 - `state/dashboard.md` 段落:项目一行(含深评游标与逾期提醒)· 树进度表(卷|状态|弧|章数)· 树节点 · 章按状态 · 队列头 5 条 · 告警(check --window 摘要)· 最近 3 次 git commit
-- `state/ngram_cache.json`:`{"ch_0210": {"n12": […], "n8": […]}}` 两级指纹,保留最近 `ngram_window_chapters` 章,commit 更新(旧版扁平数组格式读取时视为 n12,兼容)
+- `state/ngram_cache.json`:分层指纹(P2-4)——窗口内(最近 `ngram_window_chapters` 章)`{"n12": […], "n8": […]}` 两级全量;窗口外降级为归档层 `{"n12s": […]}`(12-gram 稳定降采样 ≤`ngram_archive_sample` 条/章,不留 n8)。12 字级自我复读检测覆盖**全史**而体积有界;commit 更新(旧版扁平数组格式读取时视为 n12,兼容)
+- `state/rollup.json`:自动摘要卷积(P1-1)——`{arcs: {arc_id: {vol, span, lines[]}}, volumes: {vol_id: [弧一行摘要…]}}`;弧级=各成稿章 summary_after 首句,卷级=各弧首末摘要压缩;commit/adopt/facts import 后重算,brief §2 注入为远程记忆层
+- `state/txn/txn_*.json`:原子提交事务日志——多文件落盘前写 `done=false`,全部写完置 `done=true`(保留最近 20 份完成事务);`done=false` 残留 = 半事务,`fsck`/`check --project` FAIL,恢复=按 §18 reset 未提交内容后删除 journal
 - `state/reports/vol_NN.md`:`report volume` 生成;**例外**——「exports 对账」节的三态标注(`[待对账]` → `[兑现 ch_NNNN]|[移交]|[废止 dec_xxx]`)由编排者手工编辑,checkpoint 机检
 - `state/court/`:庭审中间态工作区(非生成物,编排者按场次存 R0–R4 中间产物;见 court.md §3)
 
@@ -239,8 +247,8 @@ novel.py status                           # 重算 index+dashboard(章级增量)
 novel.py tree add <kind> <id> [--parent P]   # 由模板实例化空壳节点(volume|arc|chapter)
 novel.py tree show [id]
 novel.py tree set-status <id> <status> [--evidence E]
-                                          # 含迁移合法性校验;chapter→approved 需评审 pass 回执
-                                          # (reviews/ 文件、任务 note 含 light=pass、或 --evidence)
+                                          # 含迁移合法性校验;chapter→approved 仅认 reviews/ 落盘回执
+                                          # (verdict=pass ∧ rev_reviewed=章当前 rev;先 review add)
 novel.py task add <type> <target> [--note N] [--blocked-on t_x] [--evidence E]
 novel.py task next|list [--state S]       # next 附深评逾期提醒;blocked 依赖完成自动解锁
 novel.py task start|done|fail|reset <id> [--note N]   # reset: failed/running → pending
@@ -260,7 +268,21 @@ novel.py retcon <old_fact_id> --new … --strategy reconcile|fade_out|explicit_f
 novel.py report volume <vol_NN>           # 卷报告汇编 → state/reports/vol_NN.md(exports 预标 [待对账])
 novel.py checkpoint <vol_NN>              # 卷末结账:报告存在+三态齐+卷内无未完稿章 → 卷标记+下卷 imports 预填
 novel.py adopt <file> --as ch_NNNN [--parent arc] [--title T]   # 外部文稿收编(protocol/adopt.md)
-novel.py fsck                             # = check --project
+novel.py review add <ch_id> --depth light|deep --verdict pass|revise|escalate
+                    [--note N] [--rev R]  # 评审回执落盘 reviews/(rev 默认=章当前 rev);review list
+novel.py facts import <ch_id ...>         # adopt 补录机械半边:自 meta.json continuity_delta
+                                          # 分配 fact_id 入账(幂等可重跑);facts list [--entity E]
+novel.py extract <ch_id> [--candidate F] [--writeback F]
+                                          # 抽取器独立入口:正文反向解析+对账(双记账机器半边)
+novel.py gate next                        # 机器版编排剧本:按优先级输出下一步(修账>深评>对账>推进)
+novel.py gate write|approve <ch_id>       # 前置谓词闸门(只判不写):write=排批齐+简报在+基线净;
+                                          #   approve=drafted+落盘回执 rev 匹配+机检绿
+novel.py gate publish <ch_from> [<ch_to>] # publish 前置谓词试跑(不落盘)
+novel.py gate checkpoint <vol_NN>         # checkpoint 前置谓词试跑(不落盘)
+novel.py court open <场次> --node <节点>  # 建 state/court/<场次>/ + R0 简报骨架
+novel.py court status                     # 盘点活跃场次与回合产物
+novel.py court close <场次> --dec dec_id  # 校验裁决已落盘 court/ 后清理场次工作区
+novel.py fsck                             # = check --project(含半事务检出)
 ```
 
 reconcile 汇总仍按 serial-ops §5 由编排者执行(`entity due` + `entity update` 已覆盖机械部分)。`status` 重算 index/dashboard;其余命令按需读取。项目根定位:cwd 向上探测或 `--root`。实现覆盖表与差异细节见 `tools/README.md`。
@@ -269,9 +291,9 @@ reconcile 汇总仍按 serial-ops §5 由编排者执行(`entity due` + `entity 
 
 | type | 输入 | 校验(全过才落盘) | 落盘动作 |
 |---|---|---|---|
-| write | `--chapter`(信封+##正文) `--writeback`(json) | `check --unit` 绿;task.json 存在;writeback schema;**引用越权=拒绝**(cast_actual/delta/thread_ops/power_delta 的实体线索必须已登记,thread 迁移必须合法);hooks_realized.close=true(config 网文默认);payoff_realized ⊆ quota 且章号匹配 | 章 md(status=drafted)+meta.json;实体事件日志追加;**facts 登记**(自 continuity_delta 分配 fact_id 写 ledgers/facts/vol_NN.json);thread 推进日志+state+plant_ch 回填;payoff/timeline/power 台账;ngram_cache(两级);git commit |
-| revise | 同 write | 同 write;目标章非 published | 章 rev+1,余同(facts 同文同章去重,不重复登记) |
-| design | `--file F ...`(节点 md;**可附带**裁决记录 dec_*.md、新实体卡、transcript) | 主文件必需节齐全非空;信封合法;附带文件各按其 kind 校验。**`--draft`** 例外:跳过必需节校验,节点以 status=draft 部分落盘(书庭中间态持久化,不算定稿,不触发 stale) | 全部落盘(节点 committed;--draft 时 draft);git 一次提交 |
+| write | `--chapter`(信封+##正文) `--writeback`(json) | `check --unit` 绿;task.json 存在;writeback schema;**引用越权=拒绝**(cast_actual/delta/thread_ops/power_delta 的实体线索必须已登记,thread 迁移必须合法);hooks_realized.close=true(config 网文默认);payoff_realized ⊆ quota 且章号匹配 | **事务包裹(txn_begin→…→txn_end)**:章 md(status=drafted)+meta.json;实体事件日志追加;**facts 登记**(自 continuity_delta 分配 fact_id 写 ledgers/facts/vol_NN.json);thread 推进日志+state+plant_ch 回填;payoff/timeline/power 台账(带 rev 列);ngram_cache(分层);rollup 重算;git commit |
+| revise | 同 write | 同 write;目标章非 published;**thread 迁移按撤销后剩余日志模拟**(本章旧 op 剔除再验) | 章 rev+1;**先撤销后重放(§9)**:实体事件日志/线索推进日志剔除本章旧行,facts 先剪后登,TSV 追加新 rev 行;余同 write |
+| design | `--file F ...`(节点 md;**可附带**裁决记录 dec_*.md、新实体卡、transcript) | **两遍制**:第一遍全部文件校验(主文件必需节齐全非空;信封合法;附带文件各按其 kind 校验),任一失败=零落盘;第二遍事务内写入。**`--draft`** 例外:跳过必需节校验,节点以 status=draft 部分落盘(书庭中间态持久化,不算定稿,不触发 stale) | 全部落盘(节点 committed;--draft 时 draft);git 一次提交 |
 | revise_design | `--file F ...` + task.evidence 非空 | 同上 + evidence | 落盘;**受影响下游沿 parent 链递归标 stale(卷→弧→章)**;git |
 | review_deep | `--file`(review md) | frontmatter 合法 | 落 reviews/;verdict=escalate 时自动开 revise_design 任务 |
 | reconcile | `--file`(实体现状节) | 目标实体存在 | entity update;last_reconcile_ch=游标 |
@@ -284,10 +306,10 @@ git 提交消息:`[t_000231] write(ch_0212): 摘要`。
 
 ## 17. check 断言集
 
-**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章两级指纹**——12-gram 精确重复(防句级套话)WARN + 单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
-**--window [--since CH]**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ live)余额 ∈[2,5];promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;timeline elapsed 非负;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。
+**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
+**--window [--since CH]**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ live)余额 ∈[2,5];promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;**故事日历(P2-2)**——elapsed 中文数值化(「2天」「三个时辰」→天数)非负 FAIL、story_date(ISO 或中文日期)按章序单调不倒流 FAIL、`ledger timeline` 视图输出累计天数;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。台账读取一律 (chapter) 取最新 rev(§9)。
 **--leak <候选> --brief <简报>**:候选正文中出现、但简报未投递的**已登记专名**(aliases.json + 实体卡 aliases)→ FAIL(信息沙箱违规);未登记的新发明专名机器无法枚举 → NEEDS_REVIEW 交轻评(pipeline §5)。
-**--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;published 连续无空洞;必需标题节(§4);queue target 均存在。
+**--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;published 连续无空洞;必需标题节(§4);queue target 均存在;**半事务检出(P0-3)**——`state/txn/` 有 `done=false` journal → FAIL(上次 commit 中断,先按 §18 恢复)。
 
 ## 18. git 纪律
 
@@ -324,4 +346,5 @@ v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧�
 
 ---
 
+*rev 3 · 2026-08-24 · 内核重构对齐:台账 (chapter,rev) 语义与撤销重放(§9/§16)/回执收紧与 review CLI(§12)/原子提交 state/txn 与半事务检出(§14/§17)/简报条目级预算+声纹速查+rollup 记忆分层(§6)/抽取器对账与故事日历入 check(§17)/分层指纹(§14)/gate·court·facts·extract CLI(§15)。*
 *rev 2 · 2026-08-24 · 落地增补:facts 生产环/越权机检/线索状态机表/retcon·report·checkpoint·adopt CLI/两级 ngram/power·recap 台账/队列自动化/state.court 与 --draft/decision·review 机检;删除 models 死键与 legacy 引用。*

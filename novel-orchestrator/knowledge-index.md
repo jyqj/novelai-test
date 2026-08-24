@@ -135,8 +135,8 @@
 | 6.8 | 从内向外写作检查 | K-WRITE-009 |
 | 6.9 | （action 章）打斗场面技法 | K-WRITE-019 |
 | 6.10 | 章内节奏与场景转换 | K-WRITE-020 |
-| 6.11 | 口癖与句式自查（每 5 章/critic 轮，对照 canon_style） | K-WRITE-018 |
-| 6.12 | 水字数自查与压缩（已入 contracts 白名单） | K-WRITE-021 |
+| 6.11 | 口癖与句式自查（每 5 章/深评轮，对照 tree/style.md 禁忌节） | K-WRITE-018 |
+| 6.12 | 水字数自查与压缩（判据已入 rubrics/prose-disease.md） | K-WRITE-021 |
 
 **阶段6产出物**：正文初稿
 
@@ -146,7 +146,7 @@
 
 ### 2.0 症状域枚举（diagnose 分类 → 小节路由）
 
-`run_diagnose` 的 `classify_symptom` 必须归入下列闭集之一（复合症状取 primary）；web 轨点分标签（源自 v1 连载手册 §11.2，现行定义见 `protocol/serial-ops.md` §6 反馈分类）按第三列归并。
+诊断时先把症状归入下列闭集之一（复合症状取 primary）；web 轨点分标签（源自 v1 连载手册 §11.2，现行定义见 `protocol/serial-ops.md` §6 反馈分类）按第三列归并。
 
 | domain id | 路由小节 | web 轨标签归并 |
 |-----------|----------|----------------|
@@ -227,7 +227,7 @@
 | 解说生硬 | 信息灌输 | 检查展示vs告诉 | K-WRITE-001, K-WRITE-002 |
 | 对话不自然 | 缺乏方向和目的 | 检查对话三原则 | K-WRITE-016 |
 | 描写空洞 | 抽象叙述 | 检查描写六要诀 | K-WRITE-017 |
-| 文风漂移 / AI 腔 / 口癖复读 | 黑名单未启用；句式单一 | 对照 canon_style（taboo_list + sample_passages）逐条扫描 | K-WRITE-018 + canon_style 对照 |
+| 文风漂移 / AI 腔 / 口癖复读 | 黑名单未启用；句式单一 | 对照 tree/style.md（口癖禁忌 + 范文锚）逐条扫描 | K-WRITE-018 + tree/style.md 对照 |
 | 打斗糊，流水账 | 景别单一；招式堆砌；无环境互动 | 检查镜头节拍与招式经济 | K-WRITE-019, K-WORLD-022 |
 | 章内平铺直叙 | 微结构缺失 | 检查三段钩/转场四法/起承转合配比 | K-WRITE-020 |
 | 闪回失败 | 闪回不是独立场景 | 检查闪回原则 | K-WRITE-005 |
@@ -248,8 +248,8 @@
 | 症状 | 可能原因 | 诊断路径 | 解决方案块 |
 |------|----------|----------|-----------|
 | 开篇留不住人 | 三道弃读门失守；开篇微结构平 | 检查前 3 秒/300 字/3 章三道门 | K-CONCEPT-020, K-WRITE-020（激励事件与卖点另查 K-STRUCT-008, K-CONCEPT-001） |
-| 章末无力，弃读章（`webnovel.hook`） | 章尾钩缺失或同型连用 | 对照 ChapterPlan.hooks 与钩型轮换 | K-WRITE-011, K-WRITE-020 |
-| 爽点空转/长期无释放（`webnovel.payoff`） | 触发条件不满足；密度失守；期待链断裂 | 对照 payoff_entries 台账与期待账户 | K-STRUCT-020, K-STRUCT-021 |
+| 章末无力，弃读章（`webnovel.hook`） | 章尾钩缺失或同型连用 | 对照任务卡 hook 与钩型轮换 | K-WRITE-011, K-WRITE-020 |
+| 爽点空转/长期无释放（`webnovel.payoff`） | 触发条件不满足；密度失守；期待链断裂 | 对照 ledgers/payoff.tsv 台账与期待账户 | K-STRUCT-020, K-STRUCT-021 |
 | 正文水字（句段级注水） | 复述已知/无新值对话/静描超限 | 按四条水字判据扫描 | K-WRITE-021 |
 | 水字数（支线无方向） | 支线未收束、脱离主线 | 检查支线管理 | K-CONCEPT-012, K-CONCEPT-010 |
 | 卷间疲软，新卷掉量 | 价值接力断档；期待清零；下任反派未预埋 | 检查卷级接力与重置期操作 | K-STRUCT-022（反派预埋另见 K-CHAR-012） |
