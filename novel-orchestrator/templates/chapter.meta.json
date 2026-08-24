@@ -6,6 +6,7 @@
   "payoff_realized": ["[payoff_0001_1]"],
   "hooks_realized": {"open": true, "close": true},
   "cast_actual": ["[char_slug]"],
+  "power_delta": [],
   "issues": [],
   "word_count": 0
 }

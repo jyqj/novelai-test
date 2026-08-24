@@ -9,6 +9,5 @@
   "reconcile_every": 10,
   "brief_budget_chars": 24000,
   "volume_defaults": {"arcs": [5, 12], "chapters": [80, 250]},
-  "models": {"writer": "", "critic": "", "reader": ""},
   "ngram_window_chapters": 30
 }
