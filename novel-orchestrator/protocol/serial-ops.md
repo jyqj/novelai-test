@@ -1,0 +1,119 @@
+# serial-ops.md — 连载运营协议(编排者操作手册)
+
+> 依据 spec §5.6/§10;buffer/发布顺序谓词/retcon/卷末 checkpoint 教义迁移自 `legacy/runtime/web-serial-playbook.md`(**只迁思想,不迁机制**);格式与 CLI 以 `protocol/formats.md`(F§n)为准。
+
+## 1. buffer 语义与水位动作表
+
+- **ready(存稿)** = `status=approved ∧ 章号 > cursor.last_published` 的章数;真值由 `novel.py status` 的 dashboard/index 给出(F§14),**不手数**。
+- 配置:`buffer.target`(默认 3)、`buffer.min_before_publish`(默认 1)(F§13)。
+- 教义:发布节奏与写作节奏解耦;存稿章必须是 approved,禁以 drafted 充发布。
+
+| 水位 | 动作 |
+|---|---|
+| ready ≥ target | 可稳定发布;富余产能投给深评/对账轮/远期设计任务 |
+| 1 ≤ ready < target | 优先排 write 批补稿;发布减速;暂停 revise_design 类大改 |
+| ready = 0 | 停发或降频;只跑 write 与必要排批;**禁硬写空转章充数** |
+| 首发 | ready ≥ min_before_publish 方可首次 publish |
+| 结构性堵塞(连章 revise/escalate) | 先深评归因(pipeline.md §4)再动工,不以量补质 |
+
+## 2. publish(发布)
+
+- **连续性谓词**(F§16):发布区间必须构成**自 `last_published+1` 起的连续区间**;乱序/跳章 → novel.py 退出码 1 拒绝并指出缺口章号;无绕过开关。
+- **审批**(F§19):`approvals.publish=true` → 呈报区间+各章标题+发布后 buffer 余量,用户当轮确认;`unattended=true` → 照常执行,task note 记 `pending_human_review` 留痕。
+
+```
+用户「发布 1–N」/ 计划发布到期:
+  novel.py task add publish ch_NNNN --note "至 ch_MMMM"   # 计划性发布入队;用户当轮口头指令可免
+  前置自检: novel.py status(ready/缺口/告警;必要时 novel.py check --window)
+  审批(如上)→ novel.py publish <ch_from> [<ch_to>]        # 各章 approved→published(F§16)
+  novel.py task done <t>  ;  novel.py status 复核游标与 buffer
+拒绝速查: 区间含非 approved 章 | 区间不连续/有缺口 | 首发 buffer 不足 → 按 §1 补稿或改区间重试
+```
+
+## 3. retcon(已发布不可变)
+
+教义:`published` 章的正文与既有事实**不可变更**(F§3);v2 **无解锁路径**。一切已发布内容问题在 **facts 层**做向前兼容:后续章按新事实写,旧文一字不动。
+
+```
+发现渠道: 轻评/深评问题清单 | 读者反馈(§6) | novel.py fsck / check --project 悬空引用
+流程:
+  1 编排者写裁决记录 dec_NNN_{slug}.md(F§11:何错/为何不改旧文/选何策略)
+      ——附笔,随本任务 commit 前一刻写入,同事务入库(court.md §3 附笔纪律)
+  2 novel.py task add retcon <fact_id> --note "<dec_id>"
+  3 novel.py retcon --old <fact_id> --new "…" --strategy S --decision <dec_id>
+      # S ∈ reconcile|fade_out|explicit_fix(F§9);old_fact 或 decision 不存在 → 工具拒
+  4 novel.py task done <t>
+效果: 旧 fact 填 superseded_by;此后简报第 6 节命中该实体自动连带 retcon 条目(F§9 纪律)
+      ——写手无需被通知,包内自带;strategy=explicit_fix 时,编排者在最近一次排批的
+      task.json beats 中排入「文内圆回」拍。
+禁: 重写已发布正文 | 删改 facts 既有记录 | 未发布章误走 retcon(未发布 → pipeline.md §2 revise)
+```
+
+## 4. 卷末 checkpoint
+
+触发:卷内最后一章 approved(或用户宣布收卷)。**checkpoint 未完成不开下卷卷庭。**
+
+```
+1 novel.py report volume <n>          # 卷报告: exports 对账底稿+线索健康+战力变化+payoff 统计
+    (可先 novel.py check --project ; novel.py fsck 确认全仓一致)
+2 exports 逐条对账(编排者对照报告与台账),每条标三态:
+    兑现 — 卷内已落实,记支撑章号
+    移交 — 未兑现且仍要 → 写入下卷 imports 预填草案
+    废止 — 不再兑现 → 写 dec_NNN(理由+reopen_requires),防幽灵承诺复活
+3 卷级深评: novel.py task add review_deep <卷末章> → spawn critic-deep 卷级变体
+    (附件改为: 卷蓝图+卷报告+三态对账草案+active threads+ledger 统计;
+     判卷弧光兑现/未收线健康/期待账户/跨卷撞梗)
+    → lessons 附笔 → novel.py commit <t> --file <review>(pipeline.md §4 同款)
+4 呈报用户确认(卷报告+三态对账+深评要点);unattended=true → 执行+note: pending_human_review
+    (spec §5.6 要求此确认;F§13 approvals 无独立键,按 unattended 总开关降级)
+5 novel.py task add checkpoint vol_NN → novel.py commit <t>
+    # F§16 checkpoint 行: 校验 report 已生成+对账清单处理完;落盘 卷归档标记+下卷 imports 预填
+6 novel.py task add design vol_{N+1} --note "卷庭"    # 开庭规程见 court.md §2/§3
+```
+
+## 5. 实体对账轮(reconcile)
+
+节律:每 `reconcile_every` 章(默认 10,F§13)在批间隙跑一次;`novel.py entity due` 非空即应跑。
+
+```
+novel.py task add reconcile <游标章> --note "对账轮"
+novel.py entity due            # 名单: last_event_ch - last_reconcile_ch ≥ 阈值(F§7)
+spawn 资料员(对账变体,见下)→ 逐实体返回新「## 现状」节 + 别名增改清单
+for 实体 in 名单:
+  novel.py entity update <id> --file <tmp 现状节>   # 仅替换现状节,日志不动;记 last_reconcile_ch(F§7)
+别名增改 → 编排者附笔 entities/aliases.json,随本任务事务入库
+novel.py task done <t>
+```
+
+资料员对账变体 spawn:在 pipeline.md T1 骨架上,任务改为——「对下列实体:把事件日志合并进现状字段(固定键见 formats.md §7);发现别名漂移/新别名列出;产出=每实体一个『## 现状』节 + 别名清单」;其余(角色文件、只读权、通用尾注)不变。
+
+## 6. 读者反馈
+
+收件箱:`data/feedback/`(自由格式;用户或外部脚本投递,编排者只读不整理)。
+触发:用户转达「第 X 章读者说…」,或 `novel.py status` 后例行扫收件箱新文件。
+
+```
+spawn 数据分析(T-da): 附 新反馈文件、游标与近 10 章清单、reviews/ 近期 verdict 摘要、
+    ledger payoff|promise 统计输出
+→ 症状报告(最终回复): 症状 | 证据(引反馈原文+章号) | 归因假设 | 建议动作类型
+编排者按报告开任务(呈报用户后执行,spec §10):
+  设定/结构层问题 → novel.py task add revise_design <node> --evidence "<症状+反馈引用>"
+                     # 先过否决案台账(court.md §4),再出影响面报告
+  已发布事实错误 → §3 retcon 流程
+  未发布章质量   → novel.py task add revise ch_NNNN --note "<反馈要点>"
+  无动作         → 症状要点记 task note 归档,不动工(单条差评不足以立项)
+```
+
+**T-da 数据分析 spawn 模板**
+```
+你是数据分析。先读:skills/novel-orchestrator/roles/data-analyst.md
+附件:data/feedback/ 新文件、游标与章清单、近期评审 verdict 摘要、payoff/promise 统计。
+任务:把原始反馈翻译成症状(弃读点/爽点断供/人设崩/设定矛盾/节奏拖沓),逐条给证据与
+建议动作类型(revise_design|retcon|revise|无动作);不替编排者做裁决,不给改稿方案。
+产出:症状报告,按「症状|证据|归因假设|建议动作」四列逐条列。
+[通用尾注:产出只放最终回复;禁止写入任何文件、禁止执行任何写命令。]
+```
+
+---
+
+*rev 1 · 2026-08-13 · Wave1-A5;与 formats.md rev 1 对齐。*

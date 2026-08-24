@@ -1,0 +1,13 @@
+{
+  "preset": "standard",
+  "word_target": [2000, 4500],
+  "buffer": {"target": 3, "min_before_publish": 1},
+  "critic": {"light_every": 1, "deep_every": 5},
+  "approvals": {"book_commit": true, "volume_commit": true, "publish": true, "checkpoint": true},
+  "unattended": false,
+  "reconcile_every": 10,
+  "brief_budget_chars": 24000,
+  "volume_defaults": {"arcs": [5, 12], "chapters": [80, 250]},
+  "models": {"writer": "", "critic": "", "reader": ""},
+  "ngram_window_chapters": 30
+}
