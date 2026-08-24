@@ -127,7 +127,10 @@ def main():
             wbf.write_text(json.dumps(wb, ensure_ascii=False), encoding="utf-8")
             run(["commit", tid, "--chapter", str(cand), "--writeback", str(wbf),
                  "-m", "长程第 %d 章" % n], cwd=proj)
-            run(["task", "done", tid, "--note", "light=pass"], cwd=proj)
+            # P0-2 收紧：回执必须落盘（reviews/），note 自证通道已删除
+            run(["review", "add", cid, "--depth", "light", "--verdict", "pass"],
+                cwd=proj)
+            run(["task", "done", tid, "--note", "轻评要点一行"], cwd=proj)
             run(["tree", "set-status", cid, "approved"], cwd=proj)
             run(["publish", cid], cwd=proj)
 
@@ -139,9 +142,14 @@ def main():
         run(["check", "--project"], cwd=proj)
 
         cache = json.loads((proj / "state/ngram_cache.json").read_text(encoding="utf-8"))
-        must(len(cache) == 8, "ngram_cache 按窗口裁剪至 8 章（实际 %d）" % len(cache))
-        must(all(isinstance(v, dict) and "n12" in v and "n8" in v for v in cache.values()),
-             "两级指纹（n12+n8）齐全")
+        must(len(cache) == N_CH, "P2-4 分层保留：全史 %d 章指纹在册（实际 %d）"
+             % (N_CH, len(cache)))
+        full = [k for k, v in cache.items() if isinstance(v, dict) and "n12" in v]
+        arch = [k for k, v in cache.items() if isinstance(v, dict) and "n12s" in v]
+        must(len(full) == 8, "窗口内 8 章保全量两级指纹（实际 %d）" % len(full))
+        must(len(arch) == N_CH - 8 and all(len(cache[k]["n12s"]) <= 400 for k in arch),
+             "窗口外 %d 章降级为归档层（n12s ≤400/章）" % (N_CH - 8))
+        must(all("n8" not in cache[k] for k in arch), "归档层不留 n8（体积有界）")
 
         facts = json.loads((proj / "ledgers/facts/vol_01.json").read_text(encoding="utf-8"))
         ids = [f["id"] for f in facts["facts"]]

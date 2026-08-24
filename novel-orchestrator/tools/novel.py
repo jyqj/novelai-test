@@ -31,6 +31,7 @@ import argparse
 import datetime
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -253,6 +254,61 @@ def thread_next_state(state, op):
     return table.get(op, {}).get(state)
 
 
+def thread_ops_from_log(log_text, exclude_ch=None):
+    """从推进日志解析有序 op 流水（`- ch_NNNN: op …`）。exclude_ch 用于 (chapter,rev)
+    语义下剔除某章贡献（revise 前置校验/撤销重放）。"""
+    ops = []
+    for ln in (log_text or "").splitlines():
+        m = re.match(r"^-\s*(ch_\d{4})\s*:\s*(plant|advance|payoff|tangle|ready)\b",
+                     ln.strip())
+        if m and m.group(1) != exclude_ch:
+            ops.append(m.group(2))
+    return ops
+
+
+def thread_effective_state(th, exclude_ch=None):
+    """双记账读侧：线索状态 = 推进日志 op 有序重放（可排除某章）。
+    - dropped 是编排者手工终态（不经 op），直接保留；
+    - 日志无任何 op 时回退 frontmatter state（手工校正的 adopt 线）；
+    - 排除后日志为空（状态全由被排除章贡献）→ 回放基线 planted。"""
+    meta_state = th["meta"].get("state")
+    if meta_state == "dropped":
+        return "dropped"
+    log = get_section(th["body"], "推进日志") or ""
+    all_ops = thread_ops_from_log(log)
+    if not all_ops:
+        return meta_state
+    ops = thread_ops_from_log(log, exclude_ch=exclude_ch)
+    if not ops:
+        return "planted"
+    st = "planted"
+    for op in ops:
+        nxt = thread_next_state(st, op)
+        if nxt:
+            st = nxt
+    return st
+
+
+def strip_ch_lines(text, ch_id):
+    """剔除 `- ch_NNNN: …` 日志行（实体事件日志/线索推进日志的撤销半边）。"""
+    kept, removed = [], 0
+    for ln in text.splitlines():
+        if re.match(r"^-\s*%s\s*:" % ch_id, ln.strip()):
+            removed += 1
+            continue
+        kept.append(ln)
+    return "\n".join(kept), removed
+
+
+def dedup_latest_rev(rows):
+    """(chapter, rev) 语义的读侧物化去重：同章多 rev 行只保留最大 rev 的行
+    （revise 重提交 = 追加新 rev 行，读侧取代旧行；台账文件本身仍 append-only）。"""
+    max_rev = {}
+    for r in rows:
+        max_rev[r["chapter"]] = max(max_rev.get(r["chapter"], 0), r.get("rev", 1))
+    return [r for r in rows if r.get("rev", 1) == max_rev[r["chapter"]]]
+
+
 # ---------------------------------------------------------------- 项目对象
 class Project:
     def __init__(self, root):
@@ -385,8 +441,9 @@ class Project:
                 return t
         return None
 
-    # ---- 台账
-    def payoff_rows(self):
+    # ---- 台账（P0-1：(chapter,rev) 语义——文件 append-only，读侧按最大 rev 物化去重；
+    #      旧格式无 rev 列的行按 rev=1 兼容）
+    def payoff_rows(self, all_revs=False):
         f = self.p("ledgers", "payoff.tsv")
         rows = []
         if f.is_file():
@@ -395,10 +452,12 @@ class Project:
                 c = ln.split("\t")
                 if len(c) >= 5:
                     rows.append({"chapter": c[0], "payoff_id": c[1], "kind": c[2],
-                                 "intent": c[3], "realized": c[4].strip() == "1"})
-        return rows
+                                 "intent": c[3], "realized": c[4].strip() == "1",
+                                 "rev": int(c[5]) if len(c) > 5
+                                 and c[5].strip().isdigit() else 1})
+        return rows if all_revs else dedup_latest_rev(rows)
 
-    def power_rows(self):
+    def power_rows(self, all_revs=False):
         f = self.p("ledgers", "power.tsv")
         rows = []
         if f.is_file():
@@ -406,8 +465,24 @@ class Project:
                 c = ln.split("\t")
                 if len(c) >= 4:
                     rows.append({"chapter": c[0], "entity": c[1], "from": c[2],
-                                 "to": c[3], "note": c[4] if len(c) > 4 else ""})
-        return rows
+                                 "to": c[3], "note": c[4] if len(c) > 4 else "",
+                                 "rev": int(c[5]) if len(c) > 5
+                                 and c[5].strip().isdigit() else 1})
+        return rows if all_revs else dedup_latest_rev(rows)
+
+    def timeline_rows(self, all_revs=False):
+        f = self.p("ledgers", "timeline.tsv")
+        rows = []
+        if f.is_file():
+            for ln in read(f).splitlines()[1:]:
+                c = ln.split("\t")
+                if len(c) >= 3:
+                    rows.append({"chapter": c[0], "story_date": c[1].strip(),
+                                 "elapsed": c[2].strip(),
+                                 "note": c[3] if len(c) > 3 else "",
+                                 "rev": int(c[4]) if len(c) > 4
+                                 and c[4].strip().isdigit() else 1})
+        return rows if all_revs else dedup_latest_rev(rows)
 
     def facts_files(self):
         return sorted(self.p("ledgers", "facts").glob("*.json"))
@@ -532,7 +607,7 @@ def cmd_init(args):
         die("目标已是项目：%s" % root)
     for d in ("tree", "chapters", "briefs", "entities", "threads", "ledgers/facts",
               "court/transcripts", "reviews", "data/feedback", "data/compliance",
-              "tasks", "state/court", "state/reports", "corpus"):
+              "tasks", "state/court", "state/reports", "state/txn", "corpus"):
         (root / d).mkdir(parents=True, exist_ok=True)
     cfg = json.loads(read(TEMPLATES / "config.json"))
     cfg["name"] = args.name or root.name
@@ -541,9 +616,9 @@ def cmd_init(args):
     for t, dest in (("book.md", "tree/book.md"), ("style.md", "tree/style.md"),
                     ("world.md", "tree/world.md")):
         write(root / dest, instantiate(t, rep))
-    write(root / "ledgers/timeline.tsv", "chapter\tstory_date\telapsed\tnote\n")
-    write(root / "ledgers/payoff.tsv", "chapter\tpayoff_id\tkind\tintent\trealized\n")
-    write(root / "ledgers/power.tsv", "chapter\tentity\tfrom\tto\tnote\n")
+    write(root / "ledgers/timeline.tsv", "chapter\tstory_date\telapsed\tnote\trev\n")
+    write(root / "ledgers/payoff.tsv", "chapter\tpayoff_id\tkind\tintent\trealized\trev\n")
+    write(root / "ledgers/power.tsv", "chapter\tentity\tfrom\tto\tnote\trev\n")
     write(root / "ledgers/lessons.md", "# lessons（一行一课，编排者经 commit 附笔追加）\n")
     write(root / "ledgers/recap.md",
           "# recap（全局梗概；编排者维护：卷末 checkpoint 必更，期间每 ~10 章可追加）\n"
@@ -715,17 +790,30 @@ def next_task_id(q):
 
 # ---------------------------------------------------------------- tree
 def approval_receipt(proj, ch_id):
-    """P1-5：drafted→approved 需评审 pass 回执。查 reviews/ 与任务 note。"""
+    """P0-2（收紧）：drafted→approved 仅认 reviews/ 落盘回执——verdict=pass 且
+    rev_reviewed == 章当前 rev。任务 note 自证通道（light=pass 正则）已删除：
+    评审结论必须落盘（novel.py review add），闸门不接受口头/note 自我盖章。"""
+    p = proj.p("chapters", ch_id + ".md")
+    cur_rev = 1
+    if p.is_file():
+        meta, _ = parse_frontmatter(read(p))
+        cur_rev = (meta or {}).get("rev") or 1
+    stale = []
     for depth in ("light", "deep"):
         f = proj.p("reviews", "%s.%s.md" % (ch_id, depth))
-        if f.is_file():
-            meta, _ = parse_frontmatter(read(f))
-            if (meta or {}).get("verdict") == "pass":
-                return "reviews/%s.%s.md verdict=pass" % (ch_id, depth)
-    for t in proj.queue()["tasks"]:
-        if t.get("target") == ch_id and re.search(
-                r"(light|review|deep)\s*[=:]\s*pass", t.get("note", "")):
-            return "%s note「%s」" % (t["id"], t.get("note", "")[:60])
+        if not f.is_file():
+            continue
+        meta, _ = parse_frontmatter(read(f))
+        meta = meta or {}
+        if meta.get("verdict") != "pass":
+            continue
+        if meta.get("rev_reviewed") != cur_rev:
+            stale.append("reviews/%s.%s.md rev_reviewed=%s ≠ 章 rev=%s"
+                         % (ch_id, depth, meta.get("rev_reviewed"), cur_rev))
+            continue
+        return "reviews/%s.%s.md verdict=pass rev_reviewed=%s" % (ch_id, depth, cur_rev)
+    for s in stale:
+        print("[warn] 回执过期：%s（章已 revise，须对当前 rev 复评）" % s)
     return None
 
 
@@ -765,11 +853,13 @@ def cmd_tree(args):
             die("非法迁移：%s %s→%s（合法表见 protocol/formats.md §3）" % (args.id, old, new), 1)
         if kind == "chapter" and new == "approved":
             receipt = approval_receipt(proj, args.id)
-            if not receipt and not getattr(args, "evidence", None):
-                die("approved 需评审 pass 回执：reviews/%s.light|deep.md verdict=pass，"
-                    "或任务 note 含 light=pass，或 --evidence \"<回执>\"（pipeline §1 步骤 8）"
+            if not receipt:
+                die("approved 需落盘评审回执：reviews/%s.light|deep.md（verdict=pass 且 "
+                    "rev_reviewed=章当前 rev）。轻评结论用 novel.py review add 落盘；"
+                    "任务 note 与 --evidence 不再是回执通道（P0-2 收紧，pipeline §1 步骤 8）"
                     % args.id, 1)
-            meta["approved_evidence"] = getattr(args, "evidence", None) or receipt
+            meta["approved_evidence"] = receipt + (
+                "；" + args.evidence if getattr(args, "evidence", None) else "")
         meta["status"] = new
         meta["updated_at"] = NOW()
         write(path, dump_frontmatter(meta) + "\n" + body.lstrip("\n"))
@@ -979,7 +1069,37 @@ def tail_chars(text, n):
     return t[-n:] if len(t) > n else t
 
 
+def voice_block(ent_body):
+    """P1-3：从实体『设定』节抽声纹小节（口癖/句式/禁词/例句）——声纹升独立块，
+    预算裁剪时与实体『设定要点』解耦（设定可裁，声纹不裁）。"""
+    sec = get_section(ent_body, "设定") or ""
+    lines, on = [], False
+    for ln in sec.splitlines():
+        if re.match(r"^-\s*声纹", ln.strip()):
+            on = True
+            continue
+        if on:
+            if re.match(r"^- \S", ln):
+                break
+            if ln.strip() and not ln.strip().startswith("["):
+                lines.append(ln.rstrip())
+    return "\n".join(lines)
+
+
+BRIEF_SECTIONS = ("0 任务卡", "1 文风与禁忌", "2 直接上文", "3 出场实体状态卡",
+                  "4 活跃线索", "5 弧内位置", "6 相关事实与设定", "7 写作提示",
+                  "8 回写契约")
+
+# 条目级优先级（P1-2：分越高越后裁；must=True 永不裁 = must-not-drop 集）
+PRIO = {"arc_chain": 62, "arc_rows": 58, "ent_setting_lead": 55, "ent_setting": 50,
+        "thread_near": 48, "thread_scope": 45, "world_rules": 44, "rollup_arc": 42,
+        "recap": 41, "style_imagery": 40, "rollup_vol": 38, "fact_base": 30,
+        "style_anchor": 29, "tips": 25, "lessons": 20}
+
+
 def cmd_brief(args):
+    """P1-2 条目级预算装配：每个条目带优先级与 must-not-drop 标记；超预算逐条
+    从最低分裁起（非整节丢弃），裁剪逐项留痕溯源表。"""
     proj = Project(find_root(args))
     ch_id = args.ch_id
     task = proj.chapter_task(ch_id)
@@ -989,63 +1109,132 @@ def cmd_brief(args):
     num = ch_num(ch_id)
     route = proj.config.get("route", "web")
     cur_vol = proj.vol_of_chapter(ch_id)
-    prov = []  # (资产, rev, 用途)
+    prov = []   # (资产, rev, 用途)
+    items = []  # {sec, key, text, prio, must}
 
-    # §1 文风
+    def add(sec, key, text, prio=50, must=False):
+        if text and str(text).strip():
+            items.append({"sec": sec, "key": key, "text": str(text).rstrip(),
+                          "prio": prio, "must": must})
+
+    # §0 任务卡（must）
+    add("0 任务卡", "task.json",
+        "```json\n" + json.dumps(task, ensure_ascii=False, indent=1) + "\n```", must=True)
+
+    # §1 文风：基准+禁忌 must；比喻/范文锚可裁
     style_p = proj.p("tree", "style.md")
     style_meta, style_body = parse_frontmatter(read(style_p))
-    s1 = "\n\n".join(filter(None, [
-        "### 叙述基准\n" + (get_section(style_body, "叙述基准") or ""),
-        "### 口癖与句式禁忌（命中即违规）\n" + (get_section(style_body, "口癖与句式禁忌") or ""),
+    add("1 文风与禁忌", "叙述基准",
+        "### 叙述基准\n" + (get_section(style_body, "叙述基准") or ""), must=True)
+    add("1 文风与禁忌", "口癖禁忌",
+        "### 口癖与句式禁忌（命中即违规）\n"
+        + (get_section(style_body, "口癖与句式禁忌") or ""), must=True)
+    add("1 文风与禁忌", "比喻纪律",
         "### 比喻与意象纪律\n" + (get_section(style_body, "比喻与意象纪律") or ""),
-        "### 范文锚\n" + (get_section(style_body, "范文锚") or ""),
-    ]))
+        PRIO["style_imagery"])
+    add("1 文风与禁忌", "范文锚",
+        "### 范文锚\n" + (get_section(style_body, "范文锚") or ""), PRIO["style_anchor"])
     prov.append(("tree/style.md", style_meta.get("rev"), "§1 文风与禁忌"))
 
-    # §2 直接上文（前章尾 + summary 链 + recap 尾段）
-    parts2 = []
+    # §2 直接上文：前章尾+summary 链 must；rollup/recap 可裁（P1-1 记忆分层）
     prev_id = "ch_%04d" % (num - 1)
     prev_p = proj.p("chapters", prev_id + ".md")
+    has_ctx = False
     if num > 1 and prev_p.is_file():
         _, prev_body = parse_frontmatter(read(prev_p))
         prev_text = prev_body.split("## 正文", 1)[-1]
-        parts2.append("### 前章（%s）尾 500 字\n%s" % (prev_id, tail_chars(prev_text, 500)))
+        add("2 直接上文", "前章尾",
+            "### 前章（%s）尾 500 字\n%s" % (prev_id, tail_chars(prev_text, 500)),
+            must=True)
         prov.append(("chapters/%s.md" % prev_id, "-", "§2 前章尾"))
+        has_ctx = True
     for i in range(max(1, num - 3), num):
         pid = "ch_%04d" % i
         m = proj.chapter_meta_json(pid)
         if m and m.get("summary_after"):
-            parts2.append("- %s 概要：%s" % (pid, m["summary_after"]))
+            add("2 直接上文", "summary:%s" % pid,
+                "- %s 概要：%s" % (pid, m["summary_after"]), must=True)
             prov.append(("chapters/%s.meta.json" % pid, "-", "§2 summary 链"))
+            has_ctx = True
+    rollup_p = proj.p("state", "rollup.json")
+    if rollup_p.is_file():
+        try:
+            rollup = json.loads(read(rollup_p))
+        except ValueError:
+            rollup = {}
+        arc_id0 = task.get("arc")
+        a = (rollup.get("arcs") or {}).get(arc_id0)
+        if a:
+            far = [l for l in a["lines"]
+                   if int(l[3:7]) < max(1, num - 3)][-10:]
+            if far:
+                add("2 直接上文", "rollup:arc",
+                    "### 本弧前情（rollup 卷积）\n" + "\n".join("- %s" % l for l in far),
+                    PRIO["rollup_arc"])
+                prov.append(("state/rollup.json", "-", "§2 弧 rollup"))
+                has_ctx = True
+        vol_lines = []
+        for vid in sorted(rollup.get("volumes") or {}):
+            for l in rollup["volumes"][vid]:
+                if not l.startswith(str(arc_id0)):
+                    vol_lines.append("%s ｜ %s" % (vid, l))
+        if vol_lines:
+            add("2 直接上文", "rollup:vol",
+                "### 卷级前情（rollup 卷积）\n"
+                + "\n".join("- %s" % l for l in vol_lines[-6:]), PRIO["rollup_vol"])
+            prov.append(("state/rollup.json", "-", "§2 卷 rollup"))
+            has_ctx = True
     recap_p = proj.p("ledgers", "recap.md")
     if recap_p.is_file():
         rl = [l for l in read(recap_p).splitlines()
               if l.strip() and not l.strip().startswith("#")]
         if rl:
-            parts2.append("### 全局 recap（ledgers/recap.md 尾段）\n" + "\n".join(rl[-12:]))
+            add("2 直接上文", "recap",
+                "### 全局 recap（ledgers/recap.md 尾段）\n" + "\n".join(rl[-12:]),
+                PRIO["recap"])
             prov.append(("ledgers/recap.md", "-", "§2 recap"))
-    s2 = "\n\n".join(parts2) or "（首章，无上文）"
+            has_ctx = True
+    if not has_ctx:
+        add("2 直接上文", "empty", "（首章，无上文）", must=True)
 
-    # §3 实体状态卡
-    parts3 = []
+    # §3 实体状态卡：声纹速查+现状/最近事件 must；设定要点可裁（P1-3）
     ents = proj.entities()
-    for ref in task.get("cast", []):
+    voice_lines = []
+    cast_list = task.get("cast", [])
+    for idx, ref in enumerate(cast_list):
         eid = proj.resolve_entity(ref)
         if not eid or eid not in ents:
-            parts3.append("- 【缺卡】%s（资料员应报缺料）" % ref)
+            add("3 出场实体状态卡", "缺卡:%s" % ref,
+                "- 【缺卡】%s（资料员应报缺料）" % ref, must=True)
             continue
         e = ents[eid]
-        setting = get_section(e["body"], "设定") or ""
-        setting = "\n".join(setting.splitlines()[:14])
         status_sec = get_section(e["body"], "现状") or ""
         log = get_section(e["body"], "事件日志") or ""
-        log_tail = "\n".join([l for l in log.splitlines() if l.strip().startswith("-")][-3:])
-        parts3.append("### %s\n设定要点：\n%s\n\n现状：\n%s\n\n最近事件：\n%s"
-                      % (eid, setting, status_sec, log_tail or "（无）"))
+        log_tail = "\n".join([l for l in log.splitlines()
+                              if l.strip().startswith("-")][-3:])
+        add("3 出场实体状态卡", "ent:%s:卡" % eid,
+            "### %s\n现状：\n%s\n\n最近事件：\n%s"
+            % (eid, status_sec, log_tail or "（无）"), must=True)
+        setting = get_section(e["body"], "设定") or ""
+        setting = "\n".join(setting.splitlines()[:14])
+        add("3 出场实体状态卡", "ent:%s:设定" % eid,
+            "设定要点（超预算首裁，全文见 entities/%s.md）：\n%s" % (eid, setting),
+            PRIO["ent_setting_lead"] if idx == 0 else PRIO["ent_setting"])
+        vb = voice_block(e["body"])
+        if vb:
+            voice_lines.append("**%s**\n%s" % (eid, vb))
         prov.append(("entities/%s.md" % eid, e["meta"].get("rev"), "§3 状态卡"))
-    s3 = "\n\n".join(parts3) or "（任务卡未列 cast）"
+    if voice_lines:
+        # 声纹速查置于实体卡之前（must——设定可裁而声纹不裁，防千人一腔）
+        items.insert(
+            next(i for i, it in enumerate(items) if it["sec"] == "3 出场实体状态卡"),
+            {"sec": "3 出场实体状态卡", "key": "声纹速查",
+             "text": "### 声纹速查（对话守卡依据，rubrics/voice.md）\n\n"
+                     + "\n\n".join(voice_lines), "prio": 99, "must": True})
+    if not cast_list:
+        add("3 出场实体状态卡", "empty", "（任务卡未列 cast）", must=True)
 
-    # §4 活跃线索（listed ∪ must_not_drop ∪ volume_scope 命中 ∪ payoff_planned 临近）
+    # §4 活跃线索：listed/must_not_drop 线 must；scope/payoff 临近可裁
     def payoff_near(m):
         pp = m.get("payoff_planned")
         if not pp:
@@ -1055,78 +1244,96 @@ def cmd_brief(args):
         mm = re.match(r"^ch_(\d{4})$", str(pp))
         return bool(mm) and 0 <= int(mm.group(1)) - num <= 15
 
-    parts4 = []
     threads = proj.threads()
     listed = {t["id"] for t in task.get("threads", [])}
+    n_threads = 0
     for tid, th in threads.items():
         m = th["meta"]
         live = m.get("state") in THREAD_LIVE
         scope_hit = cur_vol in (m.get("volume_scope") or [])
         near = payoff_near(m)
-        relevant = tid in listed or (live and (m.get("must_not_drop")
-                                               or scope_hit or near))
+        pinned = tid in listed or (live and m.get("must_not_drop"))
+        relevant = pinned or (live and (scope_hit or near))
         if not relevant:
             continue
         stmt = get_section(th["body"], "陈述") or ""
         log = get_section(th["body"], "推进日志") or ""
-        log_tail = "\n".join([l for l in log.splitlines() if l.strip().startswith("-")][-2:])
+        log_tail = "\n".join([l for l in log.splitlines()
+                              if l.strip().startswith("-")][-2:])
         tags = ""
         if m.get("must_not_drop"):
             tags += "【must_not_drop】"
         if near:
             tags += "【payoff 临近：%s】" % m.get("payoff_planned")
-        parts4.append("- **%s** [%s/%s]%s：%s\n  最近推进：%s"
-                      % (tid, m.get("thread_kind"), m.get("state"), tags,
-                         stmt.splitlines()[0] if stmt else "", log_tail or "（无）"))
+        add("4 活跃线索", "thread:%s" % tid,
+            "- **%s** [%s/%s]%s：%s\n  最近推进：%s"
+            % (tid, m.get("thread_kind"), m.get("state"), tags,
+               stmt.splitlines()[0] if stmt else "", log_tail or "（无）"),
+            PRIO["thread_near"] if near else PRIO["thread_scope"], must=pinned)
         prov.append(("threads/%s.md" % tid, m.get("rev"), "§4 线索"))
-    s4 = "\n".join(parts4) or "（无活跃线索命中）"
+        n_threads += 1
+    if not n_threads:
+        add("4 活跃线索", "empty", "（无活跃线索命中）", must=True)
 
     # §5 弧内位置
-    s5 = "（弧计划缺失）"
     arc_id = task.get("arc")
     arc_p = proj.node_path(arc_id) if arc_id else None
     if arc_p and arc_p.is_file():
         arc_meta, arc_body = parse_frontmatter(read(arc_p))
         chain = get_section(arc_body, "因果链") or ""
         alloc = get_section(arc_body, "章分配草案") or ""
-        rows = [l for l in alloc.splitlines()
-                if re.search(r"ch_\d{4}", l)]
-        near = [l for l in rows if any(("ch_%04d" % i) in l
-                                       for i in (num - 1, num, num + 1))]
-        s5 = "### 弧因果链（%s）\n%s\n\n### 本章前后位置\n%s" % (
-            arc_id, chain, "\n".join(near) or "（章分配草案未含本章）")
-        prov.append((str(arc_p.relative_to(proj.root)), arc_meta.get("rev"), "§5 弧内位置"))
+        rows = [l for l in alloc.splitlines() if re.search(r"ch_\d{4}", l)]
+        near_rows = [l for l in rows if any(("ch_%04d" % i) in l
+                                            for i in (num - 1, num, num + 1))]
+        add("5 弧内位置", "因果链",
+            "### 弧因果链（%s）\n%s" % (arc_id, chain), PRIO["arc_chain"])
+        add("5 弧内位置", "前后位置",
+            "### 本章前后位置\n" + ("\n".join(near_rows) or "（章分配草案未含本章）"),
+            PRIO["arc_rows"])
+        prov.append((str(arc_p.relative_to(proj.root)), arc_meta.get("rev"),
+                     "§5 弧内位置"))
+    else:
+        add("5 弧内位置", "empty", "（弧计划缺失）", must=True)
 
-    # §6 相关事实与设定
-    parts6 = []
+    # §6 相关事实与设定：逐 fact 一条（按 时近+键位+retcon 连带 记分），世界规则单列
     cast_ids = {proj.resolve_entity(r) for r in task.get("cast", [])} - {None}
+    n_facts = 0
     for f in proj.facts_files():
         data = json.loads(read(f))
         retcons = {r.get("old_fact_id"): r for r in data.get("retcons", [])}
         for fact in data.get("facts", []):
-            if set(fact.get("entity_ids", [])) & cast_ids:
-                spoiler = "【读者未知，只可潜台词】" if fact.get("spoiler") else ""
-                sup = fact.get("superseded_by")
-                line = "- %s%s（%s，ch%s）" % (spoiler, fact.get("fact"),
-                                              fact.get("id"), fact.get("revealed_ch"))
-                if sup:
-                    r = retcons.get(fact.get("id"), {})
-                    line += "\n  ↳【已被覆盖】新事实：%s（策略 %s，%s）" % (
-                        r.get("new_fact", "?"), r.get("strategy", "?"),
-                        r.get("decision_ref", "?"))
-                parts6.append(line)
+            if not (set(fact.get("entity_ids", [])) & cast_ids):
+                continue
+            spoiler = "【读者未知，只可潜台词】" if fact.get("spoiler") else ""
+            sup = fact.get("superseded_by")
+            line = "- %s%s（%s，ch%s）" % (spoiler, fact.get("fact"),
+                                           fact.get("id"), fact.get("revealed_ch"))
+            prio = PRIO["fact_base"]
+            rc = fact.get("revealed_ch")
+            if isinstance(rc, int) and num - rc <= 30:
+                prio += 10
+            if fact.get("key"):
+                prio += 3
+            if sup:
+                r = retcons.get(fact.get("id"), {})
+                line += "\n  ↳【已被覆盖】新事实：%s（策略 %s，%s）" % (
+                    r.get("new_fact", "?"), r.get("strategy", "?"),
+                    r.get("decision_ref", "?"))
+                prio += 5
+            add("6 相关事实与设定", "fact:%s" % fact.get("id"), line, prio)
+            n_facts += 1
         prov.append((str(f.relative_to(proj.root)), "-", "§6 事实"))
     world_p = proj.p("tree", "world.md")
     if world_p.is_file():
         wmeta, wbody = parse_frontmatter(read(world_p))
-        parts6.append("### 世界核心规则\n" + (get_section(wbody, "核心规则") or ""))
+        add("6 相关事实与设定", "世界规则",
+            "### 世界核心规则\n" + (get_section(wbody, "核心规则") or ""),
+            PRIO["world_rules"])
         prov.append(("tree/world.md", wmeta.get("rev"), "§6 世界规则"))
-    s6 = "\n".join(parts6) or "（无相关事实）"
+    if not n_facts and not world_p.is_file():
+        add("6 相关事实与设定", "empty", "（无相关事实）", must=True)
 
-    # §7 写作提示（≤60 行；按 route 选配）
-    lessons_p = proj.p("ledgers", "lessons.md")
-    lessons = [l for l in read(lessons_p).splitlines() if l.startswith("- ")][-5:] \
-        if lessons_p.is_file() else []
+    # §7 写作提示（route 选配）+ lessons
     if route == "traditional":
         tips = [
             "核心纪律速记（traditional 差分，全文见 modes/route-traditional.md）：",
@@ -1144,16 +1351,22 @@ def cmd_brief(args):
             "- 关键场面禁概述体；打斗远中近推拉、交锋段均句长 ≤15 字",
             "- 禁发明简报外专名；缺料写 issues，不脑补",
         ]
-    s7 = "\n".join(tips + ["", "近期教训（lessons 台账尾 5 条）："]
-                   + (lessons or ["- （暂无）"]))
+    add("7 写作提示", "tips", "\n".join(tips), PRIO["tips"])
+    lessons_p = proj.p("ledgers", "lessons.md")
+    lessons = [l for l in read(lessons_p).splitlines() if l.startswith("- ")][-5:] \
+        if lessons_p.is_file() else []
+    add("7 写作提示", "lessons",
+        "近期教训（lessons 台账尾 5 条）：\n" + "\n".join(lessons or ["- （暂无）"]),
+        PRIO["lessons"])
     if lessons:
         prov.append(("ledgers/lessons.md", "-", "§7 教训"))
 
-    # §8 回写契约
-    s8 = ("提交格式：最终回复两段——【正文】章文件（信封+## 正文）；【writeback】如下 schema 的"
-          "JSON 块（power_delta 可选，战力/位阶变化时必填；continuity_delta 每条可选 key "
-          "字段标注实体状态键位，如「位置」「持有」）：\n\n```json\n"
-          + read(TEMPLATES / "chapter.meta.json").strip() + "\n```")
+    # §8 回写契约（must）
+    add("8 回写契约", "schema",
+        "提交格式：最终回复两段——【正文】章文件（信封+## 正文）；【writeback】如下 schema 的"
+        "JSON 块（power_delta 可选，战力/位阶变化时必填；continuity_delta 每条可选 key "
+        "字段标注实体状态键位，如「位置」「持有」）：\n\n```json\n"
+        + read(TEMPLATES / "chapter.meta.json").strip() + "\n```", must=True)
 
     prev_brief = proj.p("briefs", ch_id + ".brief.md")
     brief_rev = 1
@@ -1161,50 +1374,50 @@ def cmd_brief(args):
         m = re.search(r"<!-- brief_rev: (\d+) -->", read(prev_brief))
         brief_rev = (int(m.group(1)) if m else 0) + 1
 
-    sections = {
-        "0 任务卡": "```json\n" + json.dumps(task, ensure_ascii=False, indent=1) + "\n```",
-        "1 文风与禁忌": s1, "2 直接上文": s2, "3 出场实体状态卡": s3,
-        "4 活跃线索": s4, "5 弧内位置": s5, "6 相关事实与设定": s6,
-        "7 写作提示": s7, "8 回写契约": s8,
-    }
-    trimmed = []
-    def render():
+    trimmed = []  # (sec, key)
+
+    def render(active):
         head = ["<!-- chapter: %s -->" % ch_id, "<!-- brief_rev: %d -->" % brief_rev,
                 "<!-- compiled_at: %s -->" % NOW(), "<!-- budget_chars: %d -->" % budget]
         parts = ["\n".join(head)]
-        for name, content in sections.items():
-            parts.append("## %s\n\n%s" % (name, content))
+        cut_by_sec = {}
+        for sec, key in trimmed:
+            cut_by_sec.setdefault(sec, []).append(key)
+        for sec in BRIEF_SECTIONS:
+            chunks = [it["text"] for it in active if it["sec"] == sec]
+            if sec in cut_by_sec:
+                chunks.append("（本节超预算裁剪 %d 项：%s——原始来源见溯源表）"
+                              % (len(cut_by_sec[sec]), "、".join(cut_by_sec[sec])))
+            parts.append("## %s\n\n%s" % (sec, "\n\n".join(chunks) or "（空）"))
         prov_lines = ["| 资产 | rev | 用途 |", "|---|---|---|"]
-        prov_lines += ["| %s | %s | %s |" % p for p in prov]
+        seen = set()
+        for pr in prov:
+            if pr not in seen:
+                seen.add(pr)
+                prov_lines.append("| %s | %s | %s |" % pr)
         if trimmed:
-            prov_lines.append("| （裁剪） | - | 超预算已裁剪：%s |" % "、".join(trimmed))
+            prov_lines.append("| （裁剪） | - | 条目级裁剪 %d 项：%s |"
+                              % (len(trimmed),
+                                 "、".join(k for _, k in trimmed)[:300]))
         parts.append("## 附 溯源\n\n" + "\n".join(prov_lines))
         return "\n\n".join(parts) + "\n"
 
-    text = render()
-    for sec in ("7 写作提示", "6 相关事实与设定", "4 活跃线索", "3 出场实体状态卡"):
-        if len(text) <= budget:
-            break
-        if sec == "3 出场实体状态卡":
-            # 末位裁剪：实体卡只裁「设定要点」，保留现状与最近事件（写手底线信息）
-            slim = []
-            for ref in task.get("cast", []):
-                eid = proj.resolve_entity(ref)
-                if not eid or eid not in ents:
-                    slim.append("- 【缺卡】%s" % ref)
-                    continue
-                e = ents[eid]
-                slim.append("### %s\n（设定要点超预算已裁剪，见 entities/%s.md）\n\n现状：\n%s"
-                            % (eid, eid, get_section(e["body"], "现状") or ""))
-            sections[sec] = "\n\n".join(slim) or "（任务卡未列 cast）"
-        else:
-            sections[sec] = "（超预算已裁剪；原始来源见溯源表）"
-        trimmed.append(sec)
-        text = render()
+    active = list(items)
+    text = render(active)
+    while len(text) > budget:
+        droppable = [it for it in active if not it["must"]]
+        if not droppable:
+            break  # must-not-drop 集已到底线，超预算如实交付
+        victim = min(enumerate(droppable),
+                     key=lambda x: (x[1]["prio"], -x[0]))[1]
+        active.remove(victim)
+        trimmed.append((victim["sec"], victim["key"]))
+        text = render(active)
     write(prev_brief, text)
     git_autocommit(proj.root, "[brief] %s rev%d（保证 spawn 前基线干净）" % (ch_id, brief_rev))
     print("简报已生成：briefs/%s.brief.md（%d 字符 / 预算 %d%s）"
-          % (ch_id, len(text), budget, "，已裁剪：" + "、".join(trimmed) if trimmed else ""))
+          % (ch_id, len(text), budget,
+             "，条目级裁剪 %d 项" % len(trimmed) if trimmed else ""))
     return 0
 
 
@@ -1288,8 +1501,10 @@ def ngram_sim(a, b):
 
 
 def cache_fps(entry, key):
-    """ngram_cache 条目取指纹；兼容旧版扁平 list（视为 n12）。"""
+    """ngram_cache 条目取指纹；兼容旧版扁平 list（视为 n12）与归档层（n12s 降采样）。"""
     if isinstance(entry, dict):
+        if key == "n12":
+            return set(entry.get("n12") or entry.get("n12s") or [])
         return set(entry.get(key, []))
     return set(entry) if key == "n12" else set()
 
@@ -1326,7 +1541,9 @@ def writeback_ref_errors(proj, ch_id, wb):
             errs.append("thread_ops[%d] 非法 op「%s」（枚举 %s）"
                         % (i, op.get("op"), "|".join(THREAD_OPS)))
             continue
-        st = sim_state.get(tid, threads[tid]["meta"].get("state"))
+        # P0-1：模拟起点 = 剔除本章既往贡献后的重放态（revise 重提交不再被自己的
+        # 上一轮 op 卡死，如 payoff 后重提 payoff）
+        st = sim_state.get(tid, thread_effective_state(threads[tid], exclude_ch=ch_id))
         nxt = thread_next_state(st, op["op"])
         if nxt is None:
             errs.append("thread_ops[%d] %s：%s 态不可 %s（合法迁移表 formats §8；"
@@ -1546,10 +1763,134 @@ def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
         wc = wb.get("word_count", 0)
         if isinstance(wc, int) and wc and abs(wc - n_chars) > max(50, n_chars * 0.1):
             rep.add("WARN", "writeback.word_count=%d 与实测 %d 偏差 >10%%" % (wc, n_chars))
+        # P2-1：抽取器对账（双记账机器半边——文本实测 vs 写手自报）
+        extract_reconcile(proj, ch_id, text, wb, rep)
 
     for item in UNIT_NEEDS_REVIEW:
         rep.add("NEEDS_REVIEW", item)
     return rep
+
+
+# ---------------------------------------------------------------- 故事日历（P2-2）
+CN_NUM = {"半": 0.5, "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5,
+          "六": 6, "七": 7, "八": 8, "九": 9, "十": 10, "数": 3, "几": 3}
+UNIT_DAYS = {"年": 360, "月": 30, "旬": 10, "周": 7, "天": 1, "日": 1,
+             "夜": 1, "晚": 1, "时辰": 1 / 12.0, "小时": 1 / 24.0, "刻": 1 / 96.0}
+ZERO_ELAPSED = ("当天", "同日", "当日", "当夜", "同一天", "片刻", "即时", "紧接", "0")
+
+
+def cn_num(raw):
+    if re.fullmatch(r"\d+(\.\d+)?", raw):
+        return float(raw)
+    if raw.startswith("十"):
+        return 10 + (CN_NUM.get(raw[1:], 0) if len(raw) > 1 else 0)
+    if len(raw) == 2 and raw[1] == "十":
+        return CN_NUM.get(raw[0], 1) * 10
+    if len(raw) == 3 and raw[1] == "十":
+        return CN_NUM.get(raw[0], 1) * 10 + CN_NUM.get(raw[2], 0)
+    return CN_NUM.get(raw, 0) if len(raw) == 1 else sum(CN_NUM.get(c, 0) for c in raw)
+
+
+def parse_elapsed_days(s):
+    """time_advance.elapsed → 折算天数；无法解析返回 None（游离于故事日历外）。"""
+    s = (s or "").strip()
+    if not s:
+        return 0.0
+    if s in ZERO_ELAPSED:
+        return 0.0
+    total, hit = 0.0, False
+    for m in re.finditer(r"(\d+(?:\.\d+)?|[半一两二三四五六七八九十数几]{1,3})\s*个?\s*"
+                         r"(时辰|小时|年|月|旬|周|天|日|夜|晚|刻)", s):
+        total += cn_num(m.group(1)) * UNIT_DAYS[m.group(2)]
+        hit = True
+    return total if hit else None
+
+
+def parse_story_date(s):
+    """story_date 断言解析：ISO（2026-08-24）或 中式（三年五月初二 不支持；支持
+    NNNN年NN月NN日）→ 可比较元组；解析失败返回 None（不参与单调断言）。"""
+    s = (s or "").strip()
+    if not s:
+        return None
+    m = re.fullmatch(r"(\d{1,4})-(\d{1,2})-(\d{1,2})", s)
+    if not m:
+        m = re.fullmatch(r"(\d{1,4})年(\d{1,2})月(\d{1,2})日?", s)
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
+
+
+# ---------------------------------------------------------------- 抽取器（P2-1 双记账机器半边）
+def extract_observations(proj, text):
+    """从正文反向解析可机读观察：已登记专名的出场计数 + 引号内新专名候选。
+    这是「写手自报（writeback）↔ 文本实测」双记账的机器半边；语义类观察
+    （爽点是否真兑现、线索是否真推进）仍归评审。"""
+    names = {}
+    for alias, eid in proj.aliases().items():
+        names[str(alias)] = eid
+    alias_bearing = set()
+    for eid, e in proj.entities().items():
+        for a in e["meta"].get("aliases") or []:
+            names[str(a)] = eid
+    for name, eid in names.items():
+        if len(name) >= 2:
+            alias_bearing.add(eid)
+    mentions = {}
+    for name, eid in names.items():
+        if len(name) < 2 or name.startswith("["):
+            continue
+        cnt = text.count(name)
+        if cnt:
+            mentions[eid] = mentions.get(eid, 0) + cnt
+    quoted = re.findall(r"[「『]([\u4e00-\u9fff]{2,6})[」』]", text)
+    freq = {}
+    for q in quoted:
+        freq[q] = freq.get(q, 0) + 1
+    candidates = sorted(q for q, c in freq.items() if c >= 2 and q not in names)
+    return {"mentions": mentions, "name_candidates": candidates,
+            "alias_bearing": alias_bearing}
+
+
+def extract_reconcile(proj, ch_id, text, wb, rep):
+    """对账：文本实测出场 vs writeback.cast_actual；剧透事实文本相似泄漏候选。"""
+    obs = extract_observations(proj, text)
+    cast = {proj.resolve_entity(r) for r in (wb or {}).get("cast_actual", []) or []} \
+        - {None}
+    undeclared = sorted("%s（正文命中 %d 次）" % (eid, n)
+                        for eid, n in obs["mentions"].items() if eid not in cast)
+    phantom = sorted(eid for eid in cast
+                     if eid in obs["alias_bearing"] and eid not in obs["mentions"])
+    if undeclared:
+        rep.add("WARN", "抽取器：正文出现已登记实体但 cast_actual 未申报"
+                        "（实体日志/对账将漏记；补申报或删越权出场）", undeclared)
+    if phantom:
+        rep.add("WARN", "抽取器：cast_actual 申报了正文未出现的实体（幽灵出场；"
+                        "仅对有已登记别名的实体可判）", phantom)
+    if not undeclared and not phantom:
+        rep.add("PASS", "抽取器：出场申报与文本实测一致（命中 %d 实体）"
+                % len(obs["mentions"]))
+    if obs["name_candidates"]:
+        rep.add("NEEDS_REVIEW", "抽取器：引号内新专名候选（≥2 次且未登记——"
+                                "简报外发明嫌疑，轻评对照简报裁定后 entity new/补别名）",
+                obs["name_candidates"][:10])
+    # P2-3 剧透泄漏候选：未覆盖 spoiler 事实与正文句子高相似 → 评审裁定
+    spoilers = [x for x, _ in proj.all_facts()
+                if x.get("spoiler") and not x.get("superseded_by")]
+    if spoilers:
+        num = ch_num(ch_id)
+        leaks = []
+        sents = sentences_of(text)
+        for x in spoilers:
+            if x.get("revealed_ch") == num:
+                continue
+            for s in sents:
+                if ngram_sim(x.get("fact", ""), s) >= 0.5:
+                    leaks.append("%s「%s」≈「%s…」" % (x.get("id"), x.get("fact"),
+                                                       s[:20]))
+                    break
+        if leaks:
+            rep.add("NEEDS_REVIEW", "抽取器：剧透事实文本相似泄漏候选"
+                                    "（读者未知事实疑被明写；评审裁定改潜台词或走揭示）",
+                    leaks[:8])
+    return obs
 
 
 # ---------------------------------------------------------------- check --leak
@@ -1682,18 +2023,37 @@ def check_window(proj, rep=None, since=None):
         else:
             rep.add("PASS", "战力变动节奏无告警（台账 %d 行）" % len(power))
 
-    # 时间线
-    tl = proj.p("ledgers", "timeline.tsv")
-    neg = []
-    if tl.is_file():
-        for ln in read(tl).splitlines()[1:]:
-            c = ln.split("\t")
-            if len(c) >= 3 and c[2].strip().startswith("-"):
-                neg.append("%s elapsed=%s" % (c[0], c[2]))
+    # 时间线（P0-1 rev 去重读 + P2-2 故事日历：数值化 elapsed 与 story_date 单调断言）
+    trows = sorted(proj.timeline_rows(),
+                   key=lambda r: ch_num(r["chapter"])
+                   if re.match(r"^ch_\d{4}$", r["chapter"]) else 0)
+    neg = ["%s elapsed=%s" % (r["chapter"], r["elapsed"])
+           for r in trows if r["elapsed"].startswith("-")]
     if neg:
         rep.add("FAIL", "时间线出现负 elapsed", neg)
     else:
         rep.add("PASS", "时间线 elapsed 非负")
+    if trows:
+        unparsed, total_days = [], 0.0
+        for r in trows:
+            d = parse_elapsed_days(r["elapsed"])
+            if d is None:
+                unparsed.append("%s elapsed=「%s」" % (r["chapter"], r["elapsed"]))
+            else:
+                total_days += d
+        dated = [(r["chapter"], parse_story_date(r["story_date"]), r["story_date"])
+                 for r in trows if parse_story_date(r["story_date"])]
+        regress = ["%s %s < %s %s" % (c2, s2, c1, s1)
+                   for (c1, d1, s1), (c2, d2, s2) in zip(dated, dated[1:]) if d2 < d1]
+        if regress:
+            rep.add("FAIL", "故事日历：story_date 倒流（时间线断言违例）", regress)
+        if unparsed:
+            rep.add("WARN", "故事日历：elapsed 不可数值化（游离于日历外，"
+                            "写法见 formats §9：如「2天」「一晚」「3个月」）",
+                    unparsed[:8])
+        if not regress:
+            rep.add("PASS", "故事日历：累计 ≈%.1f 天（%d 章；story_date 断言 %d 条单调）"
+                    % (total_days, len(trows), len(dated)))
 
     # buffer 一致性
     ready = proj.buffer_ready()
@@ -1864,6 +2224,26 @@ def check_project(proj, rep=None):
     elif pub:
         rep.add("PASS", "published 连续（%d–%d）" % (pub[0], pub[-1]))
 
+    # P0-3：半事务检测（state/txn/ 残留 done=false 的 journal = commit 中断）
+    txn_dir = proj.p("state", "txn")
+    half = []
+    if txn_dir.is_dir():
+        for f in sorted(txn_dir.glob("txn_*.json")):
+            try:
+                d = json.loads(read(f))
+            except ValueError:
+                half.append("%s 不可解析" % f.name)
+                continue
+            if not d.get("done"):
+                half.append("%s：%s(%s) 始于 %s 未完成"
+                            % (d.get("id"), d.get("kind"), d.get("target"),
+                               d.get("started_at")))
+    if half:
+        rep.add("FAIL", "半事务残留（commit 中断；处置：git checkout -- . && git clean -fd "
+                        "回滚 → 删除该 journal → 任务回 pending 重跑）", half)
+    else:
+        rep.add("PASS", "无半事务残留")
+
     # queue targets
     q_fails = []
     known = {c["id"] for c in proj.chapters()} | set(ents) | set(proj.threads()) \
@@ -1900,18 +2280,37 @@ def cmd_check(args):
 
 
 # ---------------------------------------------------------------- commit
-def register_facts(proj, ch_id, wb):
+def register_facts(proj, ch_id, wb, rev=1):
     """P0-1：commit 时自 continuity_delta 自动分配 fact_id 写入 ledgers/facts/vol_NN.json。
-    同文同章去重（revise 重提交不重复登记）。返回新登记的 fact id 列表。"""
+    同文同章去重；rev>1（revise）时先剪除本章上一轮登记的临时事实（未被 retcon 引用、
+    未被覆盖者），再按新 writeback 重登——(chapter, rev) 语义的 facts 半边。
+    返回新登记的 fact id 列表。"""
     deltas = wb.get("continuity_delta", []) or []
-    if not deltas:
-        return []
     num = ch_num(ch_id)
     vol = proj.vol_of_chapter(ch_id)
     f = proj.p("ledgers", "facts", vol + ".json")
     data = json.loads(read(f)) if f.is_file() else {"facts": [], "retcons": []}
+    pruned = 0
+    if rev > 1:
+        referenced = {r.get("old_fact_id") for r in data.get("retcons", [])}
+        keep = [x for x in data.get("facts", [])
+                if not (x.get("revealed_ch") == num and not x.get("superseded_by")
+                        and x.get("id") not in referenced)]
+        pruned = len(data.get("facts", [])) - len(keep)
+        data["facts"] = keep
+    if not deltas and not pruned:
+        return []
     existing = {(x.get("fact"), x.get("revealed_ch")) for x in data.get("facts", [])}
-    seq = proj.next_fact_seq()
+    seq = 0
+    for x, _ in proj.all_facts():
+        m = re.match(r"^fact_(\d{4,})$", str(x.get("id", "")))
+        if m:
+            seq = max(seq, int(m.group(1)))
+    for x in data.get("facts", []):
+        m = re.match(r"^fact_(\d{4,})$", str(x.get("id", "")))
+        if m:
+            seq = max(seq, int(m.group(1)))
+    seq += 1
     added = []
     for d in deltas:
         key = (d.get("fact"), num)
@@ -1929,25 +2328,65 @@ def register_facts(proj, ch_id, wb):
         added.append(rec["id"])
         seq += 1
     write(f, json.dumps(data, ensure_ascii=False, indent=1))
+    if pruned:
+        added.append("(剪除上一 rev 临时事实 %d 条)" % pruned)
     return added
 
 
-def apply_writeback(proj, ch_id, wb):
+def unapply_chapter_logs(proj, ch_id):
+    """P0-1 撤销半边（revise 前执行）：实体事件日志与线索推进日志剔除本章行；
+    last_event_ch 由剩余日志重算；线索 state 由剩余 op 重放；plant_ch 回滚。"""
+    touched = []
+    for eid, e in proj.entities().items():
+        body, removed = strip_ch_lines(e["body"], ch_id)
+        if not removed:
+            continue
+        meta = e["meta"]
+        remaining = [int(m.group(1)) for m in
+                     re.finditer(r"^-\s*ch_(\d{4})\s*:", body, re.M)]
+        meta["last_event_ch"] = max(remaining) if remaining else 0
+        meta["updated_at"] = NOW()
+        write(e["path"], dump_frontmatter(meta) + "\n" + body.lstrip("\n"))
+        touched.append(eid)
+    for tid, th in proj.threads().items():
+        log = get_section(th["body"], "推进日志") or ""
+        if not re.search(r"^-\s*%s\s*:" % ch_id, log, re.M):
+            continue
+        new_state = thread_effective_state(th, exclude_ch=ch_id)
+        body, _ = strip_ch_lines(th["body"], ch_id)
+        meta = th["meta"]
+        meta["state"] = new_state
+        if meta.get("plant_ch") == ch_num(ch_id):
+            m = re.search(r"^-\s*ch_(\d{4})\s*:\s*plant\b", body, re.M)
+            meta["plant_ch"] = int(m.group(1)) if m else None
+        meta["updated_at"] = NOW()
+        write(th["path"], dump_frontmatter(meta) + "\n" + body.lstrip("\n"))
+        touched.append(tid)
+    return touched
+
+
+def apply_writeback(proj, ch_id, wb, rev=1):
     """continuity_delta → 实体事件日志 + facts 登记；thread_ops → 推进日志+state（合法迁移表）；
-    payoff/timeline/power 台账。引用越权 = 硬失败（返回 (False, errors)，调用方拒绝落盘）。"""
+    payoff/timeline/power 台账（rev 列，读侧去重）。引用越权 = 硬失败（返回 (False, errors)，
+    调用方拒绝落盘）。rev>1 = revise：先撤销本章上一轮日志效应再重放（零双计）。"""
     errs = writeback_ref_errors(proj, ch_id, wb)
     if errs:
         return False, errs
     num = ch_num(ch_id)
-    ents = proj.entities()
     notes = []
+    if rev > 1:
+        touched = unapply_chapter_logs(proj, ch_id)
+        if touched:
+            notes.append("revise 撤销重放：已剔除 %s 的上一轮日志行（%s）"
+                         % (ch_id, " ".join(touched)))
+    ents = proj.entities()
     for delta in wb.get("continuity_delta", []) or []:
         for ref in delta.get("entity_ids", []):
             eid = proj.resolve_entity(ref)
             e = ents[eid]
             body = e["body"].rstrip() + "\n- %s: %s\n" % (ch_id, delta.get("fact", ""))
             meta = e["meta"]
-            meta["last_event_ch"] = num
+            meta["last_event_ch"] = max(num, meta.get("last_event_ch") or 0)
             meta["updated_at"] = NOW()
             write(e["path"], dump_frontmatter(meta) + "\n" + body.lstrip("\n"))
             ents = proj.entities()  # 重载，防同章多条
@@ -1964,50 +2403,131 @@ def apply_writeback(proj, ch_id, wb):
         meta["updated_at"] = NOW()
         write(t["path"], dump_frontmatter(meta) + "\n" + body.lstrip("\n"))
         threads = proj.threads()
-    # facts 登记（P0-1）
-    added = register_facts(proj, ch_id, wb)
+    # facts 登记（P0-1；revise 先剪后登）
+    added = register_facts(proj, ch_id, wb, rev=rev)
     if added:
         notes.append("facts 已登记：%s → ledgers/facts/%s.json"
                      % (" ".join(added), proj.vol_of_chapter(ch_id)))
-    # payoff 台账
+    # payoff 台账（rev 列）
     task = proj.chapter_task(ch_id) or {}
     quota = task.get("payoff_quota", [])
     realized = set(wb.get("payoff_realized", []))
     with open(proj.p("ledgers", "payoff.tsv"), "a", encoding="utf-8") as f:
         for i, q in enumerate(quota, 1):
             pid = "payoff_%04d_%d" % (num, i)
-            f.write("%s\t%s\t%s\t%s\t%d\n" % (ch_id, pid, q.get("kind", "other"),
-                                              q.get("intent", ""), 1 if pid in realized else 0))
-    # timeline
+            f.write("%s\t%s\t%s\t%s\t%d\t%d\n"
+                    % (ch_id, pid, q.get("kind", "other"), q.get("intent", ""),
+                       1 if pid in realized else 0, rev))
+    # timeline（rev 列）
     ta = wb.get("time_advance", {})
     with open(proj.p("ledgers", "timeline.tsv"), "a", encoding="utf-8") as f:
-        f.write("%s\t%s\t%s\t\n" % (ch_id, ta.get("story_date", ""), ta.get("elapsed", "")))
-    # power 台账（P1-6，可选键）
+        f.write("%s\t%s\t%s\t\t%d\n"
+                % (ch_id, ta.get("story_date", ""), ta.get("elapsed", ""), rev))
+    # power 台账（P1-6，可选键；rev 列）
     pd = wb.get("power_delta", []) or []
     if pd:
         pf = proj.p("ledgers", "power.tsv")
         if not pf.is_file():
-            write(pf, "chapter\tentity\tfrom\tto\tnote\n")
+            write(pf, "chapter\tentity\tfrom\tto\tnote\trev\n")
         with open(pf, "a", encoding="utf-8") as f:
             for d in pd:
                 for ref in d.get("entity_ids", []):
                     eid = proj.resolve_entity(ref)
-                    f.write("%s\t%s\t%s\t%s\t%s\n"
+                    f.write("%s\t%s\t%s\t%s\t%s\t%d\n"
                             % (ch_id, eid, d.get("from", ""), d.get("to", ""),
-                               d.get("note", "")))
+                               d.get("note", ""), rev))
         notes.append("power 台账已追加 %d 行" % sum(len(d.get("entity_ids", [])) for d in pd))
     return True, notes
 
 
+# ---------------------------------------------------------------- 事务日志（P0-3）
+def txn_begin(proj, kind, target, task_id=""):
+    """原子提交半边：多文件落盘前写 journal（done=false），全部写完后 txn_end 收口。
+    中途崩溃 → journal 残留 done=false，fsck/check --project 报半事务。"""
+    tdir = proj.p("state", "txn")
+    tdir.mkdir(parents=True, exist_ok=True)
+    # 修剪：已完成 journal 只保留最近 20 份
+    done = sorted([f for f in tdir.glob("txn_*.json")
+                   if json.loads(read(f)).get("done")], key=lambda f: f.name)
+    for f in done[:-20]:
+        f.unlink()
+    txn_id = "txn_%s_%s" % (datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"), target)
+    write(tdir / (txn_id + ".json"), json.dumps(
+        {"id": txn_id, "kind": kind, "target": target, "task": task_id,
+         "started_at": NOW(), "done": False}, ensure_ascii=False, indent=1))
+    return txn_id
+
+
+def txn_end(proj, txn_id):
+    f = proj.p("state", "txn", txn_id + ".json")
+    if f.is_file():
+        data = json.loads(read(f))
+        data["done"] = True
+        data["completed_at"] = NOW()
+        write(f, json.dumps(data, ensure_ascii=False, indent=1))
+
+
 def update_ngram_cache(proj, ch_id, text):
+    """P2-4 分层指纹保留：窗口内两级全量（n12+n8）；窗口外降级为归档层
+    （n12s = 12-gram 稳定降采样），12 字级自我复读检测覆盖全史而体积有界。"""
     cache = proj.ngram_cache()
     cache[ch_id] = {"n12": sorted(set(char_ngrams(text, 12))),
                     "n8": sorted(set(char_ngrams(text, 8)))}
     window = proj.config.get("ngram_window_chapters", 30)
+    sample = proj.config.get("ngram_archive_sample", 400)
     keys = sorted(cache, key=lambda k: ch_num(k) if re.match(r"ch_\d{4}$", k) else 0)
     for k in keys[:-window]:
-        cache.pop(k, None)
+        entry = cache.get(k)
+        if isinstance(entry, dict) and "n12s" in entry:
+            continue  # 已归档
+        n12 = sorted(cache_fps(entry, "n12"))
+        step = max(1, len(n12) // max(sample, 1))
+        cache[k] = {"n12s": n12[::step][:sample]}
     write(proj.p("state", "ngram_cache.json"), json.dumps(cache, ensure_ascii=False))
+
+
+def first_sentence(text, limit=60):
+    s = re.split(r"[。！？!?\n]", (text or "").strip())[0].strip()
+    return s[:limit] + ("…" if len(s) > limit else "")
+
+
+def update_rollup(proj):
+    """P1-1 自动摘要卷积（章→弧→卷），commit 后增量重算 state/rollup.json。
+    弧级 = 各章 summary_after 首句；卷级 = 各弧首末摘要压缩。brief §2 注入为
+    远程记忆层——距离越远颗粒越粗，百万字仍可在预算内召回前情。"""
+    chs = {}
+    for c in proj.chapters():
+        if c["meta"].get("status") not in ("drafted", "approved", "published"):
+            continue
+        mj = proj.chapter_meta_json(c["id"]) or {}
+        s = (mj.get("summary_after") or "").strip()
+        if not s:
+            continue
+        arc = (proj.chapter_task(c["id"]) or {}).get("arc") \
+            or c["meta"].get("parent") or "arc_?"
+        chs[c["id"]] = {"arc": arc, "vol": vol_of_arc(arc) or "vol_01", "summary": s}
+    arcs = {}
+    for cid in sorted(chs):
+        e = chs[cid]
+        arcs.setdefault(e["arc"], {"vol": e["vol"], "chapters": []})["chapters"].append(cid)
+    rollup = {"generated_at": NOW(), "arcs": {}, "volumes": {}}
+    for aid in sorted(arcs):
+        a = arcs[aid]
+        ids = a["chapters"]
+        rollup["arcs"][aid] = {
+            "vol": a["vol"], "span": [ids[0], ids[-1]],
+            "lines": ["%s：%s" % (cid, first_sentence(chs[cid]["summary"]))
+                      for cid in ids]}
+    for aid in sorted(rollup["arcs"]):
+        a = rollup["arcs"][aid]
+        head = first_sentence(chs[a["span"][0]]["summary"], 40)
+        tail = first_sentence(chs[a["span"][1]]["summary"], 40)
+        line = "%s（%s–%s）：%s" % (aid, a["span"][0][3:], a["span"][1][3:],
+                                    head if a["span"][0] == a["span"][1]
+                                    else head + " ⋯ " + tail)
+        rollup["volumes"].setdefault(a["vol"], []).append(line)
+    write(proj.p("state", "rollup.json"), json.dumps(rollup, ensure_ascii=False, indent=1))
+    return rollup
 
 
 def propagate_stale(proj, node_id):
@@ -2090,17 +2610,26 @@ def cmd_commit(args):
         cand_meta, cand_body = parse_frontmatter(read(args.chapter))
         wb = json.loads(read(args.writeback))
         text = cand_body.split("## 正文", 1)[-1]
+        new_rev = (old_meta.get("rev") or 0) + 1 if ttype == "revise" \
+            else max(old_meta.get("rev") or 1, 1)
         # 先做回写引用硬校验（引用越权=拒绝，不产生任何写入）
-        ok, msgs = apply_writeback(proj, ch_id, wb)
-        if not ok:
+        errs = writeback_ref_errors(proj, ch_id, wb)
+        if errs:
+            print("[拒绝] writeback 引用越权，未落盘：")
+            for e in errs:
+                print("  - " + e)
+            return 1
+        # P0-3：journal → 多文件落盘 → 完成标记（中断可被 fsck 检出）
+        txn = txn_begin(proj, ttype, ch_id, args.task_id)
+        ok, msgs = apply_writeback(proj, ch_id, wb, rev=new_rev)
+        if not ok:  # 双保险（理论不可达：上面已预校验）
             print("[拒绝] writeback 引用越权，未落盘：")
             for e in msgs:
                 print("  - " + e)
             return 1
         new_meta = {
             "id": ch_id, "kind": "chapter", "status": "drafted",
-            "rev": (old_meta.get("rev") or 0) + 1 if ttype == "revise"
-                   else max(old_meta.get("rev") or 1, 1),
+            "rev": new_rev,
             "parent": cand_meta.get("parent") or old_meta.get("parent"),
             "updated_at": NOW(),
             "title": cand_meta.get("title", old_meta.get("title", "")),
@@ -2110,10 +2639,12 @@ def cmd_commit(args):
         write(proj.p("chapters", ch_id + ".meta.json"),
               json.dumps(wb, ensure_ascii=False, indent=1))
         update_ngram_cache(proj, ch_id, text)
+        update_rollup(proj)
+        txn_end(proj, txn)
         for w in msgs:
             print("[info] " + w)
         git_autocommit(proj.root, "[%s] %s(%s): %s" % (args.task_id, ttype, ch_id, msg))
-        print("已落盘：%s（status=drafted, rev=%d）+ meta.json + facts/台账/日志/ngram"
+        print("已落盘：%s（status=drafted, rev=%d）+ meta.json + facts/台账/日志/ngram/rollup"
               % (ch_id, new_meta["rev"]))
         return 0
 
@@ -2122,7 +2653,8 @@ def cmd_commit(args):
             die("%s 需 --file <staged 文件> [...]" % ttype)
         if ttype == "revise_design" and not t.get("evidence"):
             die("revise_design 任务缺 evidence（先过否决案台账，court.md §4）", 1)
-        main_done = False
+        # P0-3：两遍制——第一遍全量校验（零写入），第二遍才落盘（多文件原子性）
+        staged = []
         for fpath in args.file:
             meta, body = parse_frontmatter(read(fpath))
             if meta is None:
@@ -2130,6 +2662,20 @@ def cmd_commit(args):
             target = route_staged_file(proj, meta)
             if target is None:
                 die("无法路由 kind=%s 的文件（id=%s）" % (meta.get("kind"), meta.get("id")), 1)
+            if meta.get("kind") in NODE_KINDS and not args.draft:
+                req = REQUIRED_SECTIONS.get(meta["kind"], [])
+                titles = [x for x, _ in split_sections(body)]
+                missing = [s for s in req
+                           if not any(x == s or x.startswith(s) for x in titles)]
+                empty = [s for s in req
+                         if not missing and not (get_section(body, s) or "").strip()]
+                if missing or empty:
+                    die("design 校验失败 %s：缺节 %s / 空节 %s（全批未落盘）"
+                        % (meta.get("id"), missing, empty), 1)
+            staged.append((meta, body, target))
+        txn = txn_begin(proj, ttype, t["target"], args.task_id)
+        main_done = False
+        for meta, body, target in staged:
             if meta.get("kind") in NODE_KINDS:
                 if args.draft:
                     # P0-6：draft 态部分落盘（书庭中间场次可持久化半成品，不算定稿）
@@ -2139,15 +2685,6 @@ def cmd_commit(args):
                     print("已 draft 部分落盘 → %s（不算定稿，必需节校验延后到正式 commit）"
                           % target.relative_to(proj.root))
                     continue
-                req = REQUIRED_SECTIONS.get(meta["kind"], [])
-                titles = [x for x, _ in split_sections(body)]
-                missing = [s for s in req
-                           if not any(x == s or x.startswith(s) for x in titles)]
-                empty = [s for s in req
-                         if not missing and not (get_section(body, s) or "").strip()]
-                if missing or empty:
-                    die("design 校验失败 %s：缺节 %s / 空节 %s"
-                        % (meta.get("id"), missing, empty), 1)
                 meta["status"] = "committed"
                 meta["updated_at"] = NOW()
                 main_done = True
@@ -2170,6 +2707,7 @@ def cmd_commit(args):
             if stale:
                 print("下游已递归标 stale：%s（修复后回原 status；影响面报告模板见 court.md §4）"
                       % " ".join(stale))
+        txn_end(proj, txn)
         git_autocommit(proj.root, "[%s] %s(%s): %s" % (args.task_id, ttype, t["target"], msg))
         return 0
 
@@ -2179,23 +2717,34 @@ def cmd_commit(args):
 
 
 # ---------------------------------------------------------------- publish / ledger
-def cmd_publish(args):
-    proj = Project(find_root(args))
-    frm = ch_num(args.ch_from)
-    to = ch_num(args.ch_to) if args.ch_to else frm
+def publish_problems(proj, frm, to):
+    """publish 前置谓词（P3 gate 复用：只判不写）。返回问题清单（空 = 可发布）。"""
+    probs = []
     cur = proj.cursor()
     if frm != cur["last_published"] + 1:
-        die("连续性谓词失败：应从 ch_%04d 起（当前 last_published=%d），无绕过开关"
-            % (cur["last_published"] + 1, cur["last_published"]), 1)
+        probs.append("连续性谓词失败：应从 ch_%04d 起（当前 last_published=%d），无绕过开关"
+                     % (cur["last_published"] + 1, cur["last_published"]))
     chs = {ch_num(c["id"]): c for c in proj.chapters()}
     not_ok = [n for n in range(frm, to + 1)
               if n not in chs or chs[n]["meta"].get("status") != "approved"]
     if not_ok:
-        die("区间含非 approved 章：%s" % ["ch_%04d" % n for n in not_ok], 1)
+        probs.append("区间含非 approved 章：%s" % ["ch_%04d" % n for n in not_ok])
     if cur["last_published"] == 0:
         need = proj.config.get("buffer", {}).get("min_before_publish", 1)
         if proj.buffer_ready() < need:
-            die("首发前 ready=%d < min_before_publish=%d" % (proj.buffer_ready(), need), 1)
+            probs.append("首发前 ready=%d < min_before_publish=%d"
+                         % (proj.buffer_ready(), need))
+    return probs
+
+
+def cmd_publish(args):
+    proj = Project(find_root(args))
+    frm = ch_num(args.ch_from)
+    to = ch_num(args.ch_to) if args.ch_to else frm
+    probs = publish_problems(proj, frm, to)
+    if probs:
+        die("\n".join(probs), 1)
+    chs = {ch_num(c["id"]): c for c in proj.chapters()}
     for n in range(frm, to + 1):
         c = chs[n]
         c["meta"]["status"] = "published"
@@ -2221,11 +2770,28 @@ def cmd_ledger(args):
                       % (tid, m.get("state"), m.get("must_not_drop"),
                          m.get("plant_ch"), m.get("payoff_planned")))
     elif args.which == "power":
-        f = proj.p("ledgers", "power.tsv")
-        print(read(f) if f.is_file() else "（空）")
+        for r in proj.power_rows():
+            print("%s %s：%s → %s %s（rev%d）"
+                  % (r["chapter"], r["entity"], r["from"], r["to"],
+                     r["note"], r["rev"]))
+        if not proj.power_rows():
+            print("（空）")
     else:
-        f = proj.p("ledgers", "timeline.tsv")
-        print(read(f) if f.is_file() else "（空）")
+        rows = sorted(proj.timeline_rows(),
+                      key=lambda r: ch_num(r["chapter"])
+                      if re.match(r"^ch_\d{4}$", r["chapter"]) else 0)
+        if not rows:
+            print("（空）")
+        else:
+            print("chapter\tstory_date\telapsed\t累计天\tnote")
+            cum = 0.0
+            for r in rows:
+                d = parse_elapsed_days(r["elapsed"])
+                cum += d or 0
+                print("%s\t%s\t%s\t%s\t%s"
+                      % (r["chapter"], r["story_date"] or "-", r["elapsed"] or "-",
+                         ("%.1f" % cum) if d is not None else "?（不可解析）",
+                         r["note"]))
     return 0
 
 
@@ -2363,6 +2929,33 @@ def cmd_report(args):
     return 0
 
 
+def checkpoint_problems(proj, vol_id):
+    """checkpoint 前置谓词（P3 gate 复用：只判不写）。返回问题清单（空 = 可结账）。"""
+    probs = []
+    vp = proj.node_path(vol_id)
+    if not vp or not vp.is_file():
+        return ["卷不存在：%s" % vol_id]
+    vmeta, _ = parse_frontmatter(read(vp))
+    if vmeta.get("status") != "committed":
+        probs.append("卷 %s 状态为 %s，须 committed 才可 checkpoint"
+                     % (vol_id, vmeta.get("status")))
+    rp = proj.p("state", "reports", vol_id + ".md")
+    if not rp.is_file():
+        probs.append("卷报告未汇编：先跑 novel.py report volume %s（serial-ops §4 步骤 1）"
+                     % vol_id)
+    else:
+        pending = [l.strip() for l in read(rp).splitlines() if "[待对账]" in l]
+        if pending:
+            probs.append("exports 对账未完成，%d 条仍为 [待对账]（编辑 %s 标注三态后重试）：\n  %s"
+                         % (len(pending), rp.relative_to(proj.root),
+                            "\n  ".join(pending[:5])))
+    bad = [c["id"] for c in volume_chapters(proj, vol_id)
+           if c["meta"].get("status") in ("planned", "drafted", "stale")]
+    if bad:
+        probs.append("卷内存在未完稿章（须 approved/published/archived）：%s" % " ".join(bad))
+    return probs
+
+
 def cmd_checkpoint(args):
     """P0-4：卷末结账（formats §16 checkpoint 行）。
     校验：报告存在 + exports 三态齐 + 卷内无未完稿章；动作：卷标记 + 下卷 imports 预填。"""
@@ -2371,24 +2964,13 @@ def cmd_checkpoint(args):
     m0 = re.match(r"^vol_(\d{2})$", vol_id)
     if not m0:
         die("卷 id 应为 vol_NN")
+    probs = checkpoint_problems(proj, vol_id)
+    if probs:
+        die("\n".join(probs), 1)
     vp = proj.node_path(vol_id)
-    if not vp or not vp.is_file():
-        die("卷不存在：%s" % vol_id, 1)
     vmeta, vbody = parse_frontmatter(read(vp))
-    if vmeta.get("status") != "committed":
-        die("卷 %s 状态为 %s，须 committed 才可 checkpoint" % (vol_id, vmeta.get("status")), 1)
     rp = proj.p("state", "reports", vol_id + ".md")
-    if not rp.is_file():
-        die("卷报告未汇编：先跑 novel.py report volume %s（serial-ops §4 步骤 1）" % vol_id, 1)
     rtext = read(rp)
-    pending = [l.strip() for l in rtext.splitlines() if "[待对账]" in l]
-    if pending:
-        die("exports 对账未完成，%d 条仍为 [待对账]（编辑 %s 标注三态后重试）：\n  %s"
-        % (len(pending), rp.relative_to(proj.root), "\n  ".join(pending[:5])), 1)
-    bad = [c["id"] for c in volume_chapters(proj, vol_id)
-           if c["meta"].get("status") in ("planned", "drafted", "stale")]
-    if bad:
-        die("卷内存在未完稿章（须 approved/published/archived）：%s" % " ".join(bad), 1)
 
     # 卷归档标记
     vmeta["checkpoint_at"] = NOW()
@@ -2463,6 +3045,7 @@ def cmd_adopt(args):
         "title": args.title or (meta or {}).get("title", ""),
         "word_count": cjk_len(text),
     }
+    txn = txn_begin(proj, "adopt", ch_id)
     write(exist, dump_frontmatter(new_meta) + "\n\n## 正文\n" + text.strip() + "\n")
     tp = proj.p("chapters", ch_id + ".task.json")
     if not tp.is_file():
@@ -2479,11 +3062,349 @@ def cmd_adopt(args):
                 "word_count": new_meta["word_count"]}
         write(mp, json.dumps(stub, ensure_ascii=False, indent=1))
     update_ngram_cache(proj, ch_id, text)
+    update_rollup(proj)
+    txn_end(proj, txn)
     git_autocommit(proj.root, "[adopt] %s ← %s" % (ch_id, src.name))
     print("已收编：%s（status=drafted, %d 字）" % (ch_id, new_meta["word_count"]))
     print("后续（protocol/adopt.md §3）：补 task.json 排批字段 → 补录 writeback"
-          "（summary_after/continuity_delta/thread_ops）→ check --unit %s → "
-          "评审后 set-status approved" % ch_id)
+          "（summary_after/continuity_delta/thread_ops）→ novel.py facts import %s → "
+          "check --unit %s → 评审落盘（review add）后 set-status approved"
+          % (ch_id, ch_id))
+    return 0
+
+
+# ---------------------------------------------------------------- review（P0-2）
+def cmd_review(args):
+    """评审回执 CLI 化：轻/深评结论落盘 reviews/（approved 闸门唯一认可的回执载体）。"""
+    proj = Project(find_root(args))
+    if args.review_cmd == "list":
+        for r in proj.reviews():
+            m = r["meta"]
+            print("%-24s depth=%-5s verdict=%-8s rev_reviewed=%s date=%s"
+                  % (r["path"].name, m.get("depth"), m.get("verdict"),
+                     m.get("rev_reviewed"), m.get("date")))
+        if not proj.reviews():
+            print("（无评审单）")
+        return 0
+    # add
+    ch_id = args.ch_id
+    ch_num(ch_id)
+    p = proj.p("chapters", ch_id + ".md")
+    if not p.is_file():
+        die("章不存在：%s" % ch_id, 1)
+    cmeta, _ = parse_frontmatter(read(p))
+    cur_rev = (cmeta or {}).get("rev") or 1
+    rev = args.rev if args.rev is not None else cur_rev
+    if rev != cur_rev:
+        print("[warn] rev_reviewed=%d ≠ 章当前 rev=%d——该回执不会被 approved 闸门认可"
+              "（仅存证历史评审）" % (rev, cur_rev))
+    issues = args.issue or ["[全章] 无阻塞问题 → 通过"]
+    meta = {"id": "review_%s_%s" % (ch_id, args.depth), "kind": "review",
+            "chapter": ch_id, "depth": args.depth, "verdict": args.verdict,
+            "rev_reviewed": rev, "date": datetime.date.today().isoformat()}
+    body = "\n## 问题清单\n\n" + "\n".join("- %s" % i for i in issues) + "\n"
+    if args.lesson:
+        body += "\n## 教训\n\n- %s\n" % args.lesson
+    out = proj.p("reviews", "%s.%s.md" % (ch_id, args.depth))
+    write(out, dump_frontmatter(meta) + body)
+    git_autocommit(proj.root, "[review] %s %s=%s rev%d"
+                   % (ch_id, args.depth, args.verdict, rev))
+    print("评审单已落盘：reviews/%s.%s.md（verdict=%s, rev_reviewed=%d）"
+          % (ch_id, args.depth, args.verdict, rev))
+    if args.verdict == "escalate":
+        print("[提醒] escalate：按 pipeline §3 开 revise_design 任务（--evidence 必填）")
+    elif args.verdict == "revise":
+        print("[提醒] revise：问题清单进修订循环（pipeline §2）")
+    return 0
+
+
+# ---------------------------------------------------------------- facts（P0-4）
+def cmd_facts(args):
+    """facts 台账工具：import = adopt 补录的机械半边（自各章 meta.json 的
+    continuity_delta 分配 fact_id 入账，同文同章去重，可重复执行）。"""
+    proj = Project(find_root(args))
+    if args.facts_cmd == "list":
+        for x, fname in proj.all_facts():
+            if args.entity and args.entity not in (x.get("entity_ids") or []):
+                continue
+            flag = ""
+            if x.get("spoiler"):
+                flag += "【spoiler】"
+            if x.get("superseded_by"):
+                flag += "【已覆盖 %s】" % x["superseded_by"]
+            print("%-10s ch%-4s %s%s（%s｜%s）"
+                  % (x.get("id"), x.get("revealed_ch"), flag, x.get("fact"),
+                     ",".join(x.get("entity_ids") or []), fname))
+        return 0
+    # import
+    total = []
+    for ch_id in args.ch_ids:
+        ch_num(ch_id)
+        wb = proj.chapter_meta_json(ch_id)
+        if wb is None:
+            die("缺 chapters/%s.meta.json（先按 protocol/adopt.md §3 补录 writeback）"
+                % ch_id, 1)
+        errs = []
+        for i, d in enumerate(wb.get("continuity_delta", []) or []):
+            for k in ("fact", "entity_ids", "spoiler"):
+                if k not in d:
+                    errs.append("continuity_delta[%d] 缺 %s" % (i, k))
+            for ref in d.get("entity_ids", []):
+                if not proj.resolve_entity(ref):
+                    errs.append("continuity_delta[%d] 实体「%s」未登记"
+                                "（先 entity new/补 aliases）" % (i, ref))
+        if errs:
+            die("%s 补录校验失败（零入账）：\n  %s" % (ch_id, "\n  ".join(errs)), 1)
+        added = register_facts(proj, ch_id, wb)
+        total += added
+        print("%s：%s" % (ch_id, "登记 " + " ".join(added) if added
+                          else "无新事实（已入账或 delta 为空）"))
+    # 补录 writeback 后 rollup 一并刷新（adopt 时 summary_after 为空被跳过）
+    update_rollup(proj)
+    if total:
+        git_autocommit(proj.root, "[facts] import %s" % " ".join(args.ch_ids))
+    print("facts import 完成：新登记 %d 条；跑 check --project 复核" % len(total))
+    return 0
+
+
+# ---------------------------------------------------------------- extract（P2-1）
+def cmd_extract(args):
+    """抽取器独立入口：正文反向解析 + 与 writeback 对账（双记账机器半边）。"""
+    proj = Project(find_root(args))
+    ch_id = args.ch_id
+    ch_num(ch_id)
+    if args.candidate:
+        _, body = parse_frontmatter(read(args.candidate))
+    else:
+        p = proj.p("chapters", ch_id + ".md")
+        if not p.is_file():
+            die("章不存在且未给 --candidate：%s" % ch_id, 1)
+        _, body = parse_frontmatter(read(p))
+    text = body.split("## 正文", 1)[-1] if "## 正文" in body else body
+    wb = json.loads(read(args.writeback)) if args.writeback \
+        else proj.chapter_meta_json(ch_id)
+    rep = Report()
+    obs = extract_reconcile(proj, ch_id, text, wb or {}, rep)
+    print("== 抽取器观察（%s）==" % ch_id)
+    for eid, n in sorted(obs["mentions"].items()):
+        print("- 出场实测：%s ×%d" % (eid, n))
+    for q in obs["name_candidates"]:
+        print("- 新专名候选：「%s」" % q)
+    if not obs["mentions"] and not obs["name_candidates"]:
+        print("- （无已登记别名命中，无新专名候选）")
+    return rep.render("extract %s（对账）" % ch_id)
+
+
+# ---------------------------------------------------------------- gate（P3-1）
+def gate_write(proj, ch_id, rep):
+    """spawn 写手前置闸门：任务卡排批完整 + 弧 committed + 简报新鲜 + 基线干净。"""
+    task = proj.chapter_task(ch_id)
+    tp = proj.p("chapters", ch_id + ".task.json")
+    if not task:
+        rep.add("FAIL", "缺任务卡 chapters/%s.task.json（先 tree add chapter + 排批）" % ch_id)
+        return
+    ph = []
+    for k in ("goal", "beats", "cast"):
+        v = task.get(k)
+        if not v or (isinstance(v, str) and v.startswith("[")) \
+                or (isinstance(v, list) and all(str(x).startswith("[") for x in v)):
+            ph.append(k)
+    if ph:
+        rep.add("FAIL", "任务卡未排批（字段缺失/仍为占位）", ph)
+    else:
+        rep.add("PASS", "任务卡排批字段齐全（goal/beats/cast）")
+    route = proj.config.get("route", "web")
+    hook = task.get("hook") or {}
+    if route == "web" and (not hook.get("close") or str(hook.get("close")).startswith("[")):
+        rep.add("FAIL", "route=web 章尾钩未排（task.json hook.close 必填，pipeline §1 步骤 0）")
+    if route == "traditional" and not task.get("turn"):
+        rep.add("WARN", "traditional 未填 turn（价值翻转一句话，route-traditional §2）")
+    arc = task.get("arc")
+    arc_p = proj.node_path(arc) if arc and not str(arc).startswith("[") else None
+    if not arc_p or not arc_p.is_file():
+        rep.add("FAIL", "所属弧不存在或未填：%s" % arc)
+    else:
+        ameta, _ = parse_frontmatter(read(arc_p))
+        if (ameta or {}).get("status") != "committed":
+            rep.add("FAIL", "弧 %s 状态 %s ≠ committed（先过弧简流程定稿）"
+                    % (arc, (ameta or {}).get("status")))
+        else:
+            rep.add("PASS", "弧 %s 已 committed" % arc)
+    bp = proj.p("briefs", ch_id + ".brief.md")
+    if not bp.is_file():
+        rep.add("FAIL", "简报未编译：novel.py brief %s（写手唯一世界）" % ch_id)
+    elif tp.is_file() and bp.stat().st_mtime < tp.stat().st_mtime:
+        rep.add("FAIL", "简报早于任务卡（排批后未重编译）：重跑 novel.py brief %s" % ch_id)
+    else:
+        rep.add("PASS", "简报存在且不早于任务卡")
+    dirty = git_out(proj.root, "status", "--porcelain")
+    if dirty:
+        rep.add("FAIL", "工作区不干净（spawn 前基线必须干净，pipeline §5）",
+                dirty.splitlines()[:8])
+    else:
+        rep.add("PASS", "git 基线干净")
+    cur = proj.cursor()
+    last_deep = proj.last_deep_review_ch()
+    deep_every = proj.config.get("critic", {}).get("deep_every", 5)
+    if cur["last_drafted"] > 0 and cur["last_drafted"] - last_deep >= deep_every:
+        rep.add("WARN", "深评逾期（last_deep=%d, last_drafted=%d）——先排 review_deep"
+                % (last_deep, cur["last_drafted"]))
+
+
+def gate_approve(proj, ch_id, rep):
+    """approved 前置闸门：章已 drafted + 落盘回执（rev 匹配）+ 机检绿。"""
+    p = proj.p("chapters", ch_id + ".md")
+    if not p.is_file():
+        rep.add("FAIL", "章不存在：%s" % ch_id)
+        return
+    meta, _ = parse_frontmatter(read(p))
+    if (meta or {}).get("status") != "drafted":
+        rep.add("FAIL", "章状态 %s ≠ drafted（迁移表 formats §3）" % (meta or {}).get("status"))
+    receipt = approval_receipt(proj, ch_id)
+    if receipt:
+        rep.add("PASS", "评审回执有效：%s" % receipt)
+    else:
+        rep.add("FAIL", "缺有效评审回执（reviews/%s.light|deep.md verdict=pass 且 "
+                        "rev_reviewed=章当前 rev；用 novel.py review add 落盘）" % ch_id)
+    check_unit(proj, ch_id, rep=rep)
+
+
+def cmd_gate_next(proj):
+    """机器版编排剧本：按优先级输出下一步该干什么（把「先修账、再评审、再写作」
+    的调度纪律从提示词搬进机器）。"""
+    recs = []
+    prep = Report()
+    check_project(proj, prep)
+    fails = [n for l, n, _ in prep.items if l == "FAIL"]
+    if fails:
+        recs.append("【修账】check --project 有 FAIL，先修复：%s" % "；".join(fails[:3]))
+    cur = proj.cursor()
+    last_deep = proj.last_deep_review_ch()
+    deep_every = proj.config.get("critic", {}).get("deep_every", 5)
+    if cur["last_drafted"] > 0 and cur["last_drafted"] - last_deep >= deep_every:
+        recs.append("【深评】逾期（last_deep=%d, last_drafted=%d, deep_every=%d）："
+                    "task add review_deep ch_%04d"
+                    % (last_deep, cur["last_drafted"], deep_every, cur["last_drafted"]))
+    thr = proj.config.get("reconcile_every", 10)
+    due = [e for e, v in proj.entities().items()
+           if (v["meta"].get("last_event_ch", 0) or 0)
+           - (v["meta"].get("last_reconcile_ch", 0) or 0) >= thr]
+    if due:
+        recs.append("【对账】实体到期 %s：serial-ops §5 对账轮（entity update）"
+                    % " ".join(due[:5]))
+    if proj.config.get("route", "web") == "web" and cur["last_published"] > 0 \
+            and proj.buffer_ready() == 0:
+        recs.append("【补稿】buffer=0：停发/降频，只跑 write 批（serial-ops §1）")
+    q = load_queue_promoted(proj)
+    tid = next_task_id(q)
+    if tid:
+        t = proj.task(tid)
+        recs.append("【队列】执行队首 %s：%s(%s) → task start %s"
+                    % (tid, t["type"], t["target"], tid))
+    else:
+        nxt = cur["last_drafted"] + 1
+        nid = "ch_%04d" % nxt
+        if proj.p("chapters", nid + ".task.json").is_file():
+            recs.append("【排批】%s 已有任务卡：task add write %s" % (nid, nid))
+        elif any(n["meta"].get("kind") == "arc" and n["meta"].get("status") == "committed"
+                 for n in proj.tree_nodes()):
+            recs.append("【排批】队列空：从弧计划取料排批 %s（pipeline §1 步骤 0）" % nid)
+        else:
+            recs.append("【设计】无 committed 弧：开书庭/卷庭/弧规划（court.md §1）")
+    print("== gate next（机器版编排剧本）==")
+    for i, r in enumerate(recs, 1):
+        print("%d. %s" % (i, r))
+    print("（依序处置；【修账】未清不得进入写作环）")
+    return 0
+
+
+def cmd_gate(args):
+    proj = Project(find_root(args))
+    if args.gate_cmd == "next":
+        return cmd_gate_next(proj)
+    rep = Report()
+    if args.gate_cmd == "write":
+        gate_write(proj, args.ch_id, rep)
+        return rep.render("gate write %s" % args.ch_id)
+    if args.gate_cmd == "approve":
+        gate_approve(proj, args.ch_id, rep)
+        return rep.render("gate approve %s" % args.ch_id)
+    if args.gate_cmd == "publish":
+        frm = ch_num(args.ch_from)
+        to = ch_num(args.ch_to) if args.ch_to else frm
+        probs = publish_problems(proj, frm, to)
+        for pr in probs:
+            rep.add("FAIL", pr)
+        if not probs:
+            rep.add("PASS", "publish 前置谓词全过（ch_%04d..ch_%04d 可发布）" % (frm, to))
+        return rep.render("gate publish")
+    if args.gate_cmd == "checkpoint":
+        probs = checkpoint_problems(proj, args.vol_id)
+        for pr in probs:
+            rep.add("FAIL", pr)
+        if not probs:
+            rep.add("PASS", "checkpoint 前置谓词全过（%s 可结账）" % args.vol_id)
+        return rep.render("gate checkpoint %s" % args.vol_id)
+    return 2
+
+
+# ---------------------------------------------------------------- court（P3-2）
+def cmd_court(args):
+    """庭审工作区 CLI 化：open 建场次目录+R0 骨架；status 盘点回合产物；
+    close 校验裁决落盘后清理中间态（court.md §3 约定的机械半边）。"""
+    proj = Project(find_root(args))
+    base = proj.p("state", "court")
+    if args.court_cmd == "open":
+        d = base / args.session
+        d.mkdir(parents=True, exist_ok=True)
+        stub = d / "r0_brief.md"
+        if not stub.exists():
+            write(stub, "# R0 设计简报 — %s\n\n- 目标节点: %s\n- 议题与决策清单:\n"
+                        "  - [ ] （本场要定什么，逐条）\n- 上游约束: （已 committed 节点/前场暂存稿）\n"
+                        "- 兄弟契约: （卷庭附上卷 exports+卷报告）\n- 市场输入: （用户诉求/平台定位）\n"
+                        "- 判据附件路径清单: （court.md §2 投递列）\n"
+                        "- 相关否决案: （court/dec_* 的「## 否决案」节全文）\n\n"
+                        "（装配指引 court.md §3 R0；纪律：transcripts 永不入简报；"
+                        "R1–R4 产物按 r1_*.md/r2_*.md… 前缀存本目录）\n"
+                  % (args.session, args.node or "（--node 指定）"))
+            print("场次已开：state/court/%s/（r0_brief.md 骨架就位）" % args.session)
+        else:
+            print("场次已存在：state/court/%s/（续场，从现有回合产物恢复）" % args.session)
+        for f in sorted(d.iterdir()):
+            print("  - %s" % f.name)
+        return 0
+    if args.court_cmd == "status":
+        if not base.is_dir() or not any(base.iterdir()):
+            print("（无进行中场次）")
+        for d in sorted(base.iterdir()) if base.is_dir() else []:
+            if not d.is_dir():
+                continue
+            files = [f.name for f in sorted(d.iterdir())]
+            rounds = {r: len([f for f in files if f.startswith(r)])
+                      for r in ("r0", "r1", "r2", "r3", "r4")}
+            print("%s：%s ｜ 文件 %d" % (d.name,
+                                         " ".join("%s×%d" % kv for kv in rounds.items()
+                                                  if kv[1]), len(files)))
+        print("court/ 裁决记录 %d 份；transcripts %d 份"
+              % (len(proj.decisions()), len(list(proj.p("court", "transcripts").glob("*"))
+                                            if proj.p("court", "transcripts").is_dir()
+                                            else [])))
+        return 0
+    # close
+    d = base / args.session
+    if not d.is_dir():
+        die("场次不存在：state/court/%s" % args.session, 1)
+    missing = [dec for dec in args.dec
+               if not list(proj.p("court").glob(dec + "*.md"))]
+    if missing:
+        die("裁决未落盘，不得清场：court/%s*.md 缺失（先随定稿 commit 附笔入库）"
+            % " ".join(missing), 1)
+    shutil.rmtree(d)
+    git_autocommit(proj.root, "[court] close %s（dec=%s）"
+                   % (args.session, " ".join(args.dec)))
+    print("场次已清：state/court/%s（裁决 %s 已确认落盘）"
+          % (args.session, " ".join(args.dec)))
+    print("[提醒] transcript 归档 court/transcripts/（若尚未）；复盘走 dec + git log")
     return 0
 
 
@@ -2605,6 +3526,54 @@ def main(argv=None):
     p = sub.add_parser("ledger", help="台账视图：payoff|promise|timeline|power")
     p.add_argument("which", choices=["payoff", "promise", "timeline", "power"])
 
+    p = sub.add_parser("review", help="评审回执落盘：add/list（approved 闸门唯一回执载体）")
+    ts = p.add_subparsers(dest="review_cmd", required=True)
+    q = ts.add_parser("add")
+    q.add_argument("ch_id")
+    q.add_argument("--depth", required=True, choices=list(REVIEW_DEPTHS))
+    q.add_argument("--verdict", required=True, choices=list(REVIEW_VERDICTS))
+    q.add_argument("--rev", type=int, help="被评审的章 rev（默认=章当前 rev）")
+    q.add_argument("--issue", action="append",
+                   help="问题清单行（可多值；缺省写「无阻塞问题 → 通过」）")
+    q.add_argument("--lesson", help="教训一行（可选，编排者摘入 lessons）")
+    ts.add_parser("list")
+
+    p = sub.add_parser("facts", help="facts 台账：import（adopt 补录机械半边）/list")
+    ts = p.add_subparsers(dest="facts_cmd", required=True)
+    q = ts.add_parser("import")
+    q.add_argument("ch_ids", nargs="+", metavar="CH_ID")
+    q = ts.add_parser("list")
+    q.add_argument("--entity")
+
+    p = sub.add_parser("extract", help="抽取器：正文反向解析+writeback 对账（双记账机器半边）")
+    p.add_argument("ch_id")
+    p.add_argument("--candidate", help="未落盘候选章文件")
+    p.add_argument("--writeback", help="未落盘 writeback JSON")
+
+    p = sub.add_parser("gate", help="闸门家族：next/write/approve/publish/checkpoint（只判不写）")
+    gs = p.add_subparsers(dest="gate_cmd", required=True)
+    gs.add_parser("next")
+    q = gs.add_parser("write")
+    q.add_argument("ch_id")
+    q = gs.add_parser("approve")
+    q.add_argument("ch_id")
+    q = gs.add_parser("publish")
+    q.add_argument("ch_from")
+    q.add_argument("ch_to", nargs="?")
+    q = gs.add_parser("checkpoint")
+    q.add_argument("vol_id")
+
+    p = sub.add_parser("court", help="庭审工作区：open/status/close（state/court/ 机械管理）")
+    cs = p.add_subparsers(dest="court_cmd", required=True)
+    q = cs.add_parser("open")
+    q.add_argument("session", help="场次代号（S1..S4/vol_NN/arc_NN_n/adhoc_xxx）")
+    q.add_argument("--node", help="目标节点 id")
+    cs.add_parser("status")
+    q = cs.add_parser("close")
+    q.add_argument("session")
+    q.add_argument("--dec", action="append", required=True,
+                   help="本场裁决 id（court/ 中须真实存在；可多值）")
+
     args = ap.parse_args(argv)
     if args.cmd == "check" and not (args.unit or args.window or args.project or args.leak):
         ap.error("check 需 --unit <ch>|--window|--project|--leak <候选> 之一")
@@ -2614,7 +3583,9 @@ def main(argv=None):
         "entity": cmd_entity, "thread": cmd_thread, "brief": cmd_brief,
         "check": cmd_check, "commit": cmd_commit, "publish": cmd_publish,
         "ledger": cmd_ledger, "retcon": cmd_retcon, "report": cmd_report,
-        "checkpoint": cmd_checkpoint, "adopt": cmd_adopt,
+        "checkpoint": cmd_checkpoint, "adopt": cmd_adopt, "review": cmd_review,
+        "facts": cmd_facts, "extract": cmd_extract, "gate": cmd_gate,
+        "court": cmd_court,
         "fsck": lambda a: check_project(Project(find_root(a))).render("fsck"),
     }
     return dispatch[args.cmd](args)
