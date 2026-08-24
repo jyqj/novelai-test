@@ -17,7 +17,7 @@
 
 | 场 | 阵容(R1 提案 / R2 评审;主编×1 另计) | 编排者投递(设计简报构成,R0) | 产出物(树节点+裁决记录) | 运行数 |
 |---|---|---|---|---|
-| S1 | 架构师×2(stance:市场派/概念派)/ 读者×2(异人设卡)+ 安全×1 | 用户想法与硬约束;目标平台与题材市场输入;personas 七卡概览(选卡依据);rubrics/redline.md、toxicity.md | book.md「主旨与主控思想/高概念与题材定位」素材 + dec_001(session: S1) | 6(无 R4) |
+| S1 | 架构师×2(stance:市场派/概念派)/ 读者×2(异人设卡)+ 安全×1 | 用户想法与硬约束;目标平台与题材市场输入;personas 九卡概览(选卡依据;traditional 用 literary-purist+bookclub-mainstream 双卡);rubrics/redline.md、toxicity.md、theme.md(主控思想验收) | book.md「主旨与主控思想/高概念与题材定位」素材 + dec_001(session: S1) | 6(无 R4) |
 | S2 | 架构师×2(stance:体系派/代价派)/ 设定×1 + 读者×1 | S1 暂存稿+dec_001;金手指与体系诉求;rubrics/power.md;world.md 必需节结构(F§4) | world.md 四节 + book.md「世界观核心/金手指与力量体系」素材 + dec_002 | 5 + R4 预留 |
 | S3 | 架构师×2(stance:人物派/冲突派)/「结构+设定」合并×1 + 读者×1 | S1–S2 暂存稿+dec;rubrics/structure.md、power.md(锚定表核对)、voice.md(声纹种子);人设卡 | book.md「主线电缆/人物主阵容/反派梯队」素材 + 实体卡种子清单 + dec_003 | 5 + R4 预留 |
 | S4 | 架构师×1(分卷推演,无需方案对撞)/ 结构×1 + 安全×1 + 读者×1 | S1–S3 全部暂存稿+dec;rhythm/ 五模板(弧划分选配);volume.md 九节结构(F§4);rubrics/redline.md、payoff.md | book.md「分卷草案/红线自查结论」+ vol_01/volume.md + style.md 定稿(承 S1 题材与 S3 声纹;范文锚可引 corpus/ 或留占位)+ dec_004 | 5 + R4 预留 |

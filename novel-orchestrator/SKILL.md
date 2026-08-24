@@ -13,7 +13,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 2. **commit 是唯一写路径**：任何产物先机检（`novel.py check`）后落盘（`novel.py commit`）；机检不绿不入库。`published` 章**永不改写**，修错走 retcon（`protocol/serial-ops.md` §3）。
 3. **运行期读 rubrics（判据卡），深读才回 knowledge**：knowledge/ 111 块中可机检/可评审的操作面已蒸馏进 rubrics/（带阈值判据；块级归属与蒸馏/庭审附件/仅深读三类划分见 `knowledge-map.md` 统计）。写作与评审只引用 rubrics；仅当「诊断疑难/设计庭深读/庭审附件投递」时，经 `knowledge-map.md` 定位后按块读 knowledge/，读完即弃，不进简报。
 
-## 1. 能力探测（进入任务先答三问）
+## 1. 能力探测（进入任务先答三问；四档剖面与降级矩阵详见 `modes/capability-profiles.md`）
 
 | 探测 | 判定方法 | 结果 |
 |---|---|---|
@@ -46,13 +46,14 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 | 任务 | 必读 | 按需 |
 |---|---|---|
-| 冷启动/选模式 | 本文件、所选 modes/ 一篇 | `protocol/formats.md` §1–3（目录与状态机） |
+| 冷启动/选模式 | 本文件、所选 modes/ 一篇 | `modes/capability-profiles.md`（档位存疑时）、`protocol/formats.md` §1–3（目录与状态机） |
 | 书庭（开书设计） | `protocol/court.md`、`templates/book.md`、`templates/world.md`、`templates/style.md` | `rubrics/redline.md`、庭审附件（见 `knowledge-map.md` 对应场次） |
 | 卷/弧规划 | `protocol/court.md` §1、`templates/volume.md`、`templates/arc.md`、`rhythm/` 所选一篇 | `rubrics/structure.md`、`rubrics/payoff.md` |
 | 排批章任务 | `protocol/pipeline.md` §1 步骤1、`templates/chapter.task.json` | 上一弧 `arc_*.md` |
 | 写一章 | `briefs/ch_*.brief.md`（简报即全部世界）、`roles/writer.md` | —（写手禁读库内其他文件） |
 | 轻评审 | `roles/critic-light.md`、`rubrics/prose-disease.md`、`rubrics/payoff.md` | `rubrics/voice.md` |
 | 深评审 | `roles/critic-deep.md`、`rubrics/structure.md`、`rubrics/toxicity.md`、`rubrics/anti-plagiarism.md` | `rubrics/power.md`、`personas/` 抽 1–2 张 |
+| 传统路线细纲/三遍修订 | `modes/route-traditional.md`、`rubrics/scene-value.md` | `rubrics/theme.md`、`rubrics/imagery.md`、`personas/literary-purist.md`+`bookclub-mainstream.md` |
 | 设定审计 | `roles/setting-auditor.md`、`rubrics/power.md` | `tree/world.md`、`ledgers/facts/` |
 | 红线安全审 | `roles/safety-auditor.md`、`rubrics/redline.md` | — |
 | 发布/缓冲运营 | `protocol/serial-ops.md` §1–2 | `roles/data-analyst.md` |
@@ -98,11 +99,11 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 ```
 SKILL.md(本文件)  README.md(人类快速开始)  knowledge-map.md(111 块知识归属)
-modes/      三模式作业手册（orchestrated / solo / traditional 差分）
+modes/      三模式作业手册（orchestrated / solo / traditional 差分）+ capability-profiles（宿主四档）
 protocol/   pipeline(产线) court(设计庭) serial-ops(连载运营) formats(文件与CLI契约)
             glossary(术语SSOT) manual-check(无shell人工自查) adopt(存量收编)
-roles/      11 张角色卡（spawn 提示词/帽子定义）    rubrics/  8 张判据卡（运行期唯一评审依据）
-personas/   7 张读者人设卡（庭审投票用）            rhythm/   5 张节奏模板（弧/卷规划用）
+roles/      11 张角色卡（spawn 提示词/帽子定义）    rubrics/  11 张判据卡（运行期唯一评审依据）
+personas/   9 张读者人设卡（庭审投票用；含 2 张传统路线文学口味卡）  rhythm/   5 张节奏模板（弧/卷规划用）
 templates/  全部资产模板（novel.py init/tree add 的源）
 tools/      novel.py(核心 CLI) tests/(冒烟+长程测试) README.md(覆盖表)
 knowledge/ + knowledge-blocks.md + knowledge-index.md   深读知识库（经 knowledge-map 进入）

@@ -27,14 +27,16 @@
 对每章 task.json 做加厚，替代 web 的三拍粗批：
 
 1. `beats` 扩到 **6–10 拍**，每拍一句「谁做什么→值变什么」；
-2. 增补键 `"scene_intents"`：每拍标 `场景|过场`，场景须有目标/障碍/转折之一被显式命名；
+2. 增补键 `"scene_intents"`：每拍标 `场景|过场`，场景须有目标/障碍/转折之一被显式命名
+   （场景合法性判据见 `rubrics/scene-value.md` §一）；
 3. `hook.close` 可为 null，但必须写 `"turn"`：本章价值翻转一句话（正负极性标明，如
-   `"信任+ → 背叛-"`）；
+   `"信任+ → 背叛-"`；验收判据见 `rubrics/scene-value.md` §二）；
 4. 细纲以弧为批次成批产出（一次 5–10 章），戴 Architect 帽/spawn 架构师完成，
-   过一次 structure-critic 检查（盯因果链与节拍对位）再进入写作。
+   过一次 structure-critic 检查（附 `rubrics/scene-value.md`，盯因果链、节拍对位与
+   场景五步完整性）再进入写作。
 
 > 附加键是 formats.md 章任务卡的可选扩展，机器不校验其内容，写手照拍执行、
-> 深评照 `turn` 验收。
+> 深评照 `turn` 验收（判据 `rubrics/scene-value.md` §二）。
 
 ## 3. CLI 断言差分（route=traditional 时自动生效）
 
@@ -49,11 +51,17 @@
 全部章 `approved` 后、宣布完稿前，依次执行；每遍产出问题清单 → 逐条修复走
 `revise` 任务（机检+评审照常）：
 
-1. **结构遍**：戴 structure-critic 帽对全书跑 classic24 检查单 + `check --project`
-   + 线索台账清账（`ledger promise` 无未回收 must_not_drop 线）；
-2. **场景遍**：抽全书 20% 章深评（关键节拍章必抽），盯 `turn` 兑现与人物弧一致性；
-3. **语言遍**：逐章重跑 `check --unit`（style 黑名单可能已迭代），同喻体全书频次、
-   口癖跨章聚集由深评抽查。
+1. **结构遍**：戴 structure-critic 帽对全书跑 classic24 检查单 + `rubrics/theme.md`
+   §四主题贯穿追踪 + `check --project` + 线索台账清账（`ledger promise` 无未回收
+   must_not_drop 线）；
+2. **场景遍**：抽全书 20% 章深评（关键节拍章必抽），按 `rubrics/scene-value.md` 盯
+   `turn` 兑现与场景合法性、按 `rubrics/theme.md` §三扫说教，兼核人物弧一致性；
+3. **语言遍**：逐章重跑 `check --unit`（style 黑名单可能已迭代），按
+   `rubrics/imagery.md` 验收意象系统纪律与比喻预算；同喻体全书频次、口癖跨章聚集
+   由深评抽查。
+
+三遍修订与庭审冷读的读者票：抽 `personas/literary-purist.md` 与
+`personas/bookclub-mainstream.md` 双卡同场（前者把语言与主题关，后者把可读性关）。
 
 三遍全绿 → 全书 `tree set-status` 各章保持 approved，book 节点记 decision「完稿」，
 导出交付（导出格式按用户要求，协议不约束）。

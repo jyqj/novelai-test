@@ -325,6 +325,7 @@ git 提交消息:`[t_000231] write(ch_0212): 摘要`。
 novel-orchestrator/
   SKILL.md README.md          # L0 入口(薄路由 ≤20KB)/ 人类快速开始
   modes/                      # 三模式:mode-orchestrated / mode-solo / route-traditional
+                              # + capability-profiles(宿主能力四档与降级矩阵)
   protocol/formats.md         # 本文件(机器契约 SSOT)
   protocol/court.md pipeline.md serial-ops.md glossary.md
   protocol/manual-check.md    # 无 shell 环境人工自查清单(可判项 vs 丢失能力,诚实降级)
@@ -332,8 +333,8 @@ novel-orchestrator/
   tools/novel.py tools/README.md tools/tests/
   templates/                  # init/tree add 母版(清单见下)
   roles/                      # 11 角色卡
-  rubrics/                    # 8 张共享判据卡(自包含 ≤120 行/张)
-  personas/                   # 7 张读者人设卡
+  rubrics/                    # 11 张共享判据卡(自包含 ≤120 行/张;含 traditional 三卡 scene-value/theme/imagery)
+  personas/                   # 9 张读者人设卡(7 张网文/短篇 + 2 张传统路线文学口味)
   rhythm/                     # 5 节奏模板(含结构评审检查单)
   knowledge/ knowledge-blocks.md knowledge-index.md   # 深读图书馆(经 knowledge-map 进入)
   knowledge-map.md            # 111 块归属 + 防膨胀规则

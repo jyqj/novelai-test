@@ -13,14 +13,16 @@
 | 层 | 内容 | 运行期是否加载 |
 |---|---|---|
 | 协议层 | `protocol/`（产线/设计庭/连载运营/文件契约/术语）、`modes/`（三模式） | 按任务加载对应章节 |
-| 判据与角色层 | `rubrics/`（8 张带阈值判据卡）、`roles/`（11 张角色卡）、`personas/`、`rhythm/`、`templates/` | 评审/规划时加载单卡 |
+| 判据与角色层 | `rubrics/`（11 张带阈值判据卡）、`roles/`（11 张角色卡）、`personas/`（9 张）、`rhythm/`、`templates/` | 评审/规划时加载单卡 |
 | 知识层 | `knowledge/`（111 块方法论）+ `knowledge-blocks.md`（锚点）+ `knowledge-map.md`（归属） | **默认不加载**；诊断/庭审深读才按块进入 |
 
 三种运行模式（`SKILL.md` §2 路由）：
 
 - **orchestrated**：可 spawn 子代理的产品。编排者只管调度，写手/评审在信息沙箱（十节简报）内工作。
 - **solo**：单代理产品的降级路径。同一个 agent 顺序戴「编排者/写手/评审」帽子，庭审降级为 1 提案 + 判据自评 + 抽人设卡。
-- **traditional**：传统长篇差分。无 buffer/publish，加细纲工序，全书按 classic24 节拍。
+- **traditional**：传统长篇差分。无 buffer/publish，加细纲工序，全书按 classic24 节拍；自有判据卡（scene-value/theme/imagery）与文学口味人设卡双票制。
+
+宿主能力（能否 spawn × 有无 shell）四档剖面与逐档降级矩阵见 `modes/capability-profiles.md`——任何 agent 产品都能落在四档之一运行本 skill。
 
 ## 快速开始（5 分钟绿路径）
 
