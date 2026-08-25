@@ -1,6 +1,8 @@
 # serial-ops.md — 连载运营协议(编排者操作手册)
 
 > 依据 spec §5.6/§10;buffer/发布顺序谓词/retcon/卷末 checkpoint 教义收编自 v1 连载手册(v1 已移除,只迁思想不迁机制);格式与 CLI 以 `protocol/formats.md`(F§n)为准。
+> **装载契约**:本协议各环节=ops 阶段,零 knowledge/ 装载(白名单见 `protocol/stages/ops-serial.md`);
+> 反馈归因需要学理支撑时=编排者转 diag 阶段(`protocol/stages/diagnose.md`),不给运营角色开库。
 
 ## 1. buffer 语义与水位动作表
 
@@ -127,6 +129,7 @@ spawn 数据分析(T-da): 附 新反馈文件、游标与近 10 章清单、revi
 
 ---
 
+*rev 5 · 2026-08-25 · 装载契约接阶段包(ops=零 K,白名单在 stages/ops-serial.md;归因深读转 diag)(P6-S)。*
 *rev 4 · 2026-08-25 · 反馈分诊补 revise_rubric 蒸馏去向;gate 试跑 FAIL 现自带「下一步」修复命令(P4-G)。*
 *rev 3 · 2026-08-24 · publish/checkpoint 前置接 gate 谓词试跑(先判后写)。*
 *rev 2 · 2026-08-24 · retcon/report/checkpoint 全面 CLI 化;补 recap 维护步骤与 power 对账;与 formats.md rev 2 对齐。*

@@ -14,7 +14,8 @@
 |---|---|---|
 | 协议层 | `protocol/`（主循环/产线/设计庭/连载运营/文件契约/术语）、`modes/`（三模式） | 按任务加载对应章节 |
 | 判据与角色层 | `rubrics/`（11 张带阈值判据卡）、`roles/`（12 张角色卡）、`personas/`（9 张）、`rhythm/`、`templates/` | 评审/规划时加载单卡 |
-| 知识层 | `knowledge/`（111 块方法论）+ `knowledge-blocks.md`（锚点）+ `knowledge-map.md`（归属） | **默认不加载**；诊断/庭审深读才按块进入 |
+| **阶段编排层** | `protocol/knowledge-orchestration.md`（11 阶段目录+装载硬规则）+ `protocol/stages/`（每阶段一个配套知识包：必读/K 池/禁读） | 阶段入口读对应包（≤80 行）；`novel.py stage current` 导航 |
+| 知识层 | `knowledge/`（111 块方法论）+ `knowledge-blocks.md`（锚点）+ `knowledge-map.md`（块级归属台账） | **默认不加载**；庭审附件经阶段包 K 池、诊断经 diag 阶段按块进入 |
 
 三种运行模式（`SKILL.md` §2 路由）：
 
@@ -51,25 +52,27 @@ python3 tools/novel.py task done t_000001
 python3 tools/novel.py review add ch_0001 --depth light --verdict pass   # 评审回执落盘 reviews/
 python3 tools/novel.py tree set-status ch_0001 approved         # 仅认落盘回执（rev 匹配）才放行
 python3 tools/novel.py publish ch_0001            # 连续性谓词，approved→published
-python3 tools/novel.py gate next                  # 机器版调度剧本：下一步该干什么
+python3 tools/novel.py gate next                  # 机器版调度剧本：下一步该干什么（末行附阶段推断）
+python3 tools/novel.py stage current              # 当前阶段 + 配套知识包路径（stage list/show 看全目录）
 ```
 
 连载运营与收编（同样有 CLI，全部在冒烟测试覆盖）：
 
 ```bash
-python3 tools/novel.py retcon --old-fact <fact_id> --new "修正后事实" --decision dec_XXX \
-    --strategy soft_override                      # 已发布内容修错（facts 作废链）
+python3 tools/novel.py retcon <fact_id> --new "修正后事实" --strategy reconcile \
+    --decision dec_XXX                            # 已发布内容修错（facts 作废链）
 python3 tools/novel.py report volume vol_01       # 卷末导出对账报告 state/reports/
 python3 tools/novel.py checkpoint vol_01          # 卷末结账（报告绿才放行）
 python3 tools/novel.py adopt 旧稿.md --as ch_0001 --parent arc_01_1   # 存量旧稿收编
 python3 tools/novel.py check --leak 草稿.md --brief briefs/ch_0002.brief.md   # 泄漏扫描
-python3 tools/novel.py knowledge query --spoilers # 知识矩阵：读者未知欠账盘点
+python3 tools/novel.py knowledge query            # 知识矩阵：读者未知欠账盘点（--fact/--entity 细查）
 python3 tools/novel.py rollup                     # 批量手改 meta 后重算章→弧→卷摘要
 ```
 
 复跑测试：`python3 tools/tests/test_smoke.py`（101 步端到端）、
-`python3 tools/tests/test_longrun.py`（35 章长程合成 + 中途返修，验证规模化不变量）与
-`python3 tools/tests/test_refactor.py`（重构专项回归，140 步）。
+`python3 tools/tests/test_longrun.py`（35 章长程合成 + 中途返修，验证规模化不变量）、
+`python3 tools/tests/test_refactor.py`（重构专项回归，140 步）与
+`python3 tools/tests/test_stage.py`（stage CLI + 阶段包↔knowledge-map 三方对账 + 引用死链扫描）。
 
 ## 一致性核查的三级闸门
 

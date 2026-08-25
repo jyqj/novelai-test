@@ -9,6 +9,8 @@
 1. **冷启动/换会话/迷路**：`novel.py status` → `novel.py gate next` → 对照 §1 总图定位所处环节 → 跳到该环节小节按表执行。禁止凭记忆续写。
 2. **每个环节四件套**：入口条件（gate 谓词，机器判）→ 动作（CLI + 执行角色/帽子）→ 验收（gate/check 绿）→ 失败去向（明确写在表里，不临场发明）。
 3. **模式与档位不改变主线**，只改变「谁来干、哪些验收降级」：solo 帽子映射、traditional 差分、C/D 档损失一律查 §7 三张覆盖表，不散落。
+4. **进环节先读阶段包**：每个环节有唯一配套知识包（§1.1 对照表；SSOT=`protocol/knowledge-orchestration.md`），
+   开工前先读包、按包内「必读/选读池/禁读」装载——不凭感觉翻库。`novel.py stage current` 打印当前包路径。
 
 ## 1. 全生命周期总图
 
@@ -31,6 +33,21 @@ init ──书庭 S1–S4──> book/world/style/vol_01 committed          （�
 ```
 
 **状态机主干**（F§3）：设计节点 `empty→draft→committed`；章 `planned→drafted→approved→published`（published 不可变）；一切迁移由 CLI 校验，`stale` 由 revise_design 波及。
+
+### 1.1 阶段 ↔ 配套知识包（装载契约；SSOT=`protocol/knowledge-orchestration.md`）
+
+| 环节 | 阶段 id | 配套包（protocol/stages/） | 装载要点 |
+|---|---|---|---|
+| 书庭 S1–S4 | s1–s4 | s1-concept / s2-world / s3-cast / s4-volumes | R0 按包装配；庭审附件从包内 K 池挑 ≤4 块、只取锚点段 |
+| 卷庭 | vol | vol-court.md | 上卷报告+K 池 11 块 |
+| 弧规划/细纲 | arc | arc-plan.md | 节奏模板检查单+K 池 3 块 |
+| 章循环（§3） | write | write-loop.md | **零知识**：写手=简报，轻评=三张判据卡 |
+| 周期回路（§4） | review | review-cycle.md | 深评=判据卡 only；欠账盘点走 `knowledge query` CLI，不读库 |
+| 发布/卷末（§4–5） | ops | ops-serial.md | 零 K；反馈归因转 diag |
+| traditional 差分 | trad | trad-overlay.md | 叠加层：判据卡置换（scene-value/theme/imagery），无 knowledge 豁免 |
+| 诊断/学理（§6） | diag | diagnose.md | 唯一可进 knowledge/：症状→K-ID，≤2 块/次，读完即弃 |
+
+机器半边：`novel.py stage list|show <id>|current`；`gate next` 末行附阶段推断与包路径。
 
 ## 2. 阶段一：冷启动与设计层
 
@@ -69,7 +86,7 @@ init ──书庭 S1–S4──> book/world/style/vol_01 committed          （�
 |---|---|---|---|
 | 深评采样 | 每 `deep_every` 章 + 弧末 + 卷末 | `task add review_deep` → T4（P§4）；lessons 摘一行入台账 | escalate 自动开 revise_design |
 | 实体对账 | `entity due` 非空（每 `reconcile_every` 章） | S§5 对账轮：资料员 B 模式 → `entity update` | 矛盾上报编排者裁决 |
-| knowledge 欠账 | 弧末/卷末 | `knowledge query`（读者未知欠账盘点）→ 逐条决定：继续吊 / 排「揭示章」进任务卡 + `knowledge reveal` 销账 / 走 retcon 废止 | 长期挂账的悬念 = 期待账户坏账，深评必查 |
+| knowledge 欠账 | 弧末/卷末；超龄欠账（≥`spoiler_debt_chapters` 章未揭示）`gate next` 自动顶出【欠账】项 | `knowledge query`（读者未知欠账盘点）→ 逐条决定：继续吊 / 排「揭示章」进任务卡 + `knowledge reveal` 销账 / 走 retcon 废止 | 长期挂账的悬念 = 期待账户坏账，深评必查 |
 | buffer 水位 | 每批章后 | `status` 看 ready；按 S§1 水位表动作 | ready=0 → 停发只补稿 |
 | 发布 | 计划到期/用户指令 | `gate publish` 试跑 → 审批（F§19）→ `publish` | FAIL 附下一步（补链/补审） |
 | 队列卫生 | 队列 >30 条 | `task archive` | — |
@@ -146,4 +163,5 @@ S§4 全流程；闸门视角速查：`check --project` 绿 → `report volume` 
 
 ---
 
+*rev 2 · 2026-08-25 · 阶段×知识编排：§0 加「进环节先读阶段包」军规 + §1.1 阶段↔配套包对照表 + §4 欠账行接 gate next 超龄顶出；与 protocol/knowledge-orchestration.md、protocol/stages/ 十一包、`novel.py stage` 同批落地（P6-S）。*
 *rev 1 · 2026-08-25 · 初版：主循环脊柱 + 交接契约表 + knowledge/蒸馏回路 + solo/traditional/C·D 三覆盖表；与 gate 修复提示（P4-G）、knowledge CLI（P4-K）、rollup（P4-R）、revise_rubric（P4-D）同批落地。*

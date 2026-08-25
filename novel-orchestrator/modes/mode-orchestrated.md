@@ -30,7 +30,8 @@ init（CLI）
 
 1. **spawn prompt = 角色卡 + 附件清单**。模板见 `protocol/pipeline.md` §7 与
    `protocol/court.md` §5；角色的职责/输出契约/禁止事项一律以 `roles/*.md` 原文投递，
-   不要转述（转述会丢阈值）。
+   不要转述（转述会丢阈值）。附件构成以当前阶段的配套知识包为准
+   （`protocol/stages/`；`novel.py stage current` 打印当前包路径）。
 2. **写手只见简报**：先 `novel.py brief ch_NNNN` 生成十节简报，把简报全文作为写手唯一输入。
    写手不得访问项目目录。评审角色只投递「产物 + 对应 rubric 卡 + 简报相关节」。
 3. **泄漏检查**（pipeline §5，强制）：每个 worker 返回后，扫描产物中的专名/设定是否超出

@@ -1,7 +1,9 @@
-# knowledge-map.md — 111 块知识的运行期归属表
+# knowledge-map.md — 111 块知识的归属台账（按块的视图）
 
 knowledge/ 是深读库，**运行期默认零加载**。本表回答唯一问题：某块知识在 v2 体系里从哪进入
-工作流。三种归属：
+工作流。**按场/按阶段检索不走本表**——阶段视图在 `protocol/stages/` 各包（每场庭审的 K 池），
+装载规则 SSOT=`protocol/knowledge-orchestration.md`；本表是块级归属的对账基准
+（stages/ 包 K 池 ≡ 本表场次标注，由 `tools/tests/test_stage.py` 机检）。三种归属：
 
 | 归属 | 含义 | 进入方式 |
 |---|---|---|
@@ -12,9 +14,10 @@ knowledge/ 是深读库，**运行期默认零加载**。本表回答唯一问�
 ## 运行期防膨胀规则（硬约束）
 
 1. **写作产线零知识**：写手/轻评/深评永不加载 knowledge/——写手只见简报，评审只见 rubrics。
-2. **庭审附件白名单制**：本表的场次标注是**可选池**，不是必读清单——每场庭审由编排者
-   按本场争点从池中挑 **≤4 块**投递，且**每块只取锚点段**（锚点与 L1–L4 读法见
-   `knowledge-blocks.md` 检索协议）；附件进设计简报，不进章简报。
+2. **庭审附件白名单制**：本表的场次标注是**可选池**，不是必读清单——按场整理好的池
+   （K-ID+名称+何时挑）见 `protocol/stages/` 对应阶段包；每场庭审由编排者按本场争点从池中挑
+   **≤4 块**投递，且**每块只取锚点段**（锚点与 L1–L4 读法见 `knowledge-blocks.md` 检索协议）；
+   附件进设计简报，不进章简报。
 3. **诊断预算**：一次诊断 ≤2 块；先查本表定位，再经 knowledge-blocks 锚点取段，禁整文件读。
 4. **改卡回流**：深读结论若有普适价值，改的是 rubrics/（并在卡的 K-ID 脚注登记来源），
    不是把原文抄进协议；knowledge/ 原文永远只读。
@@ -167,5 +170,8 @@ knowledge/ 是深读库，**运行期默认零加载**。本表回答唯一问�
   （rev 2 变更：K-CONCEPT-013/014/016→theme、K-STRUCT-001/010/013→scene-value、
   K-WRITE-015/017→imagery——traditional 路线补齐自有判据卡；原庭审附件场次改附对应 rubric 卡。）
 - 对账口径：本表行数与 `knowledge-blocks.md` 登记处一致；rubrics 卡脚注的 K-ID 引用
-  与「蒸馏」列一致（`grep -o 'K-[A-Z]*-[0-9]*' rubrics/*.md` 可验证）。
-- 新增知识块时：先登记 knowledge-blocks.md，再在本表补一行归属；无归属的块不得引用。
+  （全 ID 逐个列出，不用斜杠缩写）与「蒸馏」列一致；场次标注与 `protocol/stages/` 各包
+  K 池一致——三项对账全部由 `python3 tools/tests/test_stage.py` 机检。
+- 新增知识块时：knowledge/ 原文加锚 → 登记 knowledge-blocks.md → 本表补归属行 →
+  （若归属=庭审附件）同步 stages/ 对应包 K 池 → test_stage 绿（knowledge-orchestration §6.3）；
+  无归属的块不得引用。

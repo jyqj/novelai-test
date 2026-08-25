@@ -230,7 +230,8 @@ frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass
  "approvals":{"book_commit":true,"volume_commit":true,"publish":true,"checkpoint":true},
  "unattended":false,"reconcile_every":10,"brief_budget_chars":24000,
  "volume_defaults":{"arcs":[5,12],"chapters":[80,250]},
- "ngram_window_chapters":30,"ngram_archive_sample":400}
+ "ngram_window_chapters":30,"ngram_archive_sample":400,
+ "spoiler_debt_chapters":15}
 ```
 
 `route ∈ {web, traditional}`:traditional 差分(无 buffer/publish、章尾钩与爽点窗口降级、简报 §7 提示切换)见 `modes/route-traditional.md`;`check`/`brief` 按此键自动切换。(历史注:早期草案含 `models` 键为各角色预留模型档位,从未被读取,已删除;角色模型选择属产品层配置,不入项目 config。)
@@ -288,8 +289,12 @@ novel.py rollup                           # 手动重算章→弧→卷摘要卷
 novel.py extract <ch_id> [--candidate F] [--writeback F]
                                           # 抽取器独立入口:正文反向解析+对账(双记账机器半边;
                                           #   角色卡见 roles/extractor.md,C/D 档帽子用)
-novel.py gate next                        # 机器版编排剧本:按优先级输出下一步(修账>深评>对账>推进)
-                                          #   ——迷路时的第一命令(workflow §0)
+novel.py gate next                        # 机器版编排剧本:按优先级输出下一步(修账>深评>对账>
+                                          #   欠账[spoiler 挂账 ≥spoiler_debt_chapters 章]>缓冲>推进)
+                                          #   末行附当前阶段推断+配套知识包路径——迷路时的第一命令(workflow §0)
+novel.py stage list|show <id>|current     # 阶段导航(只读):总表/打印配套知识包全文/按项目状态推断
+                                          #   当前阶段(court 工作区>设计缺口>队首任务类型;启发式,
+                                          #   歧义以 workflow §1 人判为准;SSOT=protocol/knowledge-orchestration.md)
 novel.py gate write|approve <ch_id>       # 前置谓词闸门(只判不写):write=排批齐+简报在+基线净;
                                           #   approve=drafted+落盘回执 rev 匹配+机检绿
                                           #   P4-G:每条 FAIL 附「↳ 下一步」可执行修复命令
@@ -345,6 +350,8 @@ novel-orchestrator/
                               # + capability-profiles(宿主能力四档与降级矩阵)
   protocol/workflow.md        # L1 主循环总装图(环节×闸门×角色×判据+交接契约+三覆盖表)
   protocol/formats.md         # 本文件(机器契约 SSOT)
+  protocol/knowledge-orchestration.md   # 阶段×知识装载 SSOT(11 阶段目录+硬规则+对账契约)
+  protocol/stages/            # 11 个阶段配套知识包(薄路由:必读/K 池/禁读/退出判据)
   protocol/court.md pipeline.md serial-ops.md glossary.md
   protocol/manual-check.md    # 无 shell 环境人工自查清单(可判项 vs 丢失能力,诚实降级)
   protocol/adopt.md           # 存量文稿/半途项目收编协议
@@ -365,6 +372,7 @@ v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧�
 
 ---
 
+*rev 5 · 2026-08-25 · P6-S 阶段×知识编排:stage CLI 与 gate next 阶段推断/欠账项(§15)/config 增 spoiler_debt_chapters(§13)/目录补 knowledge-orchestration.md 与 stages/(§20)。*
 *rev 4 · 2026-08-25 · P4 批次:知识矩阵 known_by/revealed_reader_ch 与 knowledge CLI(§5/§9/§15/§17)/gate FAIL 附「下一步」修复命令(§15)/rollup 手动重算命令(§15)/revise_rubric 蒸馏任务类型与 commit 行(§10/§16)/新增 protocol/workflow.md 主循环总装图与 roles/extractor.md(§20)。*
 *rev 3 · 2026-08-24 · 内核重构对齐:台账 (chapter,rev) 语义与撤销重放(§9/§16)/回执收紧与 review CLI(§12)/原子提交 state/txn 与半事务检出(§14/§17)/简报条目级预算+声纹速查+rollup 记忆分层(§6)/抽取器对账与故事日历入 check(§17)/分层指纹(§14)/gate·court·facts·extract CLI(§15)。*
 *rev 2 · 2026-08-24 · 落地增补:facts 生产环/越权机检/线索状态机表/retcon·report·checkpoint·adopt CLI/两级 ngram/power·recap 台账/队列自动化/state.court 与 --draft/decision·review 机检;删除 models 死键与 legacy 引用。*

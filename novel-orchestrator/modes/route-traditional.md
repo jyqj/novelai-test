@@ -5,6 +5,7 @@
 `route_delta` 双轨差分思想（术语映射见 protocol/glossary.md §2）。
 
 启用：`config.json` 设 `"route": "traditional"`。CLI 已按此降级相应断言（见 §3）。
+装载差分（哪个阶段换哪张判据卡/人设卡）收敛在 `protocol/stages/trad-overlay.md`——本文件是规则 SSOT，该包只管装载。
 
 ## 1. 工序差分（对照 web 默认）
 
