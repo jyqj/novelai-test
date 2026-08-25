@@ -5,6 +5,7 @@ import datetime
 from .common import (ch_num, die, dump_frontmatter, git_autocommit,
                      parse_frontmatter, read, write)
 from .project import Project, find_root
+from .stagectl import stage_guard
 
 
 def cmd_review(args):
@@ -19,7 +20,9 @@ def cmd_review(args):
         if not proj.reviews():
             print("（无评审单）")
         return 0
-    # add
+    # add：轻评属章循环收尾；深评属周期回路（卷级深评亦可在运营结账时落盘）
+    stage_guard(proj, ("write",) if args.depth == "light" else ("review", "ops"),
+                "review add --depth %s" % args.depth)
     ch_id = args.ch_id
     ch_num(ch_id)
     p = proj.p("chapters", ch_id + ".md")

@@ -82,6 +82,7 @@ def main():
         run(["entity", "new", "char_hero"], cwd=proj)
         run(["thread", "new", "thread_main", "--kind", "promise"], cwd=proj)
         run(["thread", "new", "thread_vow", "--kind", "promise"], cwd=proj)
+        run(["stage", "enter", "write"], cwd=proj)  # P7-S：产线循环入章循环阶段
 
         for n in range(1, N_CH + 1):
             cid = "ch_%04d" % n
@@ -136,8 +137,11 @@ def main():
             run(["task", "done", tid, "--note", "轻评要点一行"], cwd=proj)
             run(["tree", "set-status", cid, "approved"], cwd=proj)
             # 滞后 2 章发布（buffer 存稿节奏）——给中途返修留出未发布窗口
+            # P7-S：publish 属 ops 阶段，发布节拍 write⇄ops 显式切换（规模化阶段迁移）
             if n - 2 >= 1:
+                run(["stage", "enter", "ops"], cwd=proj)
                 run(["publish", "ch_%04d" % (n - 2)], cwd=proj)
+                run(["stage", "enter", "write"], cwd=proj)
 
             # ---- 中途返修：第 21 章后对已 approved 未 published 的 ch_0020
             #      走 revise 链（P0-1 撤销重放在 20+ 章台账规模下的实战）
@@ -183,6 +187,7 @@ def main():
                 must("rev: 2" in ch20, "中途返修：章 rev=2")
 
         # 收尾清空 buffer：发布最后两章
+        run(["stage", "enter", "ops"], cwd=proj)
         run(["publish", "ch_%04d" % (N_CH - 1), "ch_%04d" % N_CH], cwd=proj)
 
         # ---- 不变量断言

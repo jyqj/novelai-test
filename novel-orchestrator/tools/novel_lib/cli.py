@@ -191,12 +191,15 @@ def main(argv=None):
     q = gs.add_parser("checkpoint")
     q.add_argument("vol_id")
 
-    p = sub.add_parser("stage", help="阶段导航：list/show <id>/current（阶段×配套知识包，只读）")
+    p = sub.add_parser("stage", help="阶段状态机：list/show <id>/enter <id>/current"
+                                     "（持久化阶段 = 各环节闸门的钥匙）")
     ss = p.add_subparsers(dest="stage_cmd", required=True)
     ss.add_parser("list", help="阶段总表（id+定位+包路径）")
     q = ss.add_parser("show", help="打印某阶段配套知识包全文")
     q.add_argument("stage_id")
-    ss.add_parser("current", help="按项目状态推断当前阶段（需在项目内或 --root）")
+    q = ss.add_parser("enter", help="进入阶段（写 state/stage.json；受辖操作的前提）")
+    q.add_argument("stage_id")
+    ss.add_parser("current", help="读持久化阶段 + 启发式核对（未进入任何阶段时 exit 1）")
 
     p = sub.add_parser("court", help="庭审工作区：open/status/close（state/court/ 机械管理）")
     cs = p.add_subparsers(dest="court_cmd", required=True)

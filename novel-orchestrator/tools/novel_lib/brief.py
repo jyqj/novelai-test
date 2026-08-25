@@ -6,6 +6,7 @@ import re
 from .common import (NOW, TEMPLATES, THREAD_LIVE, ch_num, die, get_section,
                      git_autocommit, parse_frontmatter, read, write)
 from .project import Project, find_root
+from .stagectl import stage_guard
 
 
 def tail_chars(text, n):
@@ -46,6 +47,7 @@ def cmd_brief(args):
     从最低分裁起（非整节丢弃），裁剪逐项留痕溯源表。"""
     proj = Project(find_root(args))
     ch_id = args.ch_id
+    stage_guard(proj, ("write",), "brief %s" % ch_id)
     task = proj.chapter_task(ch_id)
     if not task:
         die("缺任务卡 chapters/%s.task.json（先 tree add chapter + 排批补全）" % ch_id, 1)

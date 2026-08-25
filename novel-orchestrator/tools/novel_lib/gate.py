@@ -5,7 +5,7 @@ from .common import Report, ch_num, git_out, parse_frontmatter, read
 from .checks import check_project, check_unit
 from .project import Project, find_root, load_queue_promoted, next_task_id
 from .serial_ops import checkpoint_problems, publish_problems
-from .stagectl import print_stage_hint
+from .stagectl import print_stage_hint, stage_guard
 from .structure import approval_receipt
 
 
@@ -184,12 +184,15 @@ def cmd_gate(args):
         return cmd_gate_next(proj)
     rep = Report()
     if args.gate_cmd == "write":
+        stage_guard(proj, ("write",), "gate write")
         gate_write(proj, args.ch_id, rep)
         return rep.render("gate write %s" % args.ch_id)
     if args.gate_cmd == "approve":
+        stage_guard(proj, ("write", "review"), "gate approve")
         gate_approve(proj, args.ch_id, rep)
         return rep.render("gate approve %s" % args.ch_id)
     if args.gate_cmd == "publish":
+        stage_guard(proj, ("ops",), "gate publish")
         frm = ch_num(args.ch_from)
         to = ch_num(args.ch_to) if args.ch_to else frm
         probs = publish_problems(proj, frm, to)
@@ -199,6 +202,7 @@ def cmd_gate(args):
             rep.add("PASS", "publish 前置谓词全过（ch_%04d..ch_%04d 可发布）" % (frm, to))
         return rep.render("gate publish")
     if args.gate_cmd == "checkpoint":
+        stage_guard(proj, ("ops",), "gate checkpoint")
         probs = checkpoint_problems(proj, args.vol_id)
         for pr, fix in probs:
             rep.add("FAIL", pr, fix=fix)

@@ -41,8 +41,8 @@ def cmd_init(args):
     else:
         print("[warn] git 不可用，跳过版本化（单写者纪律降级为原子写入）")
     print("项目已创建：%s" % root)
-    print("下一步：填写 tree/book.md、tree/world.md、tree/style.md（书庭产出），"
-          "然后 tree set-status 置 committed")
+    print("下一步：novel.py stage enter s1（进阶段是各环节操作的前提——"
+          "阶段闸门拒绝无阶段操作），先读包再开书庭 S1")
     return 0
 
 

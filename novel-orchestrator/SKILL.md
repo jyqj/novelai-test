@@ -13,7 +13,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 1. **文件即记忆**：上下文会丢，写进项目文件的才存在。一切共识（设定、决策、进度）落盘后才算发生。
 2. **commit 是唯一写路径**：任何产物先机检（`novel.py check`）后落盘（`novel.py commit`）；机检不绿不入库。`published` 章**永不改写**，修错走 retcon（`protocol/serial-ops.md` §3）。
-3. **知识按阶段装载，运行期读 rubrics，深读才回 knowledge**：全生命周期切成 11 个阶段，每阶段有唯一配套知识包（`protocol/stages/`；总目录与硬规则=`protocol/knowledge-orchestration.md`）——**进环节先读包**，按包内「必读/选读池/禁读」装载，不再自行翻库。可操作面已蒸馏进 rubrics/（带阈值判据），写作与评审只引用 rubrics；庭审附件从本场包 K 池挑 ≤4 块只取锚点段；仅 diag 阶段（诊断疑难/学理求教）经症状路由按块读 knowledge/（≤2 块），读完即弃，不进简报。`novel.py stage current` 打印当前阶段与包路径。
+3. **知识按阶段装载，运行期读 rubrics，深读才回 knowledge**：全生命周期切成 11 个阶段，每阶段有唯一配套知识包（`protocol/stages/`；总目录与硬规则=`protocol/knowledge-orchestration.md`）——**进环节 = `novel.py stage enter <id>` + 读包**（进阶段写 `state/stage.json`，是各受辖操作的钥匙：court open/brief/commit/publish… 阶段不匹配即被闸门拒绝），按包内「必读/选读池/禁读」装载，不再自行翻库。可操作面已蒸馏进 rubrics/（带阈值判据），写作与评审只引用 rubrics；庭审附件从本场包 K 池挑 ≤4 块只取锚点段；仅 diag 阶段（诊断疑难/学理求教）经症状路由按块读 knowledge/（≤2 块），读完即弃，不进简报。`novel.py stage current` 读持久化阶段与包路径。
 
 ## 1. 能力探测（进入任务先答三问；四档剖面与降级矩阵详见 `modes/capability-profiles.md`）
 
@@ -37,12 +37,14 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 ```
 ① init      python3 tools/novel.py init <项目目录> --name <书名>
-② 书庭      按模式开「书级设计庭」（S1 概念→S2 世界→S3 人物→S4 分卷），
-            产出 book/world/style 三蓝图，commit 后 status=committed
-③ 首卷首弧  卷庭定 vol_01 → 弧规划 arc_01_1 → 排批章任务 → 进入写作循环
+② 书庭      novel.py stage enter s1（逐场 enter s1..s4）→ 按模式开「书级设计庭」
+            （S1 概念→S2 世界→S3 人物→S4 分卷），产出 book/world/style 三蓝图，
+            commit 后 status=committed
+③ 首卷首弧  stage enter vol → 卷庭定 vol_01 → stage enter arc → 弧规划 arc_01_1
+            → stage enter write → 排批章任务 → 进入写作循环
 ```
 
-恢复断点（老项目）：`python3 tools/novel.py status` → **`novel.py gate next`**（按 修账>深评>对账>欠账>缓冲>推进 输出下一步，末行附当前阶段与配套知识包路径）→ `task next` 从队列头继续。**不重读全库**，简报会带上所需上下文。主循环各环节定位见 `protocol/workflow.md` §1；该装载什么见对应 `protocol/stages/` 包。
+恢复断点（老项目）：`python3 tools/novel.py status` → **`novel.py gate next`**（按 修账>深评>对账>欠账>缓冲>推进 输出下一步，末段附已进入阶段与配套知识包路径）→ `stage current` 核对阶段（换环节先 `stage enter`）→ `task next` 从队列头继续。**不重读全库**，简报会带上所需上下文。主循环各环节定位见 `protocol/workflow.md` §1；该装载什么见对应 `protocol/stages/` 包。
 
 ## 4. 任务型加载契约表（只读列出的文件）
 
@@ -50,7 +52,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 |---|---|---|
 | 冷启动/选模式 | 本文件、所选 modes/ 一篇 | `modes/capability-profiles.md`（档位存疑时）、`protocol/formats.md` §1–3（目录与状态机） |
 | 主循环导航/交接契约 | `protocol/workflow.md`（总装图+交接验收谓词+三覆盖表） | 各环节指针到的专项协议 |
-| **当前阶段该装载什么** | `protocol/knowledge-orchestration.md`（阶段目录+硬规则）→ 对应 `protocol/stages/` 包 | `novel.py stage current`（机器推断阶段与包路径） |
+| **当前阶段该装载什么** | `protocol/knowledge-orchestration.md`（阶段目录+硬规则）→ 对应 `protocol/stages/` 包 | `novel.py stage current`（读持久化阶段与包路径；换环节先 `stage enter`） |
 | 书庭（开书设计） | `protocol/court.md` + 本场阶段包 `protocol/stages/s1-concept.md`..`s4-volumes.md`（必读清单与庭审附件 K 池都在包内） | `templates/book.md`、`templates/world.md`、`templates/style.md` |
 | 卷/弧规划 | `protocol/court.md` §1 + 阶段包 `protocol/stages/vol-court.md` / `arc-plan.md` | `templates/volume.md`、`templates/arc.md`、`rhythm/` 所选一篇 |
 | 排批章任务 | `protocol/pipeline.md` §1 步骤1、`templates/chapter.task.json` | 上一弧 `arc_*.md` |
