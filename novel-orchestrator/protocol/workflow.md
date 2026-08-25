@@ -43,13 +43,13 @@ init ──书庭 S1–S4──> book/world/style/vol_01 committed          （�
 | 环节 | 阶段 id | 配套包（protocol/stages/） | 装载要点 |
 |---|---|---|---|
 | 书庭 S1–S4 | s1–s4 | s1-concept / s2-world / s3-cast / s4-volumes | R0 按包装配；庭审附件从包内 K 池挑 ≤4 块、只取锚点段 |
-| 卷庭 | vol | vol-court.md | 上卷报告+K 池 11 块 |
+| 卷庭 | vol | vol-court.md | 上卷报告+K 池 6 块 |
 | 弧规划/细纲 | arc | arc-plan.md | 节奏模板检查单+K 池 3 块 |
 | 章循环（§3） | write | write-loop.md | **零知识**：写手=简报，轻评=三张判据卡 |
 | 周期回路（§4） | review | review-cycle.md | 深评=判据卡 only；欠账盘点走 `knowledge query` CLI，不读库 |
 | 发布/卷末（§4–5） | ops | ops-serial.md | 零 K；反馈归因转 diag |
 | traditional 差分 | trad | trad-overlay.md | 叠加层：判据卡置换（scene-value/theme/imagery），无 knowledge 豁免 |
-| 诊断/学理（§6） | diag | diagnose.md | 唯一可进 knowledge/：症状→K-ID，≤2 块/次，读完即弃 |
+| 诊断/学理（§6） | diag | diagnose.md | 唯一可进 knowledge/：包内症状路由→K-ID（只取 diag 专属 33 块池），≤2 块/次，读完即弃 |
 
 机器半边：`novel.py stage list|show <id>|enter <id>|current`；`gate next` 末段附已进入阶段与包路径
 （未进入时打高优先级提醒）。阶段迁移即 `stage enter`：完成本环节退出判据（§1.1/编排 SSOT §1）后
@@ -173,6 +173,7 @@ S§4 全流程；闸门视角速查：`stage enter ops` → `check --project` �
 
 ---
 
+*rev 4 · 2026-08-25 · P8 批次：知识所有权分区对齐（§1.1 卷庭 K 池 6 块、diag 只取专属 33 块池）+ §4 知情圈对账行（知识矩阵 v2：fac/loc/item 范围知情，F§9）。*
 *rev 3 · 2026-08-25 · P7-S 阶段强制闸门：§0 军规改「进环节 = stage enter + 读包」+ §1.1 迁移链与 enter 语义 + §2/§4/§5 各环节动作列前置 stage enter + 军规 10 补 stage current/enter；辖区表见 F§15。*
 *rev 2 · 2026-08-25 · 阶段×知识编排：§0 加「进环节先读阶段包」军规 + §1.1 阶段↔配套包对照表 + §4 欠账行接 gate next 超龄顶出；与 protocol/knowledge-orchestration.md、protocol/stages/ 十一包、`novel.py stage` 同批落地（P6-S）。*
 *rev 1 · 2026-08-25 · 初版：主循环脊柱 + 交接契约表 + knowledge/蒸馏回路 + solo/traditional/C·D 三覆盖表；与 gate 修复提示（P4-G）、knowledge CLI（P4-K）、rollup（P4-R）、revise_rubric（P4-D）同批落地。*
