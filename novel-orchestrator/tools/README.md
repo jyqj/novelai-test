@@ -9,8 +9,34 @@ python3 tools/novel.py --help          # 全部子命令
 python3 tools/tests/test_smoke.py      # 端到端冒烟（101 步，含 15 条负例）
 python3 tools/tests/test_longrun.py    # 35 章长程合成（规模化不变量+中途返修）
 python3 tools/tests/test_refactor.py   # P0–P4 重构专项回归（140 步）
-python3 tools/tests/test_stage.py      # P6-S 阶段×知识编排（103 步：文档对账+CLI）
+python3 tools/tests/test_stage.py      # P6-S 阶段×知识编排（文档对账+CLI）
 ```
+
+### 代码布局：novel.py 薄壳 + novel_lib/ 按工作流关切拆分
+
+`tools/novel.py` 只是转发壳（对外入口与退出码不变）；实现在 `tools/novel_lib/`
+按工作流环节分模块（一模块 = 一关切，依赖单向无环）：
+
+| 模块 | 关切（对应 protocol/workflow.md 环节） |
+|---|---|
+| `common.py` | 共享底座：frontmatter/节解析、原子写、git、线索状态机、文本指纹、故事日历、Report |
+| `project.py` | 项目对象（Project）与任务队列读写 |
+| `stagectl.py` | 阶段状态机：`state/stage.json` 持久化、stage enter/current、stage_guard 闸门 |
+| `bootstrap.py` | init 脚手架 / adopt 存量收编 |
+| `structure.py` | 树节点（tree）与任务队列 CLI（task） |
+| `journal.py` | 台账与卡片：entity / thread / ledger / facts |
+| `brief.py` | 简报编译器（十节装配 + 条目级预算裁剪 + 知识矩阵注入） |
+| `extract.py` | 抽取器：正文反向解析 + writeback 对账 + 知识越界候选 |
+| `checks.py` | 断言集：check --unit/--leak/--window/--project |
+| `commitflow.py` | 唯一写路径：commit（事务日志 + 撤销重放 + 台账回写 + ngram） |
+| `rollup.py` | 章→弧→卷摘要卷积 |
+| `serial_ops.py` | 连载运营：publish / retcon / report volume / checkpoint |
+| `review.py` | 评审回执（review add/list） |
+| `knowledge.py` | 知识矩阵（fact × 角色 × 读者 × 域）：grant/reveal/scope/query |
+| `gate.py` | 闸门家族：next/write/approve/publish/checkpoint（只判不写） |
+| `court.py` | 庭审工作区（state/court/ open/status/close） |
+| `status.py` | status（index/dashboard 重算） |
+| `cli.py` | argparse 装配与子命令分发 |
 
 ### 实现覆盖表（对照 formats §15/§16）
 
