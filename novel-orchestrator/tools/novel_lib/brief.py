@@ -243,6 +243,7 @@ def cmd_brief(args):
 
     # §6 相关事实与设定：逐 fact 一条（按 时近+键位+retcon 连带 记分），世界规则单列
     cast_ids = {proj.resolve_entity(r) for r in task.get("cast", [])} - {None}
+    scopes_reg = proj.scopes()
     n_facts = 0
     for f in proj.facts_files():
         data = json.loads(read(f))
@@ -251,11 +252,19 @@ def cmd_brief(args):
             if not (set(fact.get("entity_ids", [])) & cast_ids):
                 continue
             spoiler = "【读者未知，只可潜台词】" if fact.get("spoiler") else ""
-            # P4-K 知识矩阵注入：知情名单 + 本章在场不知情者（写手的硬约束）
+            # P4-K/v2 知识矩阵注入：知情名单（fac/loc/item 范围按知情圈展开）
+            # + 本章在场不知情者（写手的硬约束）
             known = fact.get("known_by") or []
             if known:
-                spoiler += "【知情仅:%s】" % ",".join(known)
-                unaware = sorted(cast_ids - set(known))
+                shown = []
+                for k in known:
+                    if k.startswith(Project.GROUP_PREFIXES):
+                        mem = scopes_reg.get(k, [])
+                        shown.append("%s圈(%s)" % (k, ",".join(mem) if mem else "空"))
+                    else:
+                        shown.append(k)
+                spoiler += "【知情仅:%s】" % ",".join(shown)
+                unaware = sorted(cast_ids - proj.expand_knowers(known))
                 if unaware:
                     spoiler += "【本章出场 %s 不知情——不得由其说破或表现知情】" \
                                % ",".join(unaware)

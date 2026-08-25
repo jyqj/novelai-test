@@ -65,7 +65,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 | 发布/缓冲运营 | `protocol/serial-ops.md` §1–2 | `roles/data-analyst.md` |
 | 卷末结账 | `protocol/serial-ops.md` §4–5 | `rubrics/structure.md` |
 | 改已发布内容 | `protocol/serial-ops.md` §3（retcon，CLI：`novel.py retcon`） | `templates/decision.md` |
-| 知识矩阵（谁知道什么） | `protocol/formats.md` §9（known_by/spoiler 语义；CLI：`novel.py knowledge`） | `protocol/workflow.md` §4（弧末欠账盘点） |
+| 知识矩阵（谁知道什么） | `protocol/formats.md` §9（known_by/spoiler 语义 + v2 范围知情圈 fac/loc/item；CLI：`novel.py knowledge`） | `protocol/workflow.md` §4（弧末欠账盘点与知情圈对账） |
 | 教训蒸馏进判据 | `protocol/workflow.md` §6 蒸馏回路（CLI：`task add revise_rubric style`） | `ledgers/lessons.md`、`tree/style.md` |
 | 存量旧稿收编/半途接管 | `protocol/adopt.md`（CLI：`novel.py adopt`；批量补录后 `novel.py rollup`） | `protocol/formats.md` §15 |
 | 冲突/翻案 | `protocol/court.md` §4（否决案台账） | 相关 `court/dec_*.md` |

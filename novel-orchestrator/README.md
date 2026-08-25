@@ -66,17 +66,19 @@ python3 tools/novel.py checkpoint vol_01          # 卷末结账（报告绿才�
 python3 tools/novel.py adopt 旧稿.md --as ch_0001 --parent arc_01_1   # 存量旧稿收编
 python3 tools/novel.py check --leak 草稿.md --brief briefs/ch_0002.brief.md   # 泄漏扫描
 python3 tools/novel.py knowledge query            # 知识矩阵：读者未知欠账盘点（--fact/--entity 细查）
+python3 tools/novel.py knowledge scope add fac_x char_a   # v2 知情圈：势力/地点/持有范围知情
 python3 tools/novel.py rollup                     # 批量手改 meta 后重算章→弧→卷摘要
 ```
 
-复跑测试：`python3 tools/tests/test_smoke.py`（101 步端到端）、
+复跑测试：`python3 tools/tests/test_smoke.py`（113 步端到端）、
 `python3 tools/tests/test_longrun.py`（35 章长程合成 + 中途返修，验证规模化不变量）、
-`python3 tools/tests/test_refactor.py`（重构专项回归，140 步）与
-`python3 tools/tests/test_stage.py`（stage CLI + 阶段包↔knowledge-map 三方对账 + 引用死链扫描）。
+`python3 tools/tests/test_refactor.py`（重构专项回归，148 步）、
+`python3 tools/tests/test_stage.py`（阶段闸门 + 知识所有权分区对账 + 引用死链扫描）与
+`python3 tools/tests/test_matrix.py`（知识矩阵 v2 范围知情圈全链路，53 步）。
 
 ## 一致性核查的三级闸门
 
-1. **机器闸门**（`novel.py check` / `gate`）：信封/必需节/状态机/三件套对账、style 黑名单逐条扫描、连续同首句、章内 4-gram 重复率、跨章分层指纹（窗口内 12 字复读 FAIL 级告警 + 8 字撞梗 WARN，窗口外归档采样覆盖全史）、回写引用越权（未登记实体/线索 FAIL）、**抽取器对账**（正文实测出场 vs 申报、新专名候选、剧透泄漏候选、known_by 角色知识越界候选）、线索状态机迁移表、payoff id 章号匹配、facts 冲突扫描、3 章小爽 / 10 章大爽窗口、promise 余额、战力变更频率、**故事日历**（elapsed 数值化 + story_date 单调）、published 连续性、facts/retcon 引用完整性、decision/review 文件契约、泄漏扫描（`check --leak`）、半事务检出（`fsck`）；gate 试跑每条 FAIL 附可执行修复命令。
+1. **机器闸门**（`novel.py check` / `gate`）：信封/必需节/状态机/三件套对账、style 黑名单逐条扫描、连续同首句、章内 4-gram 重复率、跨章分层指纹（窗口内 12 字复读 FAIL 级告警 + 8 字撞梗 WARN，窗口外归档采样覆盖全史）、回写引用越权（未登记实体/线索 FAIL）、**抽取器对账**（正文实测出场 vs 申报、新专名候选、剧透泄漏候选、known_by 角色知识越界候选——按个体+fac/loc/item 知情圈展开的有效知情集判定）、线索状态机迁移表、payoff id 章号匹配、facts 冲突扫描、3 章小爽 / 10 章大爽窗口、promise 余额、战力变更频率、**故事日历**（elapsed 数值化 + story_date 单调）、published 连续性、facts/retcon 引用完整性、decision/review 文件契约、泄漏扫描（`check --leak`）、半事务检出（`fsck`）；gate 试跑每条 FAIL 附可执行修复命令。
 2. **角色评审**（LLM 判定，机检输出 `NEEDS_REVIEW` 的项）：声纹遮名指认、智商漂移、爽点有效性、毒点七问、知识边界（剧透/known_by 越界裁定）——按 `rubrics/` 对应卡执行，逐章轻评、抽样深评。
 3. **人工审批**（可配置）：开书 commit、卷末 checkpoint、发布、红线上报。
 

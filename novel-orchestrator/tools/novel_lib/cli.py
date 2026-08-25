@@ -150,17 +150,26 @@ def main(argv=None):
     q.add_argument("--lesson", help="教训一行（可选，编排者摘入 lessons）")
     ts.add_parser("list")
 
-    p = sub.add_parser("knowledge", help="知识矩阵（fact×角色×读者）：grant/reveal/query")
+    p = sub.add_parser("knowledge",
+                       help="知识矩阵 v2（fact×角色/范围×读者）：grant/reveal/scope/query")
     ts = p.add_subparsers(dest="knowledge_cmd", required=True)
-    q = ts.add_parser("grant", help="授予角色知情（known_by 追加）")
+    q = ts.add_parser("grant", help="授予知情（known_by 追加；个体 char 或 fac/loc/item 范围）")
     q.add_argument("fact_id")
     q.add_argument("--to", action="append", required=True,
-                   help="知情实体（可多次；须已登记）")
+                   help="知情实体（可多次；char 个体或 fac/loc/item 群体，须已登记）")
     q.add_argument("--ch", help="获知场景章号（记入 git 消息，便于审计）")
     q = ts.add_parser("reveal", help="读者揭示：spoiler 1→0（悬念销账）")
     q.add_argument("fact_id")
     q.add_argument("--ch", required=True, help="揭示章号（记 revealed_reader_ch）")
-    q = ts.add_parser("query", help="矩阵视图：--fact/--entity/默认盘点读者未知欠账")
+    q = ts.add_parser("scope", help="知情圈维护：add/remove/list（fac/loc/item → char 成员）")
+    tss = q.add_subparsers(dest="scope_cmd", required=True)
+    for name in ("add", "remove"):
+        w = tss.add_parser(name)
+        w.add_argument("group", help="fac_/loc_/item_ 群体实体 id")
+        w.add_argument("members", nargs="+", metavar="CHAR", help="char_ 成员（可多个）")
+    w = tss.add_parser("list")
+    w.add_argument("group", nargs="?", help="只看某群体（缺省列全部）")
+    q = ts.add_parser("query", help="矩阵视图：--fact/--entity（个体或群体）/默认盘点读者未知欠账")
     q.add_argument("--fact", dest="fact_id")
     q.add_argument("--entity")
 

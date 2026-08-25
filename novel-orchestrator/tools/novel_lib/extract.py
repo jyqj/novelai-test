@@ -80,9 +80,10 @@ def extract_reconcile(proj, ch_id, text, wb, rep):
             rep.add("NEEDS_REVIEW", "抽取器：剧透事实文本相似泄漏候选"
                                     "（读者未知事实疑被明写；评审裁定改潜台词或走揭示）",
                     leaks[:8])
-    # P4-K 知识矩阵角色半边：known_by 有限定的事实在正文被明写，而在场角色不在
-    # 知情名单 → 角色知识越界候选（谁说破的？他不该知道）——评审裁定：
-    # 改写为该角色不知情的演法 / 正文补获知场景并 knowledge grant / 删句。
+    # P4-K/v2 知识矩阵角色半边：known_by 有限定的事实在正文被明写，而在场角色不在
+    # 有效知情集（个体 + fac/loc/item 知情圈展开）→ 角色知识越界候选（谁说破的？
+    # 他不该知道）——评审裁定：改写为该角色不知情的演法 / 正文补获知场景并
+    # knowledge grant（或 scope add 入圈）/ 删句。
     guarded = [x for x, _ in proj.all_facts()
                if x.get("known_by") and not x.get("superseded_by")
                and x.get("revealed_ch") != num]
@@ -91,19 +92,21 @@ def extract_reconcile(proj, ch_id, text, wb, rep):
             sents = sentences_of(text)
         overreach = []
         for x in guarded:
-            unaware = sorted(cast - set(x["known_by"]))
+            unaware = sorted(cast - proj.expand_knowers(x["known_by"]))
             if not unaware:
                 continue
             for s in sents:
                 if ngram_sim(x.get("fact", ""), s) >= 0.5:
-                    overreach.append("%s「%s」——在场未知情角色：%s（知情仅 %s）"
+                    overreach.append("%s「%s」——在场未知情角色：%s（知情仅 %s，"
+                                     "已按知情圈展开）"
                                      % (x.get("id"), x.get("fact"),
                                         ",".join(unaware), ",".join(x["known_by"])))
                     break
         if overreach:
             rep.add("NEEDS_REVIEW", "抽取器：角色知识越界候选（事实被明写而在场角色"
-                                    "不在 known_by 名单——评审裁定：改暗写/补获知场景后"
-                                    " knowledge grant/删句）", overreach[:8])
+                                    "不在有效知情集——评审裁定：改暗写/补获知场景后"
+                                    " knowledge grant 或 scope add 入圈/删句）",
+                    overreach[:8])
     return obs
 
 

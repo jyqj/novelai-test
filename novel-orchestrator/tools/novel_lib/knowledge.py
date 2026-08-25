@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""knowledge — 知识矩阵 CLI（P4-K）：fact × 角色 × 读者（grant/reveal/query）。"""
+"""knowledge — 知识矩阵 CLI（P4-K/v2）：fact × 角色 × 读者 + 范围知情圈
+（grant/reveal/query/scope）。"""
 import json
 
 from .common import ch_num, die, git_autocommit, read, write
@@ -20,12 +21,83 @@ def locate_fact(proj, fact_id):
     return None, None, None
 
 
+def fmt_knowers(proj, known_by):
+    """known_by 显示串：群体条目展开圈成员（fac_x圈(char_a,char_b)），个体照抄。"""
+    scopes = proj.scopes()
+    parts = []
+    for k in known_by:
+        if k.startswith(Project.GROUP_PREFIXES):
+            mem = scopes.get(k, [])
+            parts.append("%s圈(%s)" % (k, ",".join(mem) if mem else "空"))
+        else:
+            parts.append(k)
+    return ",".join(parts)
+
+
+def cmd_scope(proj, args):
+    """知识矩阵 v2 范围知情圈：scope add/remove/list——把 char 成员编入
+    fac/loc/item 群体的知情圈（entities/scopes.json，novel.py 独占维护）。
+    known_by 里的群体条目按此圈展开为有效知情者（brief/extract/query 同一口径）。"""
+    if args.scope_cmd == "list":
+        scopes = proj.scopes()
+        pick = None
+        if args.group:
+            pick = proj.resolve_entity(args.group)
+            if not pick:
+                die("群体未登记：%s" % args.group, 1)
+            scopes = {pick: scopes.get(pick, [])}
+        if not scopes:
+            print("（无知情圈；knowledge scope add <fac/loc/item> <char…> 编圈）")
+            return 0
+        for gid in sorted(scopes):
+            print("%-16s %s" % (gid, ",".join(scopes[gid]) or "（空圈）"))
+        return 0
+    # add / remove 是矩阵改账：限章循环/周期回路阶段
+    stage_guard(proj, ("write", "review"), "knowledge scope %s" % args.scope_cmd)
+    gid = proj.resolve_entity(args.group)
+    if not gid:
+        die("群体未登记：%s（先 entity new %s）" % (args.group, args.group), 1)
+    if not gid.startswith(Project.GROUP_PREFIXES):
+        die("知情圈只挂 fac_/loc_/item_ 群体实体（%s 是个体，直接进 known_by）" % gid, 1)
+    members = []
+    for ref in args.members:
+        mid = proj.resolve_entity(ref)
+        if not mid:
+            die("成员「%s」未登记（先 entity new 或补 aliases）" % ref, 1)
+        if not mid.startswith("char_"):
+            die("圈成员须为 char_ 个体（%s）——群体套群体不建模" % mid, 1)
+        members.append(mid)
+    scopes = proj.scopes()
+    cur = set(scopes.get(gid, []))
+    if args.scope_cmd == "add":
+        cur |= set(members)
+    else:  # remove
+        miss = sorted(set(members) - cur)
+        if miss:
+            die("不在 %s 圈内：%s（scope list 查现圈）" % (gid, ",".join(miss)), 1)
+        cur -= set(members)
+    if cur:
+        scopes[gid] = sorted(cur)
+    else:
+        scopes.pop(gid, None)
+    write(proj.p("entities", "scopes.json"),
+          json.dumps(scopes, ensure_ascii=False, indent=1))
+    git_autocommit(proj.root, "[knowledge] scope %s %s ± %s"
+                   % (args.scope_cmd, gid, ",".join(sorted(set(members)))))
+    print("知情圈已更新：%s = %s" % (gid, ",".join(sorted(cur)) or "（空圈，已除名）"))
+    print("[提醒] 入圈/出圈须有正文/日志支撑（入伙、驻留、易手等场景）——账实一致由评审抽查")
+    return 0
+
+
 def cmd_knowledge(args):
-    """P4-K 知识矩阵 CLI（fact × 角色 × 读者）：
-    grant  = 授予角色知情（known_by 追加；获知场景写进正文/日志，本命令只记账）
+    """P4-K/v2 知识矩阵 CLI（fact × 角色/范围 × 读者）：
+    grant  = 授予知情（known_by 追加；个体 char 或 fac/loc/item 范围——范围按知情圈展开）
     reveal = 读者揭示（spoiler 1→0，记 revealed_reader_ch——悬念资产销账）
-    query  = 矩阵视图：--fact 单条全貌 / --entity 某角色知与不知 / 默认盘点读者未知欠账"""
+    scope  = 知情圈维护（把 char 编入 fac/loc/item 群体的知情圈）
+    query  = 矩阵视图：--fact 单条全貌 / --entity 个体或群体知与不知 / 默认盘点读者未知欠账"""
     proj = Project(find_root(args))
+    if args.knowledge_cmd == "scope":
+        return cmd_scope(proj, args)
     # 矩阵改账属工作流环节内操作：grant=章循环/回路对账；reveal 另可在运营销账
     if args.knowledge_cmd == "grant":
         stage_guard(proj, ("write", "review"), "knowledge grant")
@@ -35,17 +107,21 @@ def cmd_knowledge(args):
         if x.get("superseded_by"):
             die("fact %s 已被覆盖（%s）——对新事实操作" % (args.fact_id, x["superseded_by"]), 1)
         ids = []
+        scopes = proj.scopes()
         for ref in args.to:
             eid = proj.resolve_entity(ref)
             if not eid:
                 die("知情人「%s」未登记（先 entity new 或补 aliases）" % ref, 1)
+            if eid.startswith(Project.GROUP_PREFIXES) and not scopes.get(eid):
+                print("[提醒] %s 是范围授予但知情圈为空——先 knowledge scope add %s "
+                      "<char…> 编圈，否则展开后无人知情" % (eid, eid))
             ids.append(eid)
         x["known_by"] = sorted(set(x.get("known_by") or []) | set(ids))
         write(f, json.dumps(data, ensure_ascii=False, indent=1))
         git_autocommit(proj.root, "[knowledge] grant %s → %s%s"
                        % (args.fact_id, ",".join(sorted(set(ids))),
                           "（%s 获知）" % args.ch if args.ch else ""))
-        print("已授予知情：%s known_by=%s" % (args.fact_id, ",".join(x["known_by"])))
+        print("已授予知情：%s known_by=%s" % (args.fact_id, fmt_knowers(proj, x["known_by"])))
         print("[提醒] 获知须有正文/日志支撑（获知场景章号：%s）——账实一致由评审抽查"
               % (args.ch or "未记"))
         return 0
@@ -75,27 +151,38 @@ def cmd_knowledge(args):
         print("读者：%s" % ("未知（spoiler=1，简报带潜台词约束）" if x.get("spoiler")
                             else "已知（ch%s 揭示）" % x.get("revealed_reader_ch",
                                                             x.get("revealed_ch"))))
-        print("角色：%s" % ("知情仅 " + ",".join(known) if known
+        print("角色：%s" % ("知情仅 " + fmt_knowers(proj, known) if known
                             else "未建模（known_by 空 = 不设知情约束）"))
         return 0
     if args.entity:
         eid = proj.resolve_entity(args.entity)
         if not eid:
             die("实体未登记：%s" % args.entity, 1)
+        groups = sorted(g for g, mem in proj.scopes().items() if eid in mem)
         about = [x for x in facts if eid in (x.get("entity_ids") or [])]
-        knows = [x for x in facts if eid in (x.get("known_by") or [])]
-        blind = [x for x in facts if x.get("known_by") and eid not in x["known_by"]]
+        knows = [x for x in facts if eid in proj.expand_knowers(x.get("known_by"))]
+        blind = [x for x in facts if x.get("known_by")
+                 and eid not in proj.expand_knowers(x["known_by"])]
         print("== knowledge query %s ==" % eid)
+        if eid.startswith(Project.GROUP_PREFIXES):
+            print("知情圈成员：%s" % (",".join(proj.scopes().get(eid, [])) or
+                                      "（空圈——knowledge scope add 编圈）"))
+        elif groups:
+            print("所属知情圈：%s" % ",".join(groups))
         print("关于此实体的事实 %d 条：" % len(about))
         for x in about:
             print("  %-10s %s" % (x["id"], x.get("fact")))
-        print("知情 %d 条：" % len(knows))
+        print("知情 %d 条（含经知情圈展开）：" % len(knows))
         for x in knows:
-            print("  %-10s %s" % (x["id"], x.get("fact")))
-        print("不知情 %d 条（known_by 有限定且不含该实体——正文不得由其说破）：" % len(blind))
+            via = [g for g in (x.get("known_by") or [])
+                   if g.startswith(Project.GROUP_PREFIXES) and eid in
+                   proj.scopes().get(g, [])]
+            print("  %-10s %s%s" % (x["id"], x.get("fact"),
+                                    "（经 %s 圈）" % ",".join(via) if via else ""))
+        print("不知情 %d 条（known_by 有限定且展开后不含该实体——正文不得由其说破）：" % len(blind))
         for x in blind:
             print("  %-10s %s（知情仅 %s）" % (x["id"], x.get("fact"),
-                                               ",".join(x["known_by"])))
+                                               fmt_knowers(proj, x["known_by"])))
         return 0
     # 默认：读者未知欠账盘点（悬念资产台账）
     spoilers = sorted([x for x in facts if x.get("spoiler")],
@@ -106,7 +193,7 @@ def cmd_knowledge(args):
           % (len(facts), len(modeled), len(spoilers)))
     for x in spoilers:
         print("  %-10s ch%-4s %s%s" % (x["id"], x.get("revealed_ch"), x.get("fact"),
-                                       "（知情仅 %s）" % ",".join(x["known_by"])
+                                       "（知情仅 %s）" % fmt_knowers(proj, x["known_by"])
                                        if x.get("known_by") else ""))
     if spoilers:
         print("（悬念欠账：埋下未揭示的读者钩子——弧末/卷末逐条决定 继续吊/knowledge "

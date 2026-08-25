@@ -669,6 +669,27 @@ def check_project(proj, rep=None):
     else:
         rep.add("PASS", "facts 台账合规")
 
+    # 知识矩阵 v2：知情圈台账完整性（entities/scopes.json）
+    sc_fails = []
+    for gid, members in proj.scopes().items():
+        if not (gid.startswith(proj.GROUP_PREFIXES) and gid in ents):
+            sc_fails.append("知情圈键「%s」不是已登记的 fac/loc/item 实体" % gid)
+        for m in members:
+            if not (m.startswith("char_") and m in ents):
+                sc_fails.append("%s 圈成员「%s」不是已登记的 char 实体" % (gid, m))
+    known_groups = set()
+    for x, _ in proj.all_facts():
+        known_groups |= {k for k in (x.get("known_by") or [])
+                         if k.startswith(proj.GROUP_PREFIXES)}
+    empty = sorted(known_groups - {g for g, mem in proj.scopes().items() if mem})
+    if sc_fails:
+        rep.add("FAIL", "知情圈台账（scopes.json）", sc_fails)
+    else:
+        rep.add("PASS", "知情圈台账合规（%d 圈）" % len(proj.scopes()))
+    if empty:
+        rep.add("WARN", "known_by 引用了空知情圈（范围授予但无成员——"
+                        "knowledge scope add 编圈，否则展开后无人知情）", empty)
+
     # published 连续性
     pub = sorted(ch_num(c["id"]) for c in proj.chapters()
                  if c["meta"].get("status") == "published")

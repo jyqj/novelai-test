@@ -94,6 +94,24 @@ class Project:
             return ref
         return self.aliases().get(ref)
 
+    # ---- 知识矩阵 v2：范围知情（fac/loc/item 知情圈，entities/scopes.json）
+    GROUP_PREFIXES = ("fac_", "loc_", "item_")
+
+    def scopes(self):
+        f = self.p("entities", "scopes.json")
+        return json.loads(read(f)) if f.is_file() else {}
+
+    def expand_knowers(self, known_by):
+        """known_by 条目展开为有效知情集合：个体照抄；fac_/loc_/item_ 条目
+        并入其知情圈成员（entities/scopes.json；圈空 = 只有群体本身）。"""
+        scopes = self.scopes()
+        eff = set()
+        for k in known_by or []:
+            eff.add(k)
+            if k.startswith(self.GROUP_PREFIXES):
+                eff |= set(scopes.get(k, []))
+        return eff
+
     def threads(self):
         out = {}
         for f in sorted(self.p("threads").glob("thread_*.md")):
