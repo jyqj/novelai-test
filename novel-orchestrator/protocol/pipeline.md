@@ -7,7 +7,8 @@
 
 ## 0. 冷启动与会话纪律
 
-- 冷启动三步:`novel.py status`(读 dashboard)→ **`novel.py gate next`**(机器版调度剧本:修账>深评逾期>实体对账>发布缓冲>推进,直接照做)→ `novel.py task next` 取任务按本文时序干活。
+- 冷启动三步:`novel.py status`(读 dashboard)→ **`novel.py gate next`**(机器版调度剧本:修账>深评逾期>实体对账>欠账>发布缓冲>推进,直接照做;末行附当前阶段与配套包)→ `novel.py task next` 取任务按本文时序干活。
+- **装载契约**:本产线=write 阶段,全程**零 knowledge/ 装载**(各棒白名单见 `protocol/stages/write-loop.md`;规则 SSOT=`protocol/knowledge-orchestration.md`)。写手只见简报、评审只见判据卡;「想查方法论」=症状,走 diag 阶段(`protocol/stages/diagnose.md`),不在产线内拉块。
 - 编排剧本的机器半边已入 CLI:各关口前先跑对应 `gate` 命令(下文步骤内标注),FAIL 即停——不允许「先干了再补检查」。
 - 每编排者会话处理 **≤8–10 个任务**(约 3–5 章)后轮换新会话;队列即记忆,零交接成本。轮换前把在跑任务收敛到可恢复点(commit 或 task note 记临时文件路径)。
 - worker 双产出与中间稿一律存**项目外**临时目录(如 `$TMPDIR/novel/<task_id>/`),防 git 污染;路径记入 task note 便于中断恢复。
@@ -178,6 +179,7 @@ anti-plagiarism.md、**power.md(必附:战力预算与越阶配额对账)**。
 
 ---
 
+*rev 5 · 2026-08-25 · 装载契约接阶段包(write=零知识,白名单在 stages/write-loop.md);gate next 优先级补欠账项(P6-S)。*
 *rev 4 · 2026-08-25 · 与 workflow.md 主循环对齐(头注+W§3 交接契约);机检说明补 known_by 知识越界候选;T3 附机检 NEEDS_REVIEW 清单并升级六判。*
 *rev 3 · 2026-08-24 · gate 版:冷启动接 gate next;步骤 4/8 接 gate write/approve;回执一律 review add 落盘(note 通道删除);机检说明补抽取器对账。*
 *rev 2 · 2026-08-24 · 步骤 8 回执顺序对齐 P1-5;泄漏检查补 check --leak 机械半边;T4 必附 power 卡;spawn 路径去硬编码。*

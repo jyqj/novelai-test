@@ -40,7 +40,10 @@
 | 否决案台账 | dec_*.md 的「否决案」节 + reopen_requires；重开裁决的唯一入口 | court §4 |
 | 一票升级 | 红线命中时安全审计员的不可否决上报权 | roles/safety-auditor.md |
 | 泄漏检查 | worker 返回后比对产物专名与其输入范围 | pipeline §5 |
-| 深读 | 经 knowledge-map 定位后按块读 knowledge/ 原文；读完即弃 | knowledge-map.md |
+| 阶段（stage） | 生命周期的知识装载单位（11 个：s1–s4/vol/arc/write/review/ops/trad/diag）；每阶段一个配套知识包；`novel.py stage` 导航 | protocol/knowledge-orchestration.md |
+| 阶段包（配套知识包） | protocol/stages/ 下的薄路由文件：必读 / 选读池（K 池）/ 禁读 / 退出判据；进环节先读包 | protocol/stages/ |
+| K 池 | 某阶段有权投递的庭审附件 K-ID 白名单（≡ knowledge-map 场次标注，机检对账）；每场挑 ≤4 块、只取锚点段 | 各阶段包「选读池」节 |
+| 深读 | 仅 diag 阶段：症状路由定位 K-ID 后按锚点段读 knowledge/ 原文（≤2 块/次）；读完即弃 | protocol/stages/diagnose.md |
 
 ## 2. v1 → v2 迁移映射
 

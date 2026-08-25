@@ -2,6 +2,9 @@
 
 > 依据 spec §4;文件格式与 CLI 一律以 `protocol/formats.md`(下记 F§n)为准,本文零重复、只指针。
 > 通则:worker 只返回文本,唯一写者=编排者;**每个 worker 返回后立即执行泄漏检查**(pipeline.md §5,F§18)。
+> **装载契约**:每场开庭前先读该场配套知识包 `protocol/stages/`(S1–S4=s1-concept/s2-world/
+> s3-cast/s4-volumes,卷庭=vol-court,弧=arc-plan)——必读清单与庭审附件 K 池(每场 ≤4 块、
+> 只取锚点段)以包为准,规则 SSOT=`protocol/knowledge-orchestration.md`;§2 投递列列判据与上游材料,不重复 K 池。
 
 ## 1. 庭型总表
 
@@ -38,6 +41,7 @@ court_session(场, node):
           + 兄弟契约(卷庭:上卷 exports+卷报告 state/reports/vol_NN.md)
           + 市场输入(用户诉求/平台定位/人设集摘要)
           + 判据附件路径清单(按 §2 投递列)
+          + 庭审附件 K 块(从本场 stages/ 包选读池挑 ≤4 块,经 knowledge-blocks 锚点取段)
           + 本节点相关否决案(court/dec_* 的「## 否决案」节全文)
      纪律: transcripts 永不入简报(F§11);体量对齐 brief_budget_chars(F§13)
      路径记入 task note;中断恢复先跑 novel.py court status 盘点已完成回合
@@ -185,5 +189,6 @@ stance:<市场派|概念派|稳健派|体系派|代价派|人物派|冲突派>;�
 
 ---
 
+*rev 4 · 2026-08-25 · 装载契约接阶段包:每场庭审的必读与 K 池以 protocol/stages/ 对应包为准(P6-S);R0 简报构成补庭审附件 K 块行。*
 *rev 3 · 2026-08-24 · R0/中间态接 court open|status|close CLI(工作区机械管理,close 校验裁决落盘)。*
 *rev 2 · 2026-08-24 · 新增 state/court/ 中间态落盘约定与 --draft 部分落盘;影响面报告模板;spawn 路径去硬编码;与 formats.md rev 2 对齐。*
