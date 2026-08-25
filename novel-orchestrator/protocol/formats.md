@@ -38,7 +38,7 @@
     vol_01/volume.md  vol_01/arc_01_1.md ...
   chapters/ch_0001.md  ch_0001.task.json  ch_0001.meta.json
   briefs/ch_0001.brief.md
-  entities/{char|item|loc|fac}_{slug}.md   entities/aliases.json
+  entities/{char|item|loc|fac}_{slug}.md   entities/aliases.json  entities/scopes.json
   threads/thread_{slug}.md
   ledgers/timeline.tsv  payoff.tsv  power.tsv  facts/vol_01.json  lessons.md  recap.md
   court/dec_001_{slug}.md   court/transcripts/*.md
@@ -187,9 +187,19 @@ frontmatter:`id`, `kind: thread`, `thread_kind: fuse|subplot|relationship|myster
              "strategy":"reconcile|fade_out|explicit_fix","decision_ref":"dec_00x"}]}
 ```
 
-**知识矩阵语义(P4-K:fact × 角色 × 读者)**——每条 fact 两条正交轴:
+**知识矩阵语义(P4-K/v2:fact × 角色/范围 × 读者)**——每条 fact 两条正交轴:
 - **读者轴** `spoiler`:1=读者未知(简报注【读者未知,只可潜台词】;check 做剧透相似扫描)。读者揭示经 `novel.py knowledge reveal <fact_id> --ch <ch>` 销账(spoiler→0,记 `revealed_reader_ch`;悬念资产的欠账盘点用 `knowledge query`,弧末/卷末例行,workflow §4)。
-- **角色轴** `known_by`(可选):剧中知晓者实体清单。**缺省=未建模,不设约束**(旧数据兼容);一经填写即为白名单——简报 §6 注【知情仅:…】与【本章出场 X 不知情】硬约束,check 抽取器做「越界候选」扫描(known_by 外的在场角色明写该事实 → NEEDS_REVIEW)。来源两路:commit 自 `continuity_delta[].known_by` 自动登记;剧情中后续角色获知走 `novel.py knowledge grant <fact_id> --to <实体> [--ch <获知章>]`(获知场景须有正文/日志支撑,评审抽查账实一致)。
+- **角色轴** `known_by`(可选):剧中知晓者清单,条目为 `char_`(个体)或 `fac_/loc_/item_`(**范围知情,v2**)。**缺省=未建模,不设约束**(旧数据兼容);一经填写即为白名单——简报 §6 注【知情仅:…】与【本章出场 X 不知情】硬约束,check 抽取器做「越界候选」扫描(有效知情集外的在场角色明写该事实 → NEEDS_REVIEW)。来源两路:commit 自 `continuity_delta[].known_by` 自动登记;剧情中后续获知走 `novel.py knowledge grant <fact_id> --to <实体> [--ch <获知章>]`(获知场景须有正文/日志支撑,评审抽查账实一致)。
+
+**范围知情圈(v2)** `entities/scopes.json`(novel.py 独占维护):
+
+```json
+{"fac_shadow": ["char_a", "char_b"], "loc_capital": ["char_c"], "item_sword": ["char_a"]}
+```
+
+- 键=已登记的 `fac_/loc_/item_` 群体实体;值=已登记 `char_` 成员(势力成员/常驻知情者/持有人)。经 `novel.py knowledge scope add|remove <群体> <char…>` 维护(入圈/出圈须有正文/日志支撑:入伙、驻留、易手),`scope list` 查圈。
+- **展开口径(全链一致)**:known_by 内群体条目的**有效知情者 = 群体本身 ∪ 圈成员**(简报【知情仅】显示 `fac_x圈(char_a,char_b)`、不知情名单按展开后计算;extract 越界扫描同口径;`knowledge query --entity` 对个体列「经 X 圈」知情,对群体列圈成员)。圈成员变化即时生效于所有引用该群体的 fact——**改圈=改一处,矩阵各处同步**。
+- 空圈:范围授予但圈无成员 = 展开后无人知情(grant 时打提醒;`check --project` 出 WARN);圈键/成员未登记或类型不符 → `check --project` FAIL。矩阵改账(grant/scope add/remove)受阶段闸门辖 `write|review`(§15)——矩阵更新只发生在章循环/周期回路内,不是自由运维。
 
 - `ledgers/lessons.md`:`- [ch_0212|vol_02|book] 教训一句话(来源 review id)`——例外:本台账由**编排者**经 commit 附笔追加(格式固定),非 novel.py 生成
 - `ledgers/recap.md`:全局梗概,**编排者维护**(卷末 checkpoint 必更,期间每 ~10 章可追加一段,每段 3–6 行);`novel.py brief` 注入尾 12 行进 §2——长程记忆的轻量层,与 summary_after 链/实体卡互补
@@ -282,9 +292,12 @@ novel.py review add <ch_id> --depth light|deep --verdict pass|revise|escalate
 novel.py facts import <ch_id ...>         # adopt 补录机械半边:自 meta.json continuity_delta
                                           # 分配 fact_id 入账(幂等可重跑);facts list [--entity E]
 novel.py knowledge grant <fact_id> --to <实体> [--to ...] [--ch <获知章>]
-                                          # 知识矩阵角色轴:known_by 追加(获知须有正文/日志支撑)
+                                          # 角色/范围轴:known_by 追加——char 个体或 fac/loc/item
+                                          #   范围(按知情圈展开;获知须有正文/日志支撑)
 novel.py knowledge reveal <fact_id> --ch <ch>   # 读者轴:spoiler 1→0,记 revealed_reader_ch(悬念销账)
-novel.py knowledge query [--fact F|--entity E]  # 矩阵视图:单条全貌/某角色知与不知/
+novel.py knowledge scope add|remove <群体> <char…>  # v2 知情圈维护(fac/loc/item→char 成员,
+                                          #   entities/scopes.json);scope list [群体] 查圈
+novel.py knowledge query [--fact F|--entity E]  # 矩阵视图:单条全貌/个体或群体知与不知(含圈展开)/
                                           #   默认盘点读者未知欠账(弧末/卷末例行,workflow §4)
 novel.py rollup                           # 手动重算章→弧→卷摘要卷积(commit/adopt/facts import
                                           #   已自动;本命令用于批量手改 meta.json 后的显式对账)
@@ -325,11 +338,11 @@ reconcile 汇总仍按 serial-ops §5 由编排者执行(`entity due` + `entity 
 | `gate approve` | `write\|review` |
 | `commit revise_rubric`(蒸馏) | `review` |
 | `commit review_deep` · `review add --depth deep` | `review\|ops` |
-| `knowledge grant` | `write\|review` |
+| `knowledge grant` · `knowledge scope add\|remove` | `write\|review` |
 | `knowledge reveal` | `write\|review\|ops` |
 | `publish` · `retcon` · `report volume` · `checkpoint` · `gate publish\|checkpoint` | `ops` |
 
-不受辖(只读/记账/清理/引导):`init` `adopt` `status` `fsck` `check` `extract` `query` 类视图(`knowledge query`/`facts list`/`ledger`)、`tree`/`task`/`entity`/`thread` 登记、`rollup`、`review list`、`court status|close`、`stage *`、`gate next`(advisory——未进入阶段时打提醒而非拒绝)。
+不受辖(只读/记账/清理/引导):`init` `adopt` `status` `fsck` `check` `extract` `query` 类视图(`knowledge query`/`knowledge scope list`/`facts list`/`ledger`)、`tree`/`task`/`entity`/`thread` 登记、`rollup`、`review list`、`court status|close`、`stage *`、`gate next`(advisory——未进入阶段时打提醒而非拒绝)。
 
 ## 16. commit 按 task.type 行为表(唯一写路径)
 
@@ -351,10 +364,10 @@ git 提交消息:`[t_000231] write(ch_0212): 摘要`。
 
 ## 17. check 断言集
 
-**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);**known_by 有限定的事实被明写且在场角色不在知情名单 → NEEDS_REVIEW(角色知识越界候选,P4-K——轻评裁定:改暗写/补获知场景后 knowledge grant/删句)**;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
+**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);**known_by 有限定的事实被明写且在场角色不在有效知情集(个体+fac/loc/item 知情圈展开,v2)→ NEEDS_REVIEW(角色知识越界候选,P4-K——轻评裁定:改暗写/补获知场景后 knowledge grant 或 scope add 入圈/删句)**;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
 **--window [--since CH]**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ live)余额 ∈[2,5];promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;**故事日历(P2-2)**——elapsed 中文数值化(「2天」「三个时辰」→天数)非负 FAIL、story_date(ISO 或中文日期)按章序单调不倒流 FAIL、`ledger timeline` 视图输出累计天数;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。台账读取一律 (chapter) 取最新 rev(§9)。
 **--leak <候选> --brief <简报>**:候选正文中出现、但简报未投递的**已登记专名**(aliases.json + 实体卡 aliases)→ FAIL(信息沙箱违规);未登记的新发明专名机器无法枚举 → NEEDS_REVIEW 交轻评(pipeline §5)。
-**--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;published 连续无空洞;必需标题节(§4);queue target 均存在;**半事务检出(P0-3)**——`state/txn/` 有 `done=false` journal → FAIL(上次 commit 中断,先按 §18 恢复)。
+**--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;**知情圈台账(v2)**——scopes.json 圈键须为已登记 fac/loc/item、成员须为已登记 char(违者 FAIL),known_by 引用空圈 WARN;published 连续无空洞;必需标题节(§4);queue target 均存在;**半事务检出(P0-3)**——`state/txn/` 有 `done=false` journal → FAIL(上次 commit 中断,先按 §18 恢复)。
 
 ## 18. git 纪律
 
@@ -378,7 +391,7 @@ novel-orchestrator/
   protocol/court.md pipeline.md serial-ops.md glossary.md
   protocol/manual-check.md    # 无 shell 环境人工自查清单(可判项 vs 丢失能力,诚实降级)
   protocol/adopt.md           # 存量文稿/半途项目收编协议
-  tools/novel.py tools/README.md tools/tests/
+  tools/novel.py(薄壳入口) tools/novel_lib/(按工作流关切拆分的实现包) tools/README.md tools/tests/
   templates/                  # init/tree add 母版(清单见下)
   roles/                      # 12 角色卡(含 extractor 抽取器——CLI 对账的帽子/加强抽查版)
   rubrics/                    # 11 张判据卡(自包含 ≤120 行/张;每卡唯一所有阶段,见 knowledge-map §卡表)
@@ -395,6 +408,7 @@ v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧�
 
 ---
 
+*rev 7 · 2026-08-25 · P8 批次:知识矩阵 v2——known_by 范围条目(fac/loc/item)与知情圈 entities/scopes.json(§1/§9)/knowledge scope CLI 与辖区行(§15)/check 越界扫描按知情圈展开+scopes 台账断言(§17);知识资产所有权对齐(§20 目录注释);novel.py 拆分为 novel_lib/ 包(入口不变)。*
 *rev 6 · 2026-08-25 · P7-S 阶段强制闸门:state/stage.json 持久化(§1/§14)/stage enter·current 语义改版(§15)/阶段闸门辖区表(§15)/init 下一步指向 stage enter s1。*
 *rev 5 · 2026-08-25 · P6-S 阶段×知识编排:stage CLI 与 gate next 阶段推断/欠账项(§15)/config 增 spoiler_debt_chapters(§13)/目录补 knowledge-orchestration.md 与 stages/(§20)。*
 *rev 4 · 2026-08-25 · P4 批次:知识矩阵 known_by/revealed_reader_ch 与 knowledge CLI(§5/§9/§15/§17)/gate FAIL 附「下一步」修复命令(§15)/rollup 手动重算命令(§15)/revise_rubric 蒸馏任务类型与 commit 行(§10/§16)/新增 protocol/workflow.md 主循环总装图与 roles/extractor.md(§20)。*

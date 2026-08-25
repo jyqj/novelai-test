@@ -13,7 +13,7 @@
 | 角色 | 只读这些 | 禁读 |
 |---|---|---|
 | 深评（T4） | `roles/critic-deep.md`、`rubrics/anti-plagiarism.md`（**所有权=review**）、`rubrics/structure.md`（所有权=s3）、`rubrics/payoff.md`（所有权=write）、`rubrics/power.md`（所有权=s2）（四卡必附）、采样窗正文与 meta 摘要、弧/卷计划、ledger 统计 | **knowledge/ 全部**（诊断素材属 diag 阶段，不进评审附件）；自己往期 writeback/轻评单（solo 冷读纪律） |
-| 资料员（对账变体） | `roles/librarian.md` + entities/ 与事件日志（serial-ops §5） | knowledge/ |
+| 资料员（对账变体） | `roles/librarian.md` + entities/ 与事件日志（serial-ops §5）；对账连带知情圈（`knowledge scope list` 对照剧情，圈变走 scope add/remove） | knowledge/ |
 | 编排者 | `novel.py knowledge query` 输出（读者未知欠账，CLI 视图不读库）、`entity due`、lessons 台账 | knowledge/（除非转 diag） |
 
 ## 欠账盘点的去向（每条必择一，不许挂着不管）

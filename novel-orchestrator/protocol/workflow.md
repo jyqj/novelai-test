@@ -95,6 +95,7 @@ enter 正确阶段（`state/stage.json` history 留痕）。典型迁移链:`s1�
 | 深评采样 | 每 `deep_every` 章 + 弧末 + 卷末 | `stage enter review` → `task add review_deep` → T4（P§4）；lessons 摘一行入台账；蒸馏（revise_rubric）同属本阶段 | escalate 自动开 revise_design；回路收口后 `stage enter write` 回产线 |
 | 实体对账 | `entity due` 非空（每 `reconcile_every` 章） | S§5 对账轮：资料员 B 模式 → `entity update` | 矛盾上报编排者裁决 |
 | knowledge 欠账 | 弧末/卷末；超龄欠账（≥`spoiler_debt_chapters` 章未揭示）`gate next` 自动顶出【欠账】项 | `knowledge query`（读者未知欠账盘点）→ 逐条决定：继续吊 / 排「揭示章」进任务卡 + `knowledge reveal` 销账 / 走 retcon 废止 | 长期挂账的悬念 = 期待账户坏账，深评必查 |
+| 知情圈对账（矩阵 v2） | 实体对账同轮（资料员对账 entities 时连带） | `knowledge scope list` 对照近章剧情：入伙/驻留/易手已发生而圈未更 → `knowledge scope add\|remove`（正文/日志为据，F§9） | 范围知情（fac/loc/item）的圈成员=矩阵展开口径，圈账错 = 越界扫描失真 |
 | buffer 水位 | 每批章后 | `status` 看 ready；按 S§1 水位表动作 | ready=0 → 停发只补稿 |
 | 发布 | 计划到期/用户指令 | `stage enter ops` → `gate publish` 试跑 → 审批（F§19）→ `publish`；发完 `stage enter write` 回产线 | FAIL 附下一步（补链/补审） |
 | 队列卫生 | 队列 >30 条 | `task archive` | — |

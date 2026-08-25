@@ -6,10 +6,11 @@ python3 标准库实现，零第三方依赖。契约 SSOT 见 `../protocol/form
 
 ```bash
 python3 tools/novel.py --help          # 全部子命令
-python3 tools/tests/test_smoke.py      # 端到端冒烟（101 步，含 15 条负例）
+python3 tools/tests/test_smoke.py      # 端到端冒烟（113 步，含 17 条负例）
 python3 tools/tests/test_longrun.py    # 35 章长程合成（规模化不变量+中途返修）
-python3 tools/tests/test_refactor.py   # P0–P4 重构专项回归（140 步）
-python3 tools/tests/test_stage.py      # P6-S 阶段×知识编排（文档对账+CLI）
+python3 tools/tests/test_refactor.py   # P0–P4 重构专项回归（148 步）
+python3 tools/tests/test_stage.py      # 阶段×知识编排（文档对账+所有权分区+阶段闸门）
+python3 tools/tests/test_matrix.py     # P8-M 知识矩阵 v2（范围知情圈全链路）
 ```
 
 ### 代码布局：novel.py 薄壳 + novel_lib/ 按工作流关切拆分
@@ -59,7 +60,7 @@ python3 tools/tests/test_stage.py      # P6-S 阶段×知识编排（文档对�
 | `adopt <file> --as ch_NNNN` | ✅ | 存量旧稿收编：落盘 drafted 章 + task/meta 骨架 + ngram 指纹（协议见 `protocol/adopt.md`） |
 | `review add/list` | ✅ | 评审回执落盘 reviews/（rev_reviewed 默认=章当前 rev）——approved 闸门唯一回执载体 |
 | `facts import/list` | ✅ | import=adopt 补录机械半边（幂等，顺带刷新 rollup）；list 支持 `--entity` 过滤，视图带 spoiler/知情名单标记 |
-| `knowledge grant/reveal/query` | ✅ | 知识矩阵（fact×角色×读者）：grant 授予知情（known_by 追加）；reveal 读者揭示销账（spoiler→0 记 revealed_reader_ch）；query 矩阵视图（单条/按实体知与不知/读者未知欠账盘点） |
+| `knowledge grant/reveal/scope/query` | ✅ | 知识矩阵 v2（fact×角色/范围×读者）：grant 授予知情（known_by 追加；char 个体或 fac/loc/item 范围）；reveal 读者揭示销账（spoiler→0 记 revealed_reader_ch）；scope add/remove/list 知情圈维护（群体→char 成员，entities/scopes.json）；query 矩阵视图（单条/个体或群体知与不知含圈展开/读者未知欠账盘点） |
 | `rollup` | ✅ | 手动重算章→弧→卷摘要卷积（批量手改 meta.json/adopt 补录后；commit 路径已自动） |
 | `extract <ch> [--candidate --writeback]` | ✅ | 抽取器独立入口：出场实测 vs cast_actual、引号新专名候选、剧透泄漏候选、known_by 角色知识越界候选（角色卡 `roles/extractor.md`） |
 | `gate next/write/approve/publish/checkpoint` | ✅ | 编排剧本机器半边：next 输出优先级调度（修账>深评>对账>**欠账**[spoiler 挂账 ≥`spoiler_debt_chapters` 章]>缓冲>推进），末段附**已进入阶段+配套知识包路径**（未进入时打提醒，advisory）；其余为各关口前置谓词（只判不写，且受阶段闸门辖区约束）；**每条 FAIL 附「↳ 下一步」可执行修复命令** |
@@ -111,10 +112,16 @@ python3 tools/tests/test_stage.py      # P6-S 阶段×知识编排（文档对�
   facts 先剪后登/读侧去重）、回执收紧负例、半事务检出、facts import 幂等、rollup 卷积
   与简报注入、条目级预算裁剪与 must-not-drop、声纹独立块、抽取器对账、故事日历倒流、
   gate 家族、court 工作区。
-- `test_stage.py`：P6-S 阶段×知识编排（103 步）——文档契约半边：11 个阶段包齐全且
-  ≤80 行、设计阶段 K 池 ≡ knowledge-map 场次标注、产线五包零 K-ID、rubrics 脚注 ≡
-  蒸馏列、knowledge/ 锚点 ≡ map 行、引用死链扫描；CLI 半边：stage list/show/current
-  全路径、阶段推断链（court 工作区→设计缺口→队首任务类型→write 默认）、traditional
-  叠加提示、gate next 阶段推断行与 spoiler 欠账消费（超龄顶出/未超龄不出现）。
+- `test_stage.py`：阶段×知识编排（P6-S/P7-S/P8-K）——文档契约半边：11 个阶段包齐全且
+  ≤80 行、六设计庭 K 池 ≡ knowledge-map 所有权标注（单场单标）、产线四包零 K-ID、
+  diag 包 ≡ 诊断池、rubrics 脚注 ≡ 蒸馏列、knowledge/ 锚点 ≡ map 行、引用死链扫描、
+  **所有权分区**（运行期各池两两不相交+三类归属切完 111 块+卡/人设/节奏唯一所有阶段
+  +借用署名+全库索引零残留）；CLI 半边：stage enter/current 持久化与推断核对、
+  阶段闸门正负例（未进阶段/错阶段拒绝+enter 提示、history 迁移轨迹）、traditional
+  叠加提示、gate next 阶段行与 spoiler 欠账消费（超龄顶出/未超龄不出现）。
+- `test_matrix.py`：P8-M 知识矩阵 v2（53 步）——知情圈 CLI 正负例（类型/登记/除名）、
+  scope add/remove 受阶段闸门辖、范围 grant 与空圈提醒、query 圈展开（个体经圈/群体
+  视图）、简报【知情仅】圈展开与在场不知情按展开计算、抽取器越界按有效知情集（圈成员
+  不误报/入圈销案）、check --project 圈台账 FAIL/空圈 WARN。
 
 CI/本地一条命令复跑，绿=工具链可用。
