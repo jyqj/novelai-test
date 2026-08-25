@@ -105,7 +105,7 @@
 **chapters/ch_0212.meta.json**(writeback 持久化;写手回写块与此同构):
 
 ```json
-{"summary_after":"3–8句","continuity_delta":[{"fact":"…","entity_ids":["char_a"],"spoiler":0,"key":"持有"}],
+{"summary_after":"3–8句","continuity_delta":[{"fact":"…","entity_ids":["char_a"],"spoiler":0,"key":"持有","known_by":["char_a"]}],
  "time_advance":{"elapsed":"2天","story_date":""},
  "thread_ops":[{"id":"thread_x","op":"advance","note":"…"}],
  "payoff_realized":["payoff_0212_1"],"hooks_realized":{"open":true,"close":true},
@@ -115,8 +115,8 @@
 ```
 
 `payoff_*.kind` 枚举:`dopamine|upgrade|reveal|reversal|emotion|humor|other`。`thread op` 枚举:`plant|advance|payoff|tangle|ready`。
-可选键:`continuity_delta[].key`(实体状态键位,如 位置/持有/知晓——填了可让 facts 冲突扫描精确到同键矛盾);`power_delta`(战力/位阶变化时必填,commit 追加 `ledgers/power.tsv`)。
-**越权纪律**:`cast_actual`/`continuity_delta`/`thread_ops`/`power_delta` 引用的实体与线索必须已登记(entities/aliases/threads),否则 `check --unit` FAIL、commit 拒绝落盘——写手不得发明实体,缺卡走 issues。`continuity_delta` 每条必含 fact/entity_ids/spoiler。
+可选键:`continuity_delta[].key`(实体状态键位,如 位置/持有/知晓——填了可让 facts 冲突扫描精确到同键矛盾);`continuity_delta[].known_by`(**知识矩阵角色半边**:剧中知晓此事实的实体清单;不填=不设知情约束,见 §9);`power_delta`(战力/位阶变化时必填,commit 追加 `ledgers/power.tsv`)。
+**越权纪律**:`cast_actual`/`continuity_delta`(含 known_by)/`thread_ops`/`power_delta` 引用的实体与线索必须已登记(entities/aliases/threads),否则 `check --unit` FAIL、commit 拒绝落盘——写手不得发明实体,缺卡走 issues。`continuity_delta` 每条必含 fact/entity_ids/spoiler。
 
 ## 6. 简报 briefs/ch_NNNN.brief.md(`novel.py brief` 生成)
 
@@ -130,7 +130,8 @@ frontmatter:`id: brief_ch_0212`, `kind: review` 除外——用 `kind: brief` �
 ## 3 出场实体状态卡    (声纹速查块+现状+最近3事件 must;「设定要点」可裁——先裁非主角)
 ## 4 活跃线索          (任务卡 threads ∪ must_not_drop 线 must;scope/payoff 临近命中可裁)
 ## 5 弧内位置          (弧因果链 + 前后章位置;可裁)
-## 6 相关事实与设定    (facts 实体键查逐条记分,superseded 者连带 retcon;world 规则;可裁)
+## 6 相关事实与设定    (facts 实体键查逐条记分,superseded 者连带 retcon;spoiler 注
+                        【读者未知】,known_by 注【知情仅】+【在场不知情】硬约束;world 规则;可裁)
 ## 7 写作提示          (route 选配纪律速记 + lessons 尾 5 条;可裁)
 ## 8 回写契约          (meta.json schema 原文;must-not-drop)
 ## 附 溯源             (表:资产|rev|用途 + 裁剪留痕行)
@@ -179,10 +180,15 @@ frontmatter:`id`, `kind: thread`, `thread_kind: fuse|subplot|relationship|myster
 - `ledgers/facts/vol_NN.json`(**commit 自动登记**:自 continuity_delta 分配全局递增 `fact_id` 写入本章所属卷文件,同文同章去重;`key` 可选,继承自 delta):
 
 ```json
-{"facts":[{"id":"fact_0001","fact":"…","entity_ids":["char_a"],"revealed_ch":212,"spoiler":0,"superseded_by":null,"key":"持有"}],
+{"facts":[{"id":"fact_0001","fact":"…","entity_ids":["char_a"],"revealed_ch":212,"spoiler":0,
+           "superseded_by":null,"key":"持有","known_by":["char_a","char_b"],"revealed_reader_ch":230}],
  "retcons":[{"id":"ret_001","entity_ids":[],"old_fact_id":"fact_0001","new_fact":"…",
              "strategy":"reconcile|fade_out|explicit_fix","decision_ref":"dec_00x"}]}
 ```
+
+**知识矩阵语义(P4-K:fact × 角色 × 读者)**——每条 fact 两条正交轴:
+- **读者轴** `spoiler`:1=读者未知(简报注【读者未知,只可潜台词】;check 做剧透相似扫描)。读者揭示经 `novel.py knowledge reveal <fact_id> --ch <ch>` 销账(spoiler→0,记 `revealed_reader_ch`;悬念资产的欠账盘点用 `knowledge query`,弧末/卷末例行,workflow §4)。
+- **角色轴** `known_by`(可选):剧中知晓者实体清单。**缺省=未建模,不设约束**(旧数据兼容);一经填写即为白名单——简报 §6 注【知情仅:…】与【本章出场 X 不知情】硬约束,check 抽取器做「越界候选」扫描(known_by 外的在场角色明写该事实 → NEEDS_REVIEW)。来源两路:commit 自 `continuity_delta[].known_by` 自动登记;剧情中后续角色获知走 `novel.py knowledge grant <fact_id> --to <实体> [--ch <获知章>]`(获知场景须有正文/日志支撑,评审抽查账实一致)。
 
 - `ledgers/lessons.md`:`- [ch_0212|vol_02|book] 教训一句话(来源 review id)`——例外:本台账由**编排者**经 commit 附笔追加(格式固定),非 novel.py 生成
 - `ledgers/recap.md`:全局梗概,**编排者维护**(卷末 checkpoint 必更,期间每 ~10 章可追加一段,每段 3–6 行);`novel.py brief` 注入尾 12 行进 §2——长程记忆的轻量层,与 summary_after 链/实体卡互补
@@ -197,9 +203,9 @@ frontmatter:`id`, `kind: thread`, `thread_kind: fuse|subplot|relationship|myster
   "blocked_on":[],"attempts":0,"note":"","evidence":"","created_at":"…","updated_at":"…"}]}
 ```
 
-`type` 枚举:`design | revise_design | write | revise | review_deep | publish | retcon | checkpoint | reconcile`。
+`type` 枚举:`design | revise_design | write | revise | review_deep | publish | retcon | checkpoint | reconcile | revise_rubric`。
 `state` 枚举:`pending | blocked | running | done | failed`。
-纪律:`write/revise` 同 target `attempts ≥ 2` 再 fail → novel.py 自动追加一条 `revise_design` 任务(升级);`revise_design` 创建须带 `--evidence`,novel.py 提示比对 court/ 否决案。
+纪律:`write/revise` 同 target `attempts ≥ 2` 再 fail → novel.py 自动追加一条 `revise_design` 任务(升级);`revise_design` 创建须带 `--evidence`,novel.py 提示比对 court/ 否决案;`revise_rubric` 创建须带 `--evidence`(lessons/review 条目引用)且 target 限 `style`(蒸馏回路,workflow §6)。
 队列自动化:`blocked` 任务在 `blocked_on` 全部 done 后由任意 task/status 命令自动解锁 → `pending`;`task reset <id>` 将 failed/running 拉回 pending(done 不可 reset,负例拒绝);`task archive [--keep N]` 把多余 done 任务移入 `tasks/archive.json` 防队列膨胀。
 
 ## 11. 裁决记录 court/dec_NNN_{slug}.md
@@ -272,13 +278,23 @@ novel.py review add <ch_id> --depth light|deep --verdict pass|revise|escalate
                     [--note N] [--rev R]  # 评审回执落盘 reviews/(rev 默认=章当前 rev);review list
 novel.py facts import <ch_id ...>         # adopt 补录机械半边:自 meta.json continuity_delta
                                           # 分配 fact_id 入账(幂等可重跑);facts list [--entity E]
+novel.py knowledge grant <fact_id> --to <实体> [--to ...] [--ch <获知章>]
+                                          # 知识矩阵角色轴:known_by 追加(获知须有正文/日志支撑)
+novel.py knowledge reveal <fact_id> --ch <ch>   # 读者轴:spoiler 1→0,记 revealed_reader_ch(悬念销账)
+novel.py knowledge query [--fact F|--entity E]  # 矩阵视图:单条全貌/某角色知与不知/
+                                          #   默认盘点读者未知欠账(弧末/卷末例行,workflow §4)
+novel.py rollup                           # 手动重算章→弧→卷摘要卷积(commit/adopt/facts import
+                                          #   已自动;本命令用于批量手改 meta.json 后的显式对账)
 novel.py extract <ch_id> [--candidate F] [--writeback F]
-                                          # 抽取器独立入口:正文反向解析+对账(双记账机器半边)
+                                          # 抽取器独立入口:正文反向解析+对账(双记账机器半边;
+                                          #   角色卡见 roles/extractor.md,C/D 档帽子用)
 novel.py gate next                        # 机器版编排剧本:按优先级输出下一步(修账>深评>对账>推进)
+                                          #   ——迷路时的第一命令(workflow §0)
 novel.py gate write|approve <ch_id>       # 前置谓词闸门(只判不写):write=排批齐+简报在+基线净;
                                           #   approve=drafted+落盘回执 rev 匹配+机检绿
-novel.py gate publish <ch_from> [<ch_to>] # publish 前置谓词试跑(不落盘)
-novel.py gate checkpoint <vol_NN>         # checkpoint 前置谓词试跑(不落盘)
+                                          #   P4-G:每条 FAIL 附「↳ 下一步」可执行修复命令
+novel.py gate publish <ch_from> [<ch_to>] # publish 前置谓词试跑(不落盘;FAIL 附下一步)
+novel.py gate checkpoint <vol_NN>         # checkpoint 前置谓词试跑(不落盘;FAIL 附下一步)
 novel.py court open <场次> --node <节点>  # 建 state/court/<场次>/ + R0 简报骨架
 novel.py court status                     # 盘点活跃场次与回合产物
 novel.py court close <场次> --dec dec_id  # 校验裁决已落盘 court/ 后清理场次工作区
@@ -297,6 +313,7 @@ reconcile 汇总仍按 serial-ops §5 由编排者执行(`entity due` + `entity 
 | revise_design | `--file F ...` + task.evidence 非空 | 同上 + evidence | 落盘;**受影响下游沿 parent 链递归标 stale(卷→弧→章)**;git |
 | review_deep | `--file`(review md) | frontmatter 合法 | 落 reviews/;verdict=escalate 时自动开 revise_design 任务 |
 | reconcile | `--file`(实体现状节) | 目标实体存在 | entity update;last_reconcile_ch=游标 |
+| revise_rubric | `--file`(staged style.md) + task.evidence 非空 | 蒸馏专用轻量路径(workflow §6):staged 文件 kind 必须=style;必需节齐全非空 | style.md 落盘(committed,**rev 自动+1**);**不递归标 stale**(黑名单只约束未来章的 check --unit);git |
 | publish | 章号区间 | 连续自 last_published+1;各章 approved;buffer 满足 | status→published;git |
 | retcon | `retcon` 命令参数 | old_fact 存在且未被覆盖;decision 文件存在;strategy 枚举 | retcons[] 追加+旧 fact 填 superseded_by;git |
 | checkpoint | `checkpoint <vol_NN>` | 卷 committed;`state/reports/vol_NN.md` 存在;exports 三态标注无残留 `[待对账]`;卷内无 planned/drafted/stale 章 | 卷 frontmatter 记 checkpoint_at;下卷 volume.md(缺则实例化)imports 节预填(移交项+未收 must_not_drop 线+终章摘要);git |
@@ -306,7 +323,7 @@ git 提交消息:`[t_000231] write(ch_0212): 摘要`。
 
 ## 17. check 断言集
 
-**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
+**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);**known_by 有限定的事实被明写且在场角色不在知情名单 → NEEDS_REVIEW(角色知识越界候选,P4-K——轻评裁定:改暗写/补获知场景后 knowledge grant/删句)**;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
 **--window [--since CH]**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ live)余额 ∈[2,5];promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;**故事日历(P2-2)**——elapsed 中文数值化(「2天」「三个时辰」→天数)非负 FAIL、story_date(ISO 或中文日期)按章序单调不倒流 FAIL、`ledger timeline` 视图输出累计天数;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。台账读取一律 (chapter) 取最新 rev(§9)。
 **--leak <候选> --brief <简报>**:候选正文中出现、但简报未投递的**已登记专名**(aliases.json + 实体卡 aliases)→ FAIL(信息沙箱违规);未登记的新发明专名机器无法枚举 → NEEDS_REVIEW 交轻评(pipeline §5)。
 **--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;published 连续无空洞;必需标题节(§4);queue target 均存在;**半事务检出(P0-3)**——`state/txn/` 有 `done=false` journal → FAIL(上次 commit 中断,先按 §18 恢复)。
@@ -326,13 +343,14 @@ novel-orchestrator/
   SKILL.md README.md          # L0 入口(薄路由 ≤20KB)/ 人类快速开始
   modes/                      # 三模式:mode-orchestrated / mode-solo / route-traditional
                               # + capability-profiles(宿主能力四档与降级矩阵)
+  protocol/workflow.md        # L1 主循环总装图(环节×闸门×角色×判据+交接契约+三覆盖表)
   protocol/formats.md         # 本文件(机器契约 SSOT)
   protocol/court.md pipeline.md serial-ops.md glossary.md
   protocol/manual-check.md    # 无 shell 环境人工自查清单(可判项 vs 丢失能力,诚实降级)
   protocol/adopt.md           # 存量文稿/半途项目收编协议
   tools/novel.py tools/README.md tools/tests/
   templates/                  # init/tree add 母版(清单见下)
-  roles/                      # 11 角色卡
+  roles/                      # 12 角色卡(含 extractor 抽取器——CLI 对账的帽子/加强抽查版)
   rubrics/                    # 11 张共享判据卡(自包含 ≤120 行/张;含 traditional 三卡 scene-value/theme/imagery)
   personas/                   # 9 张读者人设卡(7 张网文/短篇 + 2 张传统路线文学口味)
   rhythm/                     # 5 节奏模板(含结构评审检查单)
@@ -347,5 +365,6 @@ v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧�
 
 ---
 
+*rev 4 · 2026-08-25 · P4 批次:知识矩阵 known_by/revealed_reader_ch 与 knowledge CLI(§5/§9/§15/§17)/gate FAIL 附「下一步」修复命令(§15)/rollup 手动重算命令(§15)/revise_rubric 蒸馏任务类型与 commit 行(§10/§16)/新增 protocol/workflow.md 主循环总装图与 roles/extractor.md(§20)。*
 *rev 3 · 2026-08-24 · 内核重构对齐:台账 (chapter,rev) 语义与撤销重放(§9/§16)/回执收紧与 review CLI(§12)/原子提交 state/txn 与半事务检出(§14/§17)/简报条目级预算+声纹速查+rollup 记忆分层(§6)/抽取器对账与故事日历入 check(§17)/分层指纹(§14)/gate·court·facts·extract CLI(§15)。*
 *rev 2 · 2026-08-24 · 落地增补:facts 生产环/越权机检/线索状态机表/retcon·report·checkpoint·adopt CLI/两级 ngram/power·recap 台账/队列自动化/state.court 与 --draft/decision·review 机检;删除 models 死键与 legacy 引用。*

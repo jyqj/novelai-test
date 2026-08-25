@@ -12,8 +12,8 @@
 
 | 层 | 内容 | 运行期是否加载 |
 |---|---|---|
-| 协议层 | `protocol/`（产线/设计庭/连载运营/文件契约/术语）、`modes/`（三模式） | 按任务加载对应章节 |
-| 判据与角色层 | `rubrics/`（11 张带阈值判据卡）、`roles/`（11 张角色卡）、`personas/`（9 张）、`rhythm/`、`templates/` | 评审/规划时加载单卡 |
+| 协议层 | `protocol/`（主循环/产线/设计庭/连载运营/文件契约/术语）、`modes/`（三模式） | 按任务加载对应章节 |
+| 判据与角色层 | `rubrics/`（11 张带阈值判据卡）、`roles/`（12 张角色卡）、`personas/`（9 张）、`rhythm/`、`templates/` | 评审/规划时加载单卡 |
 | 知识层 | `knowledge/`（111 块方法论）+ `knowledge-blocks.md`（锚点）+ `knowledge-map.md`（归属） | **默认不加载**；诊断/庭审深读才按块进入 |
 
 三种运行模式（`SKILL.md` §2 路由）：
@@ -63,15 +63,18 @@ python3 tools/novel.py report volume vol_01       # 卷末导出对账报告 sta
 python3 tools/novel.py checkpoint vol_01          # 卷末结账（报告绿才放行）
 python3 tools/novel.py adopt 旧稿.md --as ch_0001 --parent arc_01_1   # 存量旧稿收编
 python3 tools/novel.py check --leak 草稿.md --brief briefs/ch_0002.brief.md   # 泄漏扫描
+python3 tools/novel.py knowledge query --spoilers # 知识矩阵：读者未知欠账盘点
+python3 tools/novel.py rollup                     # 批量手改 meta 后重算章→弧→卷摘要
 ```
 
-复跑测试：`python3 tools/tests/test_smoke.py`（101 步端到端）与
-`python3 tools/tests/test_longrun.py`（35 章长程合成，验证规模化不变量）。
+复跑测试：`python3 tools/tests/test_smoke.py`（101 步端到端）、
+`python3 tools/tests/test_longrun.py`（35 章长程合成 + 中途返修，验证规模化不变量）与
+`python3 tools/tests/test_refactor.py`（重构专项回归，140 步）。
 
 ## 一致性核查的三级闸门
 
-1. **机器闸门**（`novel.py check` / `gate`）：信封/必需节/状态机/三件套对账、style 黑名单逐条扫描、连续同首句、章内 4-gram 重复率、跨章分层指纹（窗口内 12 字复读 FAIL 级告警 + 8 字撞梗 WARN，窗口外归档采样覆盖全史）、回写引用越权（未登记实体/线索 FAIL）、**抽取器对账**（正文实测出场 vs 申报、新专名候选、剧透泄漏候选）、线索状态机迁移表、payoff id 章号匹配、facts 冲突扫描、3 章小爽 / 10 章大爽窗口、promise 余额、战力变更频率、**故事日历**（elapsed 数值化 + story_date 单调）、published 连续性、facts/retcon 引用完整性、decision/review 文件契约、泄漏扫描（`check --leak`）、半事务检出（`fsck`）。
-2. **角色评审**（LLM 判定，机检输出 `NEEDS_REVIEW` 的项）：声纹遮名指认、智商漂移、爽点有效性、毒点七问——按 `rubrics/` 对应卡执行，逐章轻评、抽样深评。
+1. **机器闸门**（`novel.py check` / `gate`）：信封/必需节/状态机/三件套对账、style 黑名单逐条扫描、连续同首句、章内 4-gram 重复率、跨章分层指纹（窗口内 12 字复读 FAIL 级告警 + 8 字撞梗 WARN，窗口外归档采样覆盖全史）、回写引用越权（未登记实体/线索 FAIL）、**抽取器对账**（正文实测出场 vs 申报、新专名候选、剧透泄漏候选、known_by 角色知识越界候选）、线索状态机迁移表、payoff id 章号匹配、facts 冲突扫描、3 章小爽 / 10 章大爽窗口、promise 余额、战力变更频率、**故事日历**（elapsed 数值化 + story_date 单调）、published 连续性、facts/retcon 引用完整性、decision/review 文件契约、泄漏扫描（`check --leak`）、半事务检出（`fsck`）；gate 试跑每条 FAIL 附可执行修复命令。
+2. **角色评审**（LLM 判定，机检输出 `NEEDS_REVIEW` 的项）：声纹遮名指认、智商漂移、爽点有效性、毒点七问、知识边界（剧透/known_by 越界裁定）——按 `rubrics/` 对应卡执行，逐章轻评、抽样深评。
 3. **人工审批**（可配置）：开书 commit、卷末 checkpoint、发布、红线上报。
 
 ## 目录

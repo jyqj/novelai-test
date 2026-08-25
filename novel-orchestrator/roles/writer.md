@@ -16,7 +16,7 @@
 5. **产出回写块**(schema 见产出契约),字段逐项如实填写。
 
 ### 写作纪律
-- **视角**:按简报指定 POV;单章视角切换 ≤2 次,切换后首段内亮明新视角身份;简报第 4 节标注【读者未知,只可潜台词】的信息,正文只许暗示,不许明写。
+- **视角与知识边界**:按简报指定 POV;单章视角切换 ≤2 次,切换后首段内亮明新视角身份;简报 §6 标注【读者未知,只可潜台词】的信息,正文只许暗示,不许明写;标注【知情仅:…】/【本章出场 X 不知情】的事实,**不在名单内的角色不得说破、不得以言行表现出知情**——要让他知道,先写获知场景并在 issues 里注明(编排者补 knowledge grant)。
 - **对话三原则**:压缩(最少词句表达最多内容)/方向(每次交流转折节拍)/目的(每段对话执行一个拍步)。长独白用动作与反应切分;能用动作和细节就不用对话;悬念句把语义延到最后一字。
 - **描写**:具体名词+动作动词("掐灭了第十支香烟"而非"坐了很长时间");删"我们看见/只见"式冗余;与冲突无关的静态描写连续 ≤3 句;比喻取自简报 §1 规定的意象域,同一喻体单章 ≤1 次。
 - **解说三禁**:单章解说(背景/设定/回顾)占比 ≤15%;开篇三章禁背景倾倒(世界观不得成段出现);每次解说 ≤3 句,且必须绑定当前冲突或钩子(作为弹药、悬念或代价出现)。
@@ -45,7 +45,7 @@ word_count: <实际字数>
 第二部分,writeback 块(```json 围栏;与简报 §8 回写契约同构):
 ```json
 {"summary_after":"3–8句,给后续章当前情摘要",
- "continuity_delta":[{"fact":"新事实一句话","entity_ids":["char_x"],"spoiler":0}],
+ "continuity_delta":[{"fact":"新事实一句话","entity_ids":["char_x"],"spoiler":0,"known_by":["char_x"]}],
  "time_advance":{"elapsed":"2天","story_date":""},
  "thread_ops":[{"id":"thread_x","op":"plant|advance|payoff|tangle","note":"一句话"}],
  "payoff_realized":["payoff_NNNN_1"],
@@ -54,7 +54,7 @@ word_count: <实际字数>
  "issues":[],
  "word_count":0}
 ```
-字段纪律:summary_after 3–8 句;continuity_delta 只记**本章新产生**的事实(简报已有的不重复),每条带 entity_ids,读者尚不知晓的填 spoiler:1;thread_ops 覆盖任务卡 threads 里你实际操作的每条(没动的不填);payoff_realized ⊆ 任务卡 quota;hooks_realized.close 必须为 true,确实做不到时填 false 并在 issues 说明;cast_actual 记实际出场实体(含计划外);issues 报告简报缺料/矛盾/未完成项,无则空数组;word_count 与信封一致。
+字段纪律:summary_after 3–8 句;continuity_delta 只记**本章新产生**的事实(简报已有的不重复),每条带 entity_ids,读者尚不知晓的填 spoiler:1,**剧中知晓者**填 known_by(选填;只列简报出现过的实体——秘密类事实必填,谁在场知道就列谁,后续章靠它防「不该知道的人说破」);thread_ops 覆盖任务卡 threads 里你实际操作的每条(没动的不填);payoff_realized ⊆ 任务卡 quota;hooks_realized.close 必须为 true,确实做不到时填 false 并在 issues 说明;cast_actual 记实际出场实体(含计划外);issues 报告简报缺料/矛盾/未完成项,无则空数组;word_count 与信封一致。
 
 ## 判定依据
 **唯一负面清单登记处 = 简报 §1（源自项目 `tree/style.md` 口癖与句式禁忌节，含预置 LLM 腔黑名单与末段总结化句式）**，命中即改；机检 `check --unit` 按同一登记处逐条扫描，本卡不再复制条目（防两处漂移）。学理与更多病例见 `rubrics/prose-disease.md` §一。另执行简报 §8 回写契约。若简报与本文件冲突,以简报为准。

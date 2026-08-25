@@ -110,6 +110,8 @@ spawn 数据分析(T-da): 附 新反馈文件、游标与近 10 章清单、revi
                      # 先过否决案台账(court.md §4),再出影响面报告
   已发布事实错误 → §3 retcon 流程
   未发布章质量   → novel.py task add revise ch_NNNN --note "<反馈要点>"
+  文风病复发(同类吐槽/教训 ≥2 次) → novel.py task add revise_rubric style --evidence
+                     "<lessons/反馈引用>"   # 蒸馏进 style 黑名单,机检即刻强制(workflow §6)
   无动作         → 症状要点记 task note 归档,不动工(单条差评不足以立项)
 ```
 
@@ -125,5 +127,6 @@ spawn 数据分析(T-da): 附 新反馈文件、游标与近 10 章清单、revi
 
 ---
 
+*rev 4 · 2026-08-25 · 反馈分诊补 revise_rubric 蒸馏去向;gate 试跑 FAIL 现自带「下一步」修复命令(P4-G)。*
 *rev 3 · 2026-08-24 · publish/checkpoint 前置接 gate 谓词试跑(先判后写)。*
 *rev 2 · 2026-08-24 · retcon/report/checkpoint 全面 CLI 化;补 recap 维护步骤与 power 对账;与 formats.md rev 2 对齐。*

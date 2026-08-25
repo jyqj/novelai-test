@@ -7,6 +7,8 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 **你现在是本书的「编排者」。** 本文件只做路由：判定环境 → 选模式 → 冷启动或恢复断点 → 按任务加载最小文件集。**禁止通读全库**；每个任务只读契约表列出的文件。
 
+> **全生命周期主循环的唯一总装图 = `protocol/workflow.md`**：每个环节的入口闸门/CLI/执行角色/判据卡/失败去向都在那一份里；solo、traditional、无 shell 档的覆盖差分也收敛在其 §7。迷路时：`novel.py status` → `novel.py gate next`（机器剧本，FAIL 自带「下一步」修复命令）→ 对照 workflow §1 定位。
+
 ## 0. 一切工作的三条公理
 
 1. **文件即记忆**：上下文会丢，写进项目文件的才存在。一切共识（设定、决策、进度）落盘后才算发生。
@@ -40,13 +42,14 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 ③ 首卷首弧  卷庭定 vol_01 → 弧规划 arc_01_1 → 排批章任务 → 进入写作循环
 ```
 
-恢复断点（老项目）：`python3 tools/novel.py status` → 读 `state/dashboard.md` 与 `task next`，从队列头继续。**不重读全库**，简报会带上所需上下文。
+恢复断点（老项目）：`python3 tools/novel.py status` → **`novel.py gate next`**（按 修账>深评>对账>缓冲>推进 输出下一步）→ `task next` 从队列头继续。**不重读全库**，简报会带上所需上下文。主循环各环节定位见 `protocol/workflow.md` §1。
 
 ## 4. 任务型加载契约表（只读列出的文件）
 
 | 任务 | 必读 | 按需 |
 |---|---|---|
 | 冷启动/选模式 | 本文件、所选 modes/ 一篇 | `modes/capability-profiles.md`（档位存疑时）、`protocol/formats.md` §1–3（目录与状态机） |
+| 主循环导航/交接契约 | `protocol/workflow.md`（总装图+交接验收谓词+三覆盖表） | 各环节指针到的专项协议 |
 | 书庭（开书设计） | `protocol/court.md`、`templates/book.md`、`templates/world.md`、`templates/style.md` | `rubrics/redline.md`、庭审附件（见 `knowledge-map.md` 对应场次） |
 | 卷/弧规划 | `protocol/court.md` §1、`templates/volume.md`、`templates/arc.md`、`rhythm/` 所选一篇 | `rubrics/structure.md`、`rubrics/payoff.md` |
 | 排批章任务 | `protocol/pipeline.md` §1 步骤1、`templates/chapter.task.json` | 上一弧 `arc_*.md` |
@@ -59,7 +62,9 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 | 发布/缓冲运营 | `protocol/serial-ops.md` §1–2 | `roles/data-analyst.md` |
 | 卷末结账 | `protocol/serial-ops.md` §4–5 | `rubrics/structure.md` |
 | 改已发布内容 | `protocol/serial-ops.md` §3（retcon，CLI：`novel.py retcon`） | `templates/decision.md` |
-| 存量旧稿收编/半途接管 | `protocol/adopt.md`（CLI：`novel.py adopt`） | `protocol/formats.md` §15 |
+| 知识矩阵（谁知道什么） | `protocol/formats.md` §9（known_by/spoiler 语义；CLI：`novel.py knowledge`） | `protocol/workflow.md` §4（弧末欠账盘点） |
+| 教训蒸馏进判据 | `protocol/workflow.md` §6 蒸馏回路（CLI：`task add revise_rubric style`） | `ledgers/lessons.md`、`tree/style.md` |
+| 存量旧稿收编/半途接管 | `protocol/adopt.md`（CLI：`novel.py adopt`；批量补录后 `novel.py rollup`） | `protocol/formats.md` §15 |
 | 冲突/翻案 | `protocol/court.md` §4（否决案台账） | 相关 `court/dec_*.md` |
 | 诊断疑难/学理深读 | `knowledge-map.md` → 定位 K-ID → `knowledge-blocks.md` 找锚点 → 按块读 | `knowledge-index.md`（症状→K-ID 检索） |
 | 术语歧义 | `protocol/glossary.md`（SSOT） | — |
@@ -88,11 +93,12 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 ```
 候选产物 → novel.py check --unit <ch> --candidate <草稿> --writeback <json>
          → 绿（0 FAIL；WARN/NEEDS_REVIEW 可带走）→ novel.py commit <task_id> …
-         → CLI 自动回写：实体事件日志 / 线索推进与状态 / 爽点·时间线·战力台账 / facts 登记 / 两级 ngram 指纹
+         → CLI 自动回写：实体事件日志 / 线索推进与状态 / 爽点·时间线·战力台账 /
+           facts 登记（含 known_by 知情名单）/ 两级 ngram 指纹 / rollup 摘要卷积
 ```
 
 - 回写引用**先验后写**：`cast_actual`/`thread_ops`/`continuity_delta` 出现未登记实体或线索、线索状态迁移非法 → FAIL 整体阻断，零部分落盘。
-- NEEDS_REVIEW 项 = 机器不可判的主观项（声纹遮名指认、智商漂移、爽点有效性、facts 冲突候选等），**必须**由轻/深评审按对应 rubric 裁定，不得视为通过。
+- NEEDS_REVIEW 项 = 机器不可判的主观项（声纹遮名指认、智商漂移、爽点有效性、facts 冲突候选、剧透泄漏与角色知识越界候选等），**必须**由轻/深评审按对应 rubric 裁定，不得视为通过。
 - 无 shell 时：按 `protocol/manual-check.md` §1 可人工项逐条自查，结论写进 writeback 的 `issues`（前缀 `manual-check:`）；§2 所列不可判定项（跨章指纹等）如实向用户声明丢失，**不得假装等效**。
 
 ## 8. 目录速查
@@ -100,12 +106,13 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 ```
 SKILL.md(本文件)  README.md(人类快速开始)  knowledge-map.md(111 块知识归属)
 modes/      三模式作业手册（orchestrated / solo / traditional 差分）+ capability-profiles（宿主四档）
-protocol/   pipeline(产线) court(设计庭) serial-ops(连载运营) formats(文件与CLI契约)
-            glossary(术语SSOT) manual-check(无shell人工自查) adopt(存量收编)
-roles/      11 张角色卡（spawn 提示词/帽子定义）    rubrics/  11 张判据卡（运行期唯一评审依据）
+protocol/   workflow(主循环总装图) pipeline(产线) court(设计庭) serial-ops(连载运营)
+            formats(文件与CLI契约) glossary(术语SSOT) manual-check(无shell人工自查) adopt(存量收编)
+roles/      12 张角色卡（spawn 提示词/帽子定义；含 extractor 抽取器）
+rubrics/    11 张判据卡（运行期唯一评审依据）
 personas/   9 张读者人设卡（庭审投票用；含 2 张传统路线文学口味卡）  rhythm/   5 张节奏模板（弧/卷规划用）
 templates/  全部资产模板（novel.py init/tree add 的源）
-tools/      novel.py(核心 CLI) tests/(冒烟+长程测试) README.md(覆盖表)
+tools/      novel.py(核心 CLI) tests/(冒烟+重构回归+长程测试) README.md(覆盖表)
 knowledge/ + knowledge-blocks.md + knowledge-index.md   深读知识库（经 knowledge-map 进入）
 ```
 

@@ -8,26 +8,31 @@
 | 术语 | 定义 | 落点 |
 |---|---|---|
 | 编排者 | 主 agent；只调度不写正文；一切落盘经其手 | modes/ 两篇 |
+| 主循环 | 全书生命周期的端到端剧本：冷启动→设计庭→卷/弧→章循环→周期项→checkpoint；`gate next` 是其机器半边 | protocol/workflow.md |
 | 设计庭 | 高风险设计决策的对抗评审会（书/卷/弧三庭型，R0–R4 回合） | protocol/court.md |
 | 产线 | 单章写作的固定时序：排批→简报→写→机检→轻评→commit | protocol/pipeline.md |
-| 简报（brief） | 写手唯一输入；十节 + 溯源，字符预算内机械装配 | `novel.py brief`，formats §7 |
+| 简报（brief） | 写手唯一输入；十节 + 溯源，字符预算内机械装配 | `novel.py brief`，formats §6 |
 | 信息沙箱 | worker 只见投递材料；产出超出输入的专名/设定=泄漏 | pipeline §5 |
 | 帽子 | solo 模式下的角色时分复用单位；一次一顶，产物落盘再换 | modes/mode-solo.md |
 | 树节点 | book/volume/arc/world/style 五种设计资产 | tree/，formats §4 |
-| 章三件套 | ch_*.md（正文）+ .task.json（任务卡）+ .meta.json（回写） | chapters/，formats §5–6 |
+| 章三件套 | ch_*.md（正文）+ .task.json（任务卡）+ .meta.json（回写） | chapters/，formats §5 |
 | 信封 | 文件头部扁平 frontmatter（id/kind/status/rev/updated_at…） | formats §3 |
 | 状态机 | 节点 empty→draft→committed（+stale/archived）；章 planned→drafted→approved→published | formats §3 |
 | stale | 上游设计变更导致下游待重验的标记；修复后回原状态 | `commit`（revise_design 自动传播） |
-| writeback（回写） | 写手随章提交的结构化 JSON；经 commit 分发进实体/线索/台账 | formats §6 |
+| writeback（回写） | 写手随章提交的结构化 JSON；经 commit 分发进实体/线索/台账 | formats §5 |
+| 抽取器 | 从正文实测反推申报的对账角色：出场/新专名/剧透/知识越界四类候选 | roles/extractor.md，`novel.py extract` |
 | 机检 | `novel.py check` 的机器断言；不可判项显式输出 NEEDS_REVIEW | tools/README.md 覆盖表 |
 | NEEDS_REVIEW | 机器不可判、必须由评审角色按 rubric 裁定的项 | check 输出 |
 | 判据卡（rubric） | 从 knowledge 蒸馏的带阈值评审标准；运行期唯一评审依据 | rubrics/ |
 | 人设卡（persona） | 读者画像 + 毒点权重 + 投票纪律；庭审与冷读用 | personas/ |
 | 节奏模板 | 弧/卷的节拍骨架（classic24/wave/dungeon/episodic/ensemble） | rhythm/ |
-| 实体卡 | char/item/loc/fac 四类设定资产；含现状节与事件日志 | entities/，formats §8 |
-| 线索（thread） | 跨章叙事承诺（fuse/subplot/relationship/mystery/promise） | threads/，formats §9 |
-| 台账（ledger） | 只追加的全局账本：payoff/timeline/facts/lessons | ledgers/，formats §10 |
+| 实体卡 | char/item/loc/fac 四类设定资产；含现状节与事件日志 | entities/，formats §7 |
+| 线索（thread） | 跨章叙事承诺（fuse/subplot/relationship/mystery/promise） | threads/，formats §8 |
+| 台账（ledger） | 只追加的全局账本：payoff/timeline/facts/lessons | ledgers/，formats §9 |
 | facts / retcon | 已揭示事实层；改已发布内容=登记新事实覆盖旧事实，不改正文 | serial-ops §3 |
+| 知识矩阵 | fact × 角色（known_by 知情名单）× 读者（spoiler/revealed_reader_ch）的三轴知情台账 | formats §9，`novel.py knowledge` |
+| rollup（卷积） | 章 summary_after → 弧/卷摘要的机械重算；commit 自动做，批量手改后可手动触发 | `novel.py rollup` |
+| 蒸馏（revise_rubric） | 教训→style 黑名单/判据的轻量修订任务：限 style、rev 自动+1、不传播 stale | serial-ops §6，workflow §6 |
 | 爽点配额（payoff_quota） | 章任务卡规定的情绪兑现指标；realized ⊆ quota | formats §5 |
 | buffer | 已 approved 未 published 的存稿水位 | serial-ops §1 |
 | checkpoint | 卷末结账：三态对账+深评+价值交接 | serial-ops §4 |

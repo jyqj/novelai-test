@@ -1,6 +1,6 @@
 {
   "summary_after": "[3–8 句:本章后情节摘要]",
-  "continuity_delta": [{"fact": "[新事实一句话]", "entity_ids": ["[char_slug]"], "spoiler": 0}],
+  "continuity_delta": [{"fact": "[新事实一句话]", "entity_ids": ["[char_slug]"], "spoiler": 0, "known_by": ["[char_slug]"]}],
   "time_advance": {"elapsed": "[2天]", "story_date": ""},
   "thread_ops": [{"id": "[thread_slug]", "op": "advance", "note": "[一句话]"}],
   "payoff_realized": ["[payoff_0001_1]"],
