@@ -9,6 +9,7 @@ python3 tools/novel.py --help          # 全部子命令
 python3 tools/tests/test_smoke.py      # 端到端冒烟（101 步，含 15 条负例）
 python3 tools/tests/test_longrun.py    # 35 章长程合成（规模化不变量+中途返修）
 python3 tools/tests/test_refactor.py   # P0–P4 重构专项回归（140 步）
+python3 tools/tests/test_stage.py      # P6-S 阶段×知识编排（103 步：文档对账+CLI）
 ```
 
 ### 实现覆盖表（对照 formats §15/§16）
@@ -35,8 +36,9 @@ python3 tools/tests/test_refactor.py   # P0–P4 重构专项回归（140 步）
 | `knowledge grant/reveal/query` | ✅ | 知识矩阵（fact×角色×读者）：grant 授予知情（known_by 追加）；reveal 读者揭示销账（spoiler→0 记 revealed_reader_ch）；query 矩阵视图（单条/按实体知与不知/读者未知欠账盘点） |
 | `rollup` | ✅ | 手动重算章→弧→卷摘要卷积（批量手改 meta.json/adopt 补录后；commit 路径已自动） |
 | `extract <ch> [--candidate --writeback]` | ✅ | 抽取器独立入口：出场实测 vs cast_actual、引号新专名候选、剧透泄漏候选、known_by 角色知识越界候选（角色卡 `roles/extractor.md`） |
-| `gate next/write/approve/publish/checkpoint` | ✅ | 编排剧本机器半边：next 输出优先级调度；其余为各关口前置谓词（只判不写）；**每条 FAIL 附「↳ 下一步」可执行修复命令** |
+| `gate next/write/approve/publish/checkpoint` | ✅ | 编排剧本机器半边：next 输出优先级调度（修账>深评>对账>**欠账**[spoiler 挂账 ≥`spoiler_debt_chapters` 章]>缓冲>推进），末行附**当前阶段推断+配套知识包路径**；其余为各关口前置谓词（只判不写）；**每条 FAIL 附「↳ 下一步」可执行修复命令** |
 | `court open/status/close` | ✅ | 庭审工作区机械管理：open 建场次+R0 骨架；close 校验裁决落盘后清场 |
+| `stage list/show/current` | ✅ | 阶段导航（只读，P6-S）：list=11 阶段总表；show=打印配套知识包全文（`protocol/stages/`）；current=启发式推断当前阶段（court 工作区>设计缺口>队首任务类型；SSOT=`protocol/knowledge-orchestration.md`） |
 
 ### check 断言分级
 
@@ -83,5 +85,10 @@ python3 tools/tests/test_refactor.py   # P0–P4 重构专项回归（140 步）
   facts 先剪后登/读侧去重）、回执收紧负例、半事务检出、facts import 幂等、rollup 卷积
   与简报注入、条目级预算裁剪与 must-not-drop、声纹独立块、抽取器对账、故事日历倒流、
   gate 家族、court 工作区。
+- `test_stage.py`：P6-S 阶段×知识编排（103 步）——文档契约半边：11 个阶段包齐全且
+  ≤80 行、设计阶段 K 池 ≡ knowledge-map 场次标注、产线五包零 K-ID、rubrics 脚注 ≡
+  蒸馏列、knowledge/ 锚点 ≡ map 行、引用死链扫描；CLI 半边：stage list/show/current
+  全路径、阶段推断链（court 工作区→设计缺口→队首任务类型→write 默认）、traditional
+  叠加提示、gate next 阶段推断行与 spoiler 欠账消费（超龄顶出/未超龄不出现）。
 
 CI/本地一条命令复跑，绿=工具链可用。
