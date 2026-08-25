@@ -44,7 +44,7 @@ NODE_STATUS = ("empty", "draft", "committed", "stale", "archived")
 CH_STATUS = ("planned", "drafted", "approved", "published", "stale", "archived")
 FLAT_STATUS = ("active", "archived")
 TASK_TYPES = ("design", "revise_design", "write", "revise", "review_deep",
-              "publish", "retcon", "checkpoint", "reconcile")
+              "publish", "retcon", "checkpoint", "reconcile", "revise_rubric")
 TASK_STATES = ("pending", "blocked", "running", "done", "failed")
 PAYOFF_KINDS = ("dopamine", "upgrade", "reveal", "reversal", "emotion", "humor", "other")
 THREAD_OPS = ("plant", "advance", "payoff", "tangle", "ready")
@@ -571,14 +571,15 @@ class Report:
     def __init__(self):
         self.items = []
 
-    def add(self, level, name, details=None):
+    def add(self, level, name, details=None, fix=None):
+        """fix = 可执行的下一步命令/动作（gate 家族用：FAIL 不只报错，还给修复剧本）。"""
         assert level in self.LEVELS
-        self.items.append((level, name, details or []))
+        self.items.append((level, name, details or [], fix))
 
     def render(self, title):
         counts = {k: 0 for k in self.LEVELS}
         print("== %s ==" % title)
-        for level, name, details in self.items:
+        for level, name, details, fix in self.items:
             counts[level] += 1
             if level == "PASS":
                 continue
@@ -587,6 +588,8 @@ class Report:
                 print("        %s" % d)
             if len(details) > 15:
                 print("        ... 另 %d 条" % (len(details) - 15))
+            if fix:
+                print("        ↳ 下一步：%s" % fix)
         print("SUMMARY: %d PASS / %d FAIL / %d WARN / %d NEEDS_REVIEW / %d SKIP"
               % (counts["PASS"], counts["FAIL"], counts["WARN"],
                  counts["NEEDS_REVIEW"], counts["SKIP"]))
@@ -685,7 +688,7 @@ def cmd_status(args):
     # 告警快照（check --window 摘要，进 index.warnings 与 dashboard）
     wrep = Report()
     check_window(proj, wrep)
-    warnings = ["[%s] %s" % (l, n) for l, n, _ in wrep.items
+    warnings = ["[%s] %s" % (l, n) for l, n, _, _ in wrep.items
                 if l in ("WARN", "FAIL")]
 
     last_deep = proj.last_deep_review_ch()
@@ -906,6 +909,13 @@ def cmd_task(args):
             die("type 须为 %s" % "|".join(TASK_TYPES))
         if args.type == "revise_design" and not args.evidence:
             die("revise_design 必须带 --evidence（并先过 court/ 否决案台账，见 court.md §4）", 1)
+        if args.type == "revise_rubric":
+            if not args.evidence:
+                die("revise_rubric 必须带 --evidence（lessons/review 条目引用——"
+                    "蒸馏要有出处，workflow.md §6）", 1)
+            if args.target != "style":
+                die("revise_rubric 目标仅支持 style（tree/style.md 禁忌黑名单是机检"
+                    "唯一登记处；skill 侧 rubrics/ 不随项目改）", 1)
         tid = "t_%06d" % q["next_seq"]
         q["next_seq"] += 1
         q["tasks"].append({"id": tid, "type": args.type, "target": args.target,
@@ -1305,6 +1315,14 @@ def cmd_brief(args):
             if not (set(fact.get("entity_ids", [])) & cast_ids):
                 continue
             spoiler = "【读者未知，只可潜台词】" if fact.get("spoiler") else ""
+            # P4-K 知识矩阵注入：知情名单 + 本章在场不知情者（写手的硬约束）
+            known = fact.get("known_by") or []
+            if known:
+                spoiler += "【知情仅:%s】" % ",".join(known)
+                unaware = sorted(cast_ids - set(known))
+                if unaware:
+                    spoiler += "【本章出场 %s 不知情——不得由其说破或表现知情】" \
+                               % ",".join(unaware)
             sup = fact.get("superseded_by")
             line = "- %s%s（%s，ch%s）" % (spoiler, fact.get("fact"),
                                            fact.get("id"), fact.get("revealed_ch"))
@@ -1528,6 +1546,10 @@ def writeback_ref_errors(proj, ch_id, wb):
             if not resolve(ref):
                 errs.append("continuity_delta[%d] 实体「%s」未登记"
                             "（entities/aliases 均无；先 entity new 或补别名）" % (i, ref))
+        for ref in d.get("known_by", []) or []:
+            if not resolve(ref):
+                errs.append("continuity_delta[%d] known_by「%s」未登记"
+                            "（知情人必须是已登记实体；先 entity new 或补别名）" % (i, ref))
     for ref in wb.get("cast_actual", []) or []:
         if not resolve(ref):
             errs.append("cast_actual「%s」未登记（写手越权发明实体，或排批缺卡）" % ref)
@@ -1872,10 +1894,11 @@ def extract_reconcile(proj, ch_id, text, wb, rep):
                                 "简报外发明嫌疑，轻评对照简报裁定后 entity new/补别名）",
                 obs["name_candidates"][:10])
     # P2-3 剧透泄漏候选：未覆盖 spoiler 事实与正文句子高相似 → 评审裁定
+    num = ch_num(ch_id)
+    sents = None
     spoilers = [x for x, _ in proj.all_facts()
                 if x.get("spoiler") and not x.get("superseded_by")]
     if spoilers:
-        num = ch_num(ch_id)
         leaks = []
         sents = sentences_of(text)
         for x in spoilers:
@@ -1890,6 +1913,30 @@ def extract_reconcile(proj, ch_id, text, wb, rep):
             rep.add("NEEDS_REVIEW", "抽取器：剧透事实文本相似泄漏候选"
                                     "（读者未知事实疑被明写；评审裁定改潜台词或走揭示）",
                     leaks[:8])
+    # P4-K 知识矩阵角色半边：known_by 有限定的事实在正文被明写，而在场角色不在
+    # 知情名单 → 角色知识越界候选（谁说破的？他不该知道）——评审裁定：
+    # 改写为该角色不知情的演法 / 正文补获知场景并 knowledge grant / 删句。
+    guarded = [x for x, _ in proj.all_facts()
+               if x.get("known_by") and not x.get("superseded_by")
+               and x.get("revealed_ch") != num]
+    if guarded and cast:
+        if sents is None:
+            sents = sentences_of(text)
+        overreach = []
+        for x in guarded:
+            unaware = sorted(cast - set(x["known_by"]))
+            if not unaware:
+                continue
+            for s in sents:
+                if ngram_sim(x.get("fact", ""), s) >= 0.5:
+                    overreach.append("%s「%s」——在场未知情角色：%s（知情仅 %s）"
+                                     % (x.get("id"), x.get("fact"),
+                                        ",".join(unaware), ",".join(x["known_by"])))
+                    break
+        if overreach:
+            rep.add("NEEDS_REVIEW", "抽取器：角色知识越界候选（事实被明写而在场角色"
+                                    "不在 known_by 名单——评审裁定：改暗写/补获知场景后"
+                                    " knowledge grant/删句）", overreach[:8])
     return obs
 
 
@@ -2093,7 +2140,7 @@ def check_project(proj, rep=None):
                     probs.append("committed 但「%s」为空" % s)
         if probs:
             rep.add("FAIL", "节点 %s（%s）" % (m.get("id"), rel), probs)
-    if not any(l == "FAIL" and n.startswith("节点") for l, n, _ in rep.items):
+    if not any(l == "FAIL" and n.startswith("节点") for l, n, _, _ in rep.items):
         rep.add("PASS", "树节点信封与必需节合规（%d 个）" % len(proj.tree_nodes()))
 
     # 章三件套 + cast 可解析
@@ -2324,6 +2371,10 @@ def register_facts(proj, ch_id, wb, rev=1):
                "superseded_by": None}
         if d.get("key"):
             rec["key"] = d["key"]
+        # P4-K 知识矩阵：事实 × 角色（known_by）× 读者（spoiler）——who-knows-what 台账
+        if d.get("known_by"):
+            rec["known_by"] = sorted({proj.resolve_entity(r) or r
+                                      for r in d["known_by"]})
         data.setdefault("facts", []).append(rec)
         added.append(rec["id"])
         seq += 1
@@ -2648,17 +2699,21 @@ def cmd_commit(args):
               % (ch_id, new_meta["rev"]))
         return 0
 
-    if ttype in ("design", "revise_design", "review_deep"):
+    if ttype in ("design", "revise_design", "review_deep", "revise_rubric"):
         if not args.file:
             die("%s 需 --file <staged 文件> [...]" % ttype)
-        if ttype == "revise_design" and not t.get("evidence"):
-            die("revise_design 任务缺 evidence（先过否决案台账，court.md §4）", 1)
+        if ttype in ("revise_design", "revise_rubric") and not t.get("evidence"):
+            die("%s 任务缺 evidence（revise_design 先过否决案台账 court.md §4；"
+                "revise_rubric 须引用 lessons/review 条目）" % ttype, 1)
         # P0-3：两遍制——第一遍全量校验（零写入），第二遍才落盘（多文件原子性）
         staged = []
         for fpath in args.file:
             meta, body = parse_frontmatter(read(fpath))
             if meta is None:
                 die("staged 文件无信封：%s" % fpath, 1)
+            if ttype == "revise_rubric" and meta.get("kind") != "style":
+                die("revise_rubric 只接受 kind=style 的 staged 文件（判据蒸馏专用轻量"
+                    "路径，不波及树；其他节点走 revise_design）", 1)
             target = route_staged_file(proj, meta)
             if target is None:
                 die("无法路由 kind=%s 的文件（id=%s）" % (meta.get("kind"), meta.get("id")), 1)
@@ -2676,6 +2731,11 @@ def cmd_commit(args):
         txn = txn_begin(proj, ttype, t["target"], args.task_id)
         main_done = False
         for meta, body, target in staged:
+            if ttype == "revise_rubric" and target.is_file():
+                # P4-D 蒸馏路径：rev 自动 +1；不递归标 stale（黑名单增补只约束
+                # 未来章的 check --unit，不作废既有章）
+                old, _ = parse_frontmatter(read(target))
+                meta["rev"] = ((old or {}).get("rev") or 0) + 1
             if meta.get("kind") in NODE_KINDS:
                 if args.draft:
                     # P0-6：draft 态部分落盘（书庭中间场次可持久化半成品，不算定稿）
@@ -2707,33 +2767,41 @@ def cmd_commit(args):
             if stale:
                 print("下游已递归标 stale：%s（修复后回原 status；影响面报告模板见 court.md §4）"
                       % " ".join(stale))
+        if ttype == "revise_rubric":
+            print("蒸馏入库：style.md rev+1；新黑名单自下一次 check --unit 起机检生效"
+                  "（不波及既有章）；来源 evidence：%s" % t.get("evidence"))
         txn_end(proj, txn)
         git_autocommit(proj.root, "[%s] %s(%s): %s" % (args.task_id, ttype, t["target"], msg))
         return 0
 
-    die("commit 支持 write|revise|design|revise_design|review_deep；"
+    die("commit 支持 write|revise|design|revise_design|review_deep|revise_rubric；"
         "publish 用 publish，retcon 用 retcon，checkpoint 用 checkpoint，"
         "reconcile 用 entity update", 2)
 
 
 # ---------------------------------------------------------------- publish / ledger
 def publish_problems(proj, frm, to):
-    """publish 前置谓词（P3 gate 复用：只判不写）。返回问题清单（空 = 可发布）。"""
+    """publish 前置谓词（P3 gate 复用：只判不写）。返回 [(问题, 下一步)]（空 = 可发布）。"""
     probs = []
     cur = proj.cursor()
     if frm != cur["last_published"] + 1:
-        probs.append("连续性谓词失败：应从 ch_%04d 起（当前 last_published=%d），无绕过开关"
-                     % (cur["last_published"] + 1, cur["last_published"]))
+        probs.append(("连续性谓词失败：应从 ch_%04d 起（当前 last_published=%d），无绕过开关"
+                      % (cur["last_published"] + 1, cur["last_published"]),
+                      "改区间重试：novel.py publish ch_%04d [ch_to]"
+                      % (cur["last_published"] + 1)))
     chs = {ch_num(c["id"]): c for c in proj.chapters()}
     not_ok = [n for n in range(frm, to + 1)
               if n not in chs or chs[n]["meta"].get("status") != "approved"]
     if not_ok:
-        probs.append("区间含非 approved 章：%s" % ["ch_%04d" % n for n in not_ok])
+        probs.append(("区间含非 approved 章：%s" % ["ch_%04d" % n for n in not_ok],
+                      "逐章 novel.py gate approve ch_NNNN（FAIL 项自带下一步：评审→"
+                      "review add→tree set-status approved），或缩小发布区间"))
     if cur["last_published"] == 0:
         need = proj.config.get("buffer", {}).get("min_before_publish", 1)
         if proj.buffer_ready() < need:
-            probs.append("首发前 ready=%d < min_before_publish=%d"
-                         % (proj.buffer_ready(), need))
+            probs.append(("首发前 ready=%d < min_before_publish=%d"
+                          % (proj.buffer_ready(), need),
+                          "先攒稿到位：推进 write 批至 approved（serial-ops §1 水位表）"))
     return probs
 
 
@@ -2743,7 +2811,7 @@ def cmd_publish(args):
     to = ch_num(args.ch_to) if args.ch_to else frm
     probs = publish_problems(proj, frm, to)
     if probs:
-        die("\n".join(probs), 1)
+        die("\n".join("%s\n  ↳ 下一步：%s" % pr for pr in probs), 1)
     chs = {ch_num(c["id"]): c for c in proj.chapters()}
     for n in range(frm, to + 1):
         c = chs[n]
@@ -2915,7 +2983,7 @@ def cmd_report(args):
     lines += ["", "## 窗口告警（check --window 快照）", ""]
     wrep = Report()
     check_window(proj, wrep)
-    warn = ["- [%s] %s" % (l, n) for l, n, _ in wrep.items if l in ("WARN", "FAIL")]
+    warn = ["- [%s] %s" % (l, n) for l, n, _, _ in wrep.items if l in ("WARN", "FAIL")]
     lines += warn or ["- （全绿）"]
     lines += ["", "## checkpoint 前置清单", "",
               "- [ ] exports 全部标注三态（移交项将预填下卷 imports）",
@@ -2930,29 +2998,35 @@ def cmd_report(args):
 
 
 def checkpoint_problems(proj, vol_id):
-    """checkpoint 前置谓词（P3 gate 复用：只判不写）。返回问题清单（空 = 可结账）。"""
+    """checkpoint 前置谓词（P3 gate 复用：只判不写）。返回 [(问题, 下一步)]（空 = 可结账）。"""
     probs = []
     vp = proj.node_path(vol_id)
     if not vp or not vp.is_file():
-        return ["卷不存在：%s" % vol_id]
+        return [("卷不存在：%s" % vol_id,
+                 "novel.py tree add volume %s → 卷庭定稿（court.md §1）" % vol_id)]
     vmeta, _ = parse_frontmatter(read(vp))
     if vmeta.get("status") != "committed":
-        probs.append("卷 %s 状态为 %s，须 committed 才可 checkpoint"
-                     % (vol_id, vmeta.get("status")))
+        probs.append(("卷 %s 状态为 %s，须 committed 才可 checkpoint"
+                      % (vol_id, vmeta.get("status")),
+                      "卷庭定稿：novel.py task add design %s → commit <t> --file <卷蓝图>"
+                      % vol_id))
     rp = proj.p("state", "reports", vol_id + ".md")
     if not rp.is_file():
-        probs.append("卷报告未汇编：先跑 novel.py report volume %s（serial-ops §4 步骤 1）"
-                     % vol_id)
+        probs.append(("卷报告未汇编", "novel.py report volume %s（serial-ops §4 步骤 1）"
+                      % vol_id))
     else:
         pending = [l.strip() for l in read(rp).splitlines() if "[待对账]" in l]
         if pending:
-            probs.append("exports 对账未完成，%d 条仍为 [待对账]（编辑 %s 标注三态后重试）：\n  %s"
-                         % (len(pending), rp.relative_to(proj.root),
-                            "\n  ".join(pending[:5])))
+            probs.append(("exports 对账未完成，%d 条仍为 [待对账]：\n  %s"
+                          % (len(pending), "\n  ".join(pending[:5])),
+                          "编辑 %s 逐条标三态 [兑现 ch_NNNN]|[移交]|[废止 dec_xxx]"
+                          "（serial-ops §4 步骤 2）" % rp.relative_to(proj.root)))
     bad = [c["id"] for c in volume_chapters(proj, vol_id)
            if c["meta"].get("status") in ("planned", "drafted", "stale")]
     if bad:
-        probs.append("卷内存在未完稿章（须 approved/published/archived）：%s" % " ".join(bad))
+        probs.append(("卷内存在未完稿章（须 approved/published/archived）：%s" % " ".join(bad),
+                      "逐章收尾：gate approve → set-status approved（不再写的章 "
+                      "tree set-status <ch> archived）"))
     return probs
 
 
@@ -2966,7 +3040,7 @@ def cmd_checkpoint(args):
         die("卷 id 应为 vol_NN")
     probs = checkpoint_problems(proj, vol_id)
     if probs:
-        die("\n".join(probs), 1)
+        die("\n".join("%s\n  ↳ 下一步：%s" % pr for pr in probs), 1)
     vp = proj.node_path(vol_id)
     vmeta, vbody = parse_frontmatter(read(vp))
     rp = proj.p("state", "reports", vol_id + ".md")
@@ -3130,6 +3204,8 @@ def cmd_facts(args):
             flag = ""
             if x.get("spoiler"):
                 flag += "【spoiler】"
+            if x.get("known_by"):
+                flag += "【知情:%s】" % ",".join(x["known_by"])
             if x.get("superseded_by"):
                 flag += "【已覆盖 %s】" % x["superseded_by"]
             print("%-10s ch%-4s %s%s（%s｜%s）"
@@ -3167,6 +3243,111 @@ def cmd_facts(args):
     return 0
 
 
+# ---------------------------------------------------------------- knowledge（P4-K）
+def locate_fact(proj, fact_id):
+    """按 id 定位 fact：返回 (文件路径, 整文件数据, fact 记录)；找不到返回 (None,)*3。"""
+    for f in proj.facts_files():
+        try:
+            data = json.loads(read(f))
+        except ValueError:
+            continue
+        for x in data.get("facts", []):
+            if x.get("id") == fact_id:
+                return f, data, x
+    return None, None, None
+
+
+def cmd_knowledge(args):
+    """P4-K 知识矩阵 CLI（fact × 角色 × 读者）：
+    grant  = 授予角色知情（known_by 追加；获知场景写进正文/日志，本命令只记账）
+    reveal = 读者揭示（spoiler 1→0，记 revealed_reader_ch——悬念资产销账）
+    query  = 矩阵视图：--fact 单条全貌 / --entity 某角色知与不知 / 默认盘点读者未知欠账"""
+    proj = Project(find_root(args))
+    if args.knowledge_cmd == "grant":
+        f, data, x = locate_fact(proj, args.fact_id)
+        if not x:
+            die("fact 不存在：%s（novel.py facts list 查现有 id）" % args.fact_id, 1)
+        if x.get("superseded_by"):
+            die("fact %s 已被覆盖（%s）——对新事实操作" % (args.fact_id, x["superseded_by"]), 1)
+        ids = []
+        for ref in args.to:
+            eid = proj.resolve_entity(ref)
+            if not eid:
+                die("知情人「%s」未登记（先 entity new 或补 aliases）" % ref, 1)
+            ids.append(eid)
+        x["known_by"] = sorted(set(x.get("known_by") or []) | set(ids))
+        write(f, json.dumps(data, ensure_ascii=False, indent=1))
+        git_autocommit(proj.root, "[knowledge] grant %s → %s%s"
+                       % (args.fact_id, ",".join(sorted(set(ids))),
+                          "（%s 获知）" % args.ch if args.ch else ""))
+        print("已授予知情：%s known_by=%s" % (args.fact_id, ",".join(x["known_by"])))
+        print("[提醒] 获知须有正文/日志支撑（获知场景章号：%s）——账实一致由评审抽查"
+              % (args.ch or "未记"))
+        return 0
+    if args.knowledge_cmd == "reveal":
+        f, data, x = locate_fact(proj, args.fact_id)
+        if not x:
+            die("fact 不存在：%s" % args.fact_id, 1)
+        if not x.get("spoiler"):
+            die("fact %s 本就读者已知（spoiler=0），无需 reveal" % args.fact_id, 1)
+        num = ch_num(args.ch)
+        x["spoiler"] = 0
+        x["revealed_reader_ch"] = num
+        write(f, json.dumps(data, ensure_ascii=False, indent=1))
+        git_autocommit(proj.root, "[knowledge] reveal %s @ %s" % (args.fact_id, args.ch))
+        print("读者揭示已记账：%s spoiler=0（revealed_reader_ch=%d）；"
+              "此后简报不再带【读者未知】约束" % (args.fact_id, num))
+        return 0
+    # query
+    facts = [x for x, _ in proj.all_facts() if not x.get("superseded_by")]
+    if args.fact_id:
+        f, data, x = locate_fact(proj, args.fact_id)
+        if not x:
+            die("fact 不存在：%s" % args.fact_id, 1)
+        print(json.dumps(x, ensure_ascii=False, indent=1))
+        known = x.get("known_by")
+        print("读者：%s" % ("未知（spoiler=1，简报带潜台词约束）" if x.get("spoiler")
+                            else "已知（ch%s 揭示）" % x.get("revealed_reader_ch",
+                                                            x.get("revealed_ch"))))
+        print("角色：%s" % ("知情仅 " + ",".join(known) if known
+                            else "未建模（known_by 空 = 不设知情约束）"))
+        return 0
+    if args.entity:
+        eid = proj.resolve_entity(args.entity)
+        if not eid:
+            die("实体未登记：%s" % args.entity, 1)
+        about = [x for x in facts if eid in (x.get("entity_ids") or [])]
+        knows = [x for x in facts if eid in (x.get("known_by") or [])]
+        blind = [x for x in facts if x.get("known_by") and eid not in x["known_by"]]
+        print("== knowledge query %s ==" % eid)
+        print("关于此实体的事实 %d 条：" % len(about))
+        for x in about:
+            print("  %-10s %s" % (x["id"], x.get("fact")))
+        print("知情 %d 条：" % len(knows))
+        for x in knows:
+            print("  %-10s %s" % (x["id"], x.get("fact")))
+        print("不知情 %d 条（known_by 有限定且不含该实体——正文不得由其说破）：" % len(blind))
+        for x in blind:
+            print("  %-10s %s（知情仅 %s）" % (x["id"], x.get("fact"),
+                                               ",".join(x["known_by"])))
+        return 0
+    # 默认：读者未知欠账盘点（悬念资产台账）
+    spoilers = sorted([x for x in facts if x.get("spoiler")],
+                      key=lambda x: x.get("revealed_ch") or 0)
+    modeled = [x for x in facts if x.get("known_by")]
+    print("== knowledge query（矩阵总览）==")
+    print("facts 有效 %d 条；known_by 已建模 %d 条；读者未知（spoiler）%d 条"
+          % (len(facts), len(modeled), len(spoilers)))
+    for x in spoilers:
+        print("  %-10s ch%-4s %s%s" % (x["id"], x.get("revealed_ch"), x.get("fact"),
+                                       "（知情仅 %s）" % ",".join(x["known_by"])
+                                       if x.get("known_by") else ""))
+    if spoilers:
+        print("（悬念欠账：埋下未揭示的读者钩子——弧末/卷末逐条决定 继续吊/knowledge "
+              "reveal 销账/走 retcon 废止）")
+    return 0
+
+
 # ---------------------------------------------------------------- extract（P2-1）
 def cmd_extract(args):
     """抽取器独立入口：正文反向解析 + 与 writeback 对账（双记账机器半边）。"""
@@ -3195,13 +3376,34 @@ def cmd_extract(args):
     return rep.render("extract %s（对账）" % ch_id)
 
 
+# ---------------------------------------------------------------- rollup（P4-R）
+def cmd_rollup(args):
+    """手动重算章→弧→卷摘要卷积。commit/adopt/facts import 已自动重算；本命令用于
+    批量手改 meta.json（如 adopt 补录 summary_after、修订摘要链）后的显式对账。"""
+    proj = Project(find_root(args))
+    rollup = update_rollup(proj)
+    n_ch = sum(len(a["lines"]) for a in rollup["arcs"].values())
+    git_autocommit(proj.root, "[rollup] 手动重算（%d 章 → %d 弧 → %d 卷）"
+                   % (n_ch, len(rollup["arcs"]), len(rollup["volumes"])))
+    print("rollup 已重算：%d 章 → %d 弧 → %d 卷 → state/rollup.json"
+          % (n_ch, len(rollup["arcs"]), len(rollup["volumes"])))
+    for aid in sorted(rollup["arcs"]):
+        a = rollup["arcs"][aid]
+        print("  %s（%s..%s）%d 行" % (aid, a["span"][0], a["span"][1], len(a["lines"])))
+    print("（简报 §2 远程记忆层引用此文件；重编简报后新卷积才进包）")
+    return 0
+
+
 # ---------------------------------------------------------------- gate（P3-1）
 def gate_write(proj, ch_id, rep):
-    """spawn 写手前置闸门：任务卡排批完整 + 弧 committed + 简报新鲜 + 基线干净。"""
+    """spawn 写手前置闸门：任务卡排批完整 + 弧 committed + 简报新鲜 + 基线干净。
+    每条 FAIL 附「下一步」修复命令（P4-G gate UX：闸门即剧本）。"""
     task = proj.chapter_task(ch_id)
     tp = proj.p("chapters", ch_id + ".task.json")
     if not task:
-        rep.add("FAIL", "缺任务卡 chapters/%s.task.json（先 tree add chapter + 排批）" % ch_id)
+        rep.add("FAIL", "缺任务卡 chapters/%s.task.json" % ch_id,
+                fix="novel.py tree add chapter %s --parent <arc_NN_n>，再按 "
+                    "pipeline §1 步骤 0 排批补全 task.json" % ch_id)
         return
     ph = []
     for k in ("goal", "beats", "cast"):
@@ -3210,63 +3412,94 @@ def gate_write(proj, ch_id, rep):
                 or (isinstance(v, list) and all(str(x).startswith("[") for x in v)):
             ph.append(k)
     if ph:
-        rep.add("FAIL", "任务卡未排批（字段缺失/仍为占位）", ph)
+        rep.add("FAIL", "任务卡未排批（字段缺失/仍为占位）", ph,
+                fix="编排者补全 chapters/%s.task.json 的 %s（从弧计划「章分配草案」"
+                    "取料，pipeline §1 步骤 0；quality 档可委派架构师 T0）"
+                    % (ch_id, "/".join(ph)))
     else:
         rep.add("PASS", "任务卡排批字段齐全（goal/beats/cast）")
     route = proj.config.get("route", "web")
     hook = task.get("hook") or {}
     if route == "web" and (not hook.get("close") or str(hook.get("close")).startswith("[")):
-        rep.add("FAIL", "route=web 章尾钩未排（task.json hook.close 必填，pipeline §1 步骤 0）")
+        rep.add("FAIL", "route=web 章尾钩未排（task.json hook.close 必填）",
+                fix="补 chapters/%s.task.json 的 hook.close（一句话钩子，"
+                    "pipeline §1 步骤 0）后重跑 gate write" % ch_id)
     if route == "traditional" and not task.get("turn"):
         rep.add("WARN", "traditional 未填 turn（价值翻转一句话，route-traditional §2）")
     arc = task.get("arc")
     arc_p = proj.node_path(arc) if arc and not str(arc).startswith("[") else None
     if not arc_p or not arc_p.is_file():
-        rep.add("FAIL", "所属弧不存在或未填：%s" % arc)
+        rep.add("FAIL", "所属弧不存在或未填：%s" % arc,
+                fix="novel.py tree add arc <arc_NN_n> → 弧简流程定稿（court.md §1 弧行）"
+                    "→ task.json 填 arc")
     else:
         ameta, _ = parse_frontmatter(read(arc_p))
         if (ameta or {}).get("status") != "committed":
-            rep.add("FAIL", "弧 %s 状态 %s ≠ committed（先过弧简流程定稿）"
-                    % (arc, (ameta or {}).get("status")))
+            rep.add("FAIL", "弧 %s 状态 %s ≠ committed"
+                    % (arc, (ameta or {}).get("status")),
+                    fix="novel.py task add design %s → 弧简流程（court.md §1 弧行）→ "
+                        "commit <t> --file <弧定稿>" % arc)
         else:
             rep.add("PASS", "弧 %s 已 committed" % arc)
     bp = proj.p("briefs", ch_id + ".brief.md")
     if not bp.is_file():
-        rep.add("FAIL", "简报未编译：novel.py brief %s（写手唯一世界）" % ch_id)
+        rep.add("FAIL", "简报未编译（写手唯一世界）",
+                fix="novel.py brief %s（编译后资料员审包，pipeline §1 步骤 1–3）" % ch_id)
     elif tp.is_file() and bp.stat().st_mtime < tp.stat().st_mtime:
-        rep.add("FAIL", "简报早于任务卡（排批后未重编译）：重跑 novel.py brief %s" % ch_id)
+        rep.add("FAIL", "简报早于任务卡（排批后未重编译）",
+                fix="novel.py brief %s（重编译，brief_rev+1）" % ch_id)
     else:
         rep.add("PASS", "简报存在且不早于任务卡")
     dirty = git_out(proj.root, "status", "--porcelain")
     if dirty:
         rep.add("FAIL", "工作区不干净（spawn 前基线必须干净，pipeline §5）",
-                dirty.splitlines()[:8])
+                dirty.splitlines()[:8],
+                fix="附笔请在 commit 前一刻写；散落改动先核对再清：git status --porcelain"
+                    " → git checkout -- . && git clean -fd（worker 中间稿移项目外）")
     else:
         rep.add("PASS", "git 基线干净")
     cur = proj.cursor()
     last_deep = proj.last_deep_review_ch()
     deep_every = proj.config.get("critic", {}).get("deep_every", 5)
     if cur["last_drafted"] > 0 and cur["last_drafted"] - last_deep >= deep_every:
-        rep.add("WARN", "深评逾期（last_deep=%d, last_drafted=%d）——先排 review_deep"
-                % (last_deep, cur["last_drafted"]))
+        rep.add("WARN", "深评逾期（last_deep=%d, last_drafted=%d）"
+                % (last_deep, cur["last_drafted"]),
+                fix="novel.py task add review_deep ch_%04d（pipeline §4）"
+                    % cur["last_drafted"])
 
 
 def gate_approve(proj, ch_id, rep):
-    """approved 前置闸门：章已 drafted + 落盘回执（rev 匹配）+ 机检绿。"""
+    """approved 前置闸门：章已 drafted + 落盘回执（rev 匹配）+ 机检绿。
+    每条 FAIL 附「下一步」修复命令（P4-G）。"""
     p = proj.p("chapters", ch_id + ".md")
     if not p.is_file():
-        rep.add("FAIL", "章不存在：%s" % ch_id)
+        rep.add("FAIL", "章不存在：%s" % ch_id,
+                fix="先走写作链落盘：novel.py commit <t> --chapter … --writeback …"
+                    "（pipeline §1 步骤 8）")
         return
     meta, _ = parse_frontmatter(read(p))
-    if (meta or {}).get("status") != "drafted":
-        rep.add("FAIL", "章状态 %s ≠ drafted（迁移表 formats §3）" % (meta or {}).get("status"))
+    st = (meta or {}).get("status")
+    if st != "drafted":
+        fixes = {"planned": "章尚未成稿：走 pipeline §1 写作链到 commit",
+                 "approved": "已 approved——无需重复；下一步 gate publish",
+                 "published": "已 published（不可变）；修错走 serial-ops §3 retcon",
+                 "stale": "上游设计已变更：按队列重排 revise 后再评（court.md §4）"}
+        rep.add("FAIL", "章状态 %s ≠ drafted（迁移表 formats §3）" % st,
+                fix=fixes.get(st, "核对 formats §3 状态机"))
     receipt = approval_receipt(proj, ch_id)
     if receipt:
         rep.add("PASS", "评审回执有效：%s" % receipt)
     else:
-        rep.add("FAIL", "缺有效评审回执（reviews/%s.light|deep.md verdict=pass 且 "
-                        "rev_reviewed=章当前 rev；用 novel.py review add 落盘）" % ch_id)
+        rep.add("FAIL", "缺有效评审回执（verdict=pass 且 rev_reviewed=章当前 rev）",
+                fix="先真评审（轻评按 roles/critic-light.md），后落盘回执："
+                    "novel.py review add %s --depth light --verdict pass --note <要点>"
+                    "（章 revise 过则须对新 rev 复评）" % ch_id)
+    n_before = sum(1 for l, _, _, _ in rep.items if l == "FAIL")
     check_unit(proj, ch_id, rep=rep)
+    if sum(1 for l, _, _, _ in rep.items if l == "FAIL") > n_before:
+        rep.add("FAIL", "机检不绿（上列 FAIL 来自 check --unit）",
+                fix="novel.py check --unit %s 复现问题 → 并入修订循环（pipeline §2："
+                    "task add revise %s → 写手修订 → commit）" % (ch_id, ch_id))
 
 
 def cmd_gate_next(proj):
@@ -3275,7 +3508,7 @@ def cmd_gate_next(proj):
     recs = []
     prep = Report()
     check_project(proj, prep)
-    fails = [n for l, n, _ in prep.items if l == "FAIL"]
+    fails = [n for l, n, _, _ in prep.items if l == "FAIL"]
     if fails:
         recs.append("【修账】check --project 有 FAIL，先修复：%s" % "；".join(fails[:3]))
     cur = proj.cursor()
@@ -3333,15 +3566,15 @@ def cmd_gate(args):
         frm = ch_num(args.ch_from)
         to = ch_num(args.ch_to) if args.ch_to else frm
         probs = publish_problems(proj, frm, to)
-        for pr in probs:
-            rep.add("FAIL", pr)
+        for pr, fix in probs:
+            rep.add("FAIL", pr, fix=fix)
         if not probs:
             rep.add("PASS", "publish 前置谓词全过（ch_%04d..ch_%04d 可发布）" % (frm, to))
         return rep.render("gate publish")
     if args.gate_cmd == "checkpoint":
         probs = checkpoint_problems(proj, args.vol_id)
-        for pr in probs:
-            rep.add("FAIL", pr)
+        for pr, fix in probs:
+            rep.add("FAIL", pr, fix=fix)
         if not probs:
             rep.add("PASS", "checkpoint 前置谓词全过（%s 可结账）" % args.vol_id)
         return rep.render("gate checkpoint %s" % args.vol_id)
@@ -3538,6 +3771,22 @@ def main(argv=None):
     q.add_argument("--lesson", help="教训一行（可选，编排者摘入 lessons）")
     ts.add_parser("list")
 
+    p = sub.add_parser("knowledge", help="知识矩阵（fact×角色×读者）：grant/reveal/query")
+    ts = p.add_subparsers(dest="knowledge_cmd", required=True)
+    q = ts.add_parser("grant", help="授予角色知情（known_by 追加）")
+    q.add_argument("fact_id")
+    q.add_argument("--to", action="append", required=True,
+                   help="知情实体（可多次；须已登记）")
+    q.add_argument("--ch", help="获知场景章号（记入 git 消息，便于审计）")
+    q = ts.add_parser("reveal", help="读者揭示：spoiler 1→0（悬念销账）")
+    q.add_argument("fact_id")
+    q.add_argument("--ch", required=True, help="揭示章号（记 revealed_reader_ch）")
+    q = ts.add_parser("query", help="矩阵视图：--fact/--entity/默认盘点读者未知欠账")
+    q.add_argument("--fact", dest="fact_id")
+    q.add_argument("--entity")
+
+    p = sub.add_parser("rollup", help="手动重算摘要卷积（批量改 meta.json/adopt 补录后）")
+
     p = sub.add_parser("facts", help="facts 台账：import（adopt 补录机械半边）/list")
     ts = p.add_subparsers(dest="facts_cmd", required=True)
     q = ts.add_parser("import")
@@ -3585,7 +3834,7 @@ def main(argv=None):
         "ledger": cmd_ledger, "retcon": cmd_retcon, "report": cmd_report,
         "checkpoint": cmd_checkpoint, "adopt": cmd_adopt, "review": cmd_review,
         "facts": cmd_facts, "extract": cmd_extract, "gate": cmd_gate,
-        "court": cmd_court,
+        "court": cmd_court, "knowledge": cmd_knowledge, "rollup": cmd_rollup,
         "fsck": lambda a: check_project(Project(find_root(a))).render("fsck"),
     }
     return dispatch[args.cmd](args)

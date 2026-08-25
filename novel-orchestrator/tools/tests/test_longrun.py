@@ -3,9 +3,12 @@
 """novel.py 长程合成烟测（P2-9 可选项）：模拟 35 章连载全链路。
 
 验证规模化不变量：
-  - 每章 write→check→commit→review 回执→approved→publish 全链可循环
+  - 每章 write→check→commit→review 回执→approved 全链可循环；
+    发布走滞后 2 章的 buffer（存稿）节奏，收尾统一清空
+  - 中途返修（第 21 章后 revise ch_0020）：撤销重放零双计、旧回执失效、
+    复评后重新 approved、发布链不受扰（unapply-replay at scale）
   - payoff 3 章/10 章窗口全程保持绿（构造配额与 realized）
-  - facts 随章累积且 fact_id 全局递增无碰撞
+  - facts 随章累积且 fact_id 全局递增无碰撞（revise 先剪后登）
   - ngram_cache 按 ngram_window_chapters 裁剪（两级指纹）
   - entity due 在 reconcile_every 阈值后出现
   - published 连续性、check --project 全绿、task archive 收缩队列
@@ -132,7 +135,55 @@ def main():
                 cwd=proj)
             run(["task", "done", tid, "--note", "轻评要点一行"], cwd=proj)
             run(["tree", "set-status", cid, "approved"], cwd=proj)
-            run(["publish", cid], cwd=proj)
+            # 滞后 2 章发布（buffer 存稿节奏）——给中途返修留出未发布窗口
+            if n - 2 >= 1:
+                run(["publish", "ch_%04d" % (n - 2)], cwd=proj)
+
+            # ---- 中途返修：第 21 章后对已 approved 未 published 的 ch_0020
+            #      走 revise 链（P0-1 撤销重放在 20+ 章台账规模下的实战）
+            if n == 21:
+                t_rv = run(["task", "add", "revise", "ch_0020"],
+                           cwd=proj).strip().splitlines()[-1]
+                run(["task", "start", t_rv], cwd=proj)
+                rtext = gen_text(9020)
+                rcand = tmp / "cand_rev_ch_0020.md"
+                rcand.write_text(
+                    "---\nid: ch_0020\nkind: chapter\nstatus: drafted\nrev: 2\n"
+                    "parent: arc_01_2\nupdated_at: 2026-08-24T00:00:00\n"
+                    "title: 第20章改\nword_count: 0\n---\n\n## 正文\n\n%s\n" % rtext,
+                    encoding="utf-8")
+                rwb = {"summary_after": "第 20 章改稿后：主角改走暗线。",
+                       "continuity_delta": [{"fact": "第 20 章改稿新增暗线证物",
+                                             "entity_ids": ["char_hero"],
+                                             "spoiler": 0}],
+                       "time_advance": {"elapsed": "2天", "story_date": ""},
+                       # 修订裁决：撤回 thread_vow 的推进，仅保留 thread_main
+                       "thread_ops": [{"id": "thread_main", "op": "advance",
+                                       "note": "改稿重推"}],
+                       "payoff_realized": ["payoff_0020_1"],
+                       "hooks_realized": {"open": True, "close": True},
+                       "cast_actual": ["char_hero"],
+                       "issues": [],
+                       "word_count": len("".join(rtext.split()))}
+                rwbf = tmp / "wb_rev_ch_0020.json"
+                rwbf.write_text(json.dumps(rwb, ensure_ascii=False), encoding="utf-8")
+                run(["commit", t_rv, "--chapter", str(rcand), "--writeback",
+                     str(rwbf), "-m", "中途返修 ch_0020"], cwd=proj)
+                run(["task", "done", t_rv], cwd=proj)
+                # 旧回执（rev_reviewed=1）自动失效 → approved 被拒
+                run(["tree", "set-status", "ch_0020", "approved"], cwd=proj,
+                    expect=1)
+                must(True, "中途返修：revise 后旧回执失效，approved 被拒")
+                run(["review", "add", "ch_0020", "--depth", "light",
+                     "--verdict", "pass"], cwd=proj)
+                out = run(["gate", "approve", "ch_0020"], cwd=proj)
+                must("0 FAIL" in out, "中途返修：复评回执后 gate approve 全绿")
+                run(["tree", "set-status", "ch_0020", "approved"], cwd=proj)
+                ch20 = (proj / "chapters/ch_0020.md").read_text(encoding="utf-8")
+                must("rev: 2" in ch20, "中途返修：章 rev=2")
+
+        # 收尾清空 buffer：发布最后两章
+        run(["publish", "ch_%04d" % (N_CH - 1), "ch_%04d" % N_CH], cwd=proj)
 
         # ---- 不变量断言
         out = run(["status"], cwd=proj)
@@ -153,8 +204,25 @@ def main():
 
         facts = json.loads((proj / "ledgers/facts/vol_01.json").read_text(encoding="utf-8"))
         ids = [f["id"] for f in facts["facts"]]
-        must(len(ids) == N_CH // 3 and len(set(ids)) == len(ids),
-             "facts 累积 %d 条且 fact_id 无碰撞" % len(ids))
+        must(len(ids) == N_CH // 3 + 1 and len(set(ids)) == len(ids),
+             "facts 累积 %d 条（含返修新登 1 条）且 fact_id 无碰撞" % len(ids))
+
+        # ---- 中途返修的规模化零双计断言
+        payoff = (proj / "ledgers/payoff.tsv").read_text(encoding="utf-8")
+        must(payoff.count("ch_0020\t") == 2, "返修：payoff.tsv append-only（两 rev 各一行）")
+        out = run(["ledger", "payoff"], cwd=proj)
+        must(out.count("payoff_0020_1") == 1, "返修：payoff 读侧物化去重（20+ 章规模）")
+        vow = (proj / "threads/thread_vow.md").read_text(encoding="utf-8")
+        must("- ch_0020:" not in vow and "state: active" in vow,
+             "返修：thread_vow 的 ch_0020 推进被撤销重放剔除，state 由剩余日志重推")
+        main_th = (proj / "threads/thread_main.md").read_text(encoding="utf-8")
+        must(main_th.count("- ch_0020:") == 1 and "改稿重推" in main_th,
+             "返修：thread_main 推进日志零双计且为 rev2 文本")
+        ent = (proj / "entities/char_hero.md").read_text(encoding="utf-8")
+        must(ent.count("- ch_0020:") == 1 and "暗线证物" in ent,
+             "返修：实体事件日志零双计且为 rev2 文本")
+        out = run(["ledger", "timeline"], cwd=proj)
+        must("36.0" in out, "返修：timeline 读侧去重（35 章 ×1 天 + 返修改 2 天 = 36）")
 
         due = run(["entity", "due"], cwd=proj)
         must("char_hero" in due, "entity due：reconcile_every 阈值后实体到期")

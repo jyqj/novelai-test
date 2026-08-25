@@ -15,6 +15,11 @@
   P2-2 故事日历（elapsed 数值化累计 + story_date 倒流 FAIL）
   P3-1 gate 家族（write/approve/publish/next）
   P3-2 court 工作区（open/status/close）
+  P4-K 知识矩阵（continuity_delta.known_by 登记 / knowledge grant|reveal|query /
+        简报知情标记 / 抽取器角色知识越界候选）
+  P4-G gate 修复提示（FAIL 附「下一步」可执行命令）
+  P4-R rollup CLI（批量手改 meta.json 后手动重算）
+  P4-D revise_rubric 蒸馏（lessons → style 黑名单 → 机检生效；无 stale 波及）
 
 运行：python3 tools/tests/test_refactor.py
 """
@@ -144,6 +149,33 @@ WB_REV2["time_advance"] = {"elapsed": "3天", "story_date": "2026-01-12"}
 # 修订裁决：本章不收线（终态 op 撤回）——旧实现会被自己上一轮 payoff 卡死
 WB_REV2["thread_ops"] = [{"id": "thread_main", "op": "plant", "note": "埋"},
                          {"id": "thread_main", "op": "advance", "note": "推"}]
+
+TEXT3 = """林晚把黑木匣搁在灯下，撬开匣底暗格，一枚青铜印落进掌心。
+印面刻着一株并蒂莲，边缘七处缺口，与她贴身收着的半块碎印严丝合缝。
+她记得师父下葬那天，棺中少了这半件东西，山门的人只说遗失。
+灯芯爆了个花。她把青铜印按回暗格，抹平木屑，像从未打开过。
+窗外传来打更声，三更。
+她吹熄灯，坐回床沿，刀横在膝上。
+今晚不会有人来，但从明天起，城南第七户的每一步都要重新算。
+她闭上眼，把白日里当铺老人的每一句话重新过了一遍，
+在「看好你身后」四个字上停了很久。
+更声敲过四下的时候，她做了决定：先查印，再查人。
+青铜印的另一半在她枕下压了七年，明日起，它该出来见光了。
+她把碎印塞进护腕内衬，贴着脉搏，那里的皮肤早被磨出一层薄茧。
+天亮之前，她还要把当铺到城南的三条巷子在脑子里走通。"""
+
+WB3 = {
+    "summary_after": "林晚在匣底暗格发现青铜印，与师父遗印同源；她按下不表。",
+    "continuity_delta": [{"fact": "匣中信物是师门遗物",
+                          "entity_ids": ["char_linwan"], "spoiler": 1,
+                          "key": "知晓", "known_by": ["char_linwan"]}],
+    "time_advance": {"elapsed": "1天", "story_date": ""},
+    "thread_ops": [],
+    "payoff_realized": ["payoff_0003_1"],
+    "hooks_realized": {"open": True, "close": True},
+    "cast_actual": ["char_linwan"],
+    "issues": [], "word_count": 0,
+}
 
 VOICE_SETTING = """## 设定
 
@@ -402,6 +434,141 @@ status: active
 """, encoding="utf-8")
         run(["court", "close", "S1", "--dec", "dec_001_x"], cwd=proj)
         must(not (proj / "state/court/S1").exists(), "P3-2：close 校验 dec 后清场")
+
+        # ---- P4-K：知识矩阵（fact × 角色 × 读者）
+        run(["entity", "new", "char_rival"], cwd=proj)
+        aliases = json.loads((proj / "entities/aliases.json").read_text(encoding="utf-8"))
+        aliases["秦九"] = "char_rival"
+        (proj / "entities/aliases.json").write_text(
+            json.dumps(aliases, ensure_ascii=False), encoding="utf-8")
+        run(["tree", "add", "chapter", "ch_0003", "--parent", "arc_01_1"], cwd=proj)
+        task3 = dict(TASK1, id="ch_0003", goal="认出匣中信物来历",
+                     hook={"open": None, "close": "印记与师父遗物同源"},
+                     payoff_quota=[{"kind": "reveal", "intent": "信物来历"}],
+                     threads=[])
+        (proj / "chapters/ch_0003.task.json").write_text(
+            json.dumps(task3, ensure_ascii=False, indent=1), encoding="utf-8")
+        t_k = run(["task", "add", "write", "ch_0003"],
+                  cwd=proj).strip().splitlines()[-1]
+        run(["task", "start", t_k], cwd=proj)
+        cand3 = tmp / "c3.md"
+        cand3.write_text(envelope("ch_0003", TEXT3, title="识物"), encoding="utf-8")
+        wb3f = tmp / "wb3.json"
+        wb3f.write_text(json.dumps(WB3, ensure_ascii=False), encoding="utf-8")
+        run(["commit", t_k, "--chapter", str(cand3), "--writeback", str(wb3f),
+             "-m", "知识矩阵样章"], cwd=proj)
+        run(["review", "add", "ch_0003", "--depth", "light", "--verdict", "pass"],
+            cwd=proj)
+        run(["task", "done", t_k], cwd=proj)
+        facts = json.loads((proj / "ledgers/facts/vol_01.json").read_text(encoding="utf-8"))
+        kf = [x for x in facts["facts"] if x.get("known_by")]
+        must(len(kf) == 1 and kf[0]["known_by"] == ["char_linwan"],
+             "P4-K：commit 自 continuity_delta.known_by 登记角色知情半边")
+        fid = kf[0]["id"]
+
+        # 简报 §6 注入知情约束（cast 含不知情角色 → 硬约束入包）
+        task9 = dict(TASK1, id="ch_0009", goal="对峙",
+                     hook={"open": None, "close": "秦九亮出令牌"},
+                     threads=[], cast=["char_linwan", "char_rival"])
+        (proj / "chapters/ch_0009.task.json").write_text(
+            json.dumps(task9, ensure_ascii=False, indent=1), encoding="utf-8")
+        run(["brief", "ch_0009"], cwd=proj)
+        brief9 = (proj / "briefs/ch_0009.brief.md").read_text(encoding="utf-8")
+        must("【知情仅:char_linwan】" in brief9,
+             "P4-K：简报 §6 注入知情名单标记")
+        must("char_rival 不知情" in brief9,
+             "P4-K：简报 §6 注入「在场不知情——不得由其说破」硬约束")
+
+        # 抽取器角色知识越界候选（known_by 外角色说破事实 → NEEDS_REVIEW）
+        cand4 = tmp / "c4.md"
+        cand4.write_text(envelope(
+            "ch_0004",
+            "秦九冷笑。「匣中信物是师门遗物，你从何处得来？」林晚握紧刀柄。",
+            title="对峙"), encoding="utf-8")
+        wb4f = tmp / "wb4.json"
+        wb4f.write_text(json.dumps({"cast_actual": ["char_linwan", "char_rival"]},
+                                   ensure_ascii=False), encoding="utf-8")
+        out = run(["extract", "ch_0004", "--candidate", str(cand4),
+                   "--writeback", str(wb4f)], cwd=proj)
+        must("角色知识越界候选" in out and "char_rival" in out,
+             "P4-K：known_by 外角色明写事实 → 越界候选 NEEDS_REVIEW")
+        out = run(["knowledge", "query", "--entity", "char_rival"], cwd=proj)
+        must("不知情 1 条" in out and "匣中信物是师门遗物" in out,
+             "P4-K：knowledge query --entity 输出知/不知两侧")
+        run(["knowledge", "grant", fid, "--to", "秦九", "--ch", "ch_0004"], cwd=proj)
+        out = run(["extract", "ch_0004", "--candidate", str(cand4),
+                   "--writeback", str(wb4f)], cwd=proj)
+        must("角色知识越界候选" not in out,
+             "P4-K：grant 补授知情后越界候选消失（别名可解析）")
+        out = run(["knowledge", "query"], cwd=proj)
+        must("known_by 已建模 1 条" in out and fid in out,
+             "P4-K：query 总览盘点读者未知欠账")
+        run(["knowledge", "reveal", fid, "--ch", "ch_0004"], cwd=proj)
+        run(["knowledge", "reveal", fid, "--ch", "ch_0004"], cwd=proj, expect=1)
+        must(True, "P4-K：重复 reveal 被拒（已读者已知）")
+        out = run(["facts", "list"], cwd=proj)
+        fid_line = [l for l in out.splitlines() if l.startswith(fid)][0]
+        must("【spoiler】" not in fid_line
+             and "【知情:char_linwan,char_rival】" in fid_line,
+             "P4-K：reveal 销账后 spoiler 标记消失，知情名单留存")
+
+        # ---- P4-G：gate 修复提示（FAIL 即剧本）
+        out = run(["gate", "write", "ch_0004"], cwd=proj, expect=1)
+        must("↳ 下一步" in out and "tree add chapter ch_0004" in out,
+             "P4-G：缺任务卡 → 下一步给 tree add + 排批指引")
+        task4 = dict(TASK1, id="ch_0004", goal="对峙升级",
+                     hook={"open": None, "close": "令牌上的名字"}, threads=[])
+        (proj / "chapters/ch_0004.task.json").write_text(
+            json.dumps(task4, ensure_ascii=False, indent=1), encoding="utf-8")
+        out = run(["gate", "write", "ch_0004"], cwd=proj, expect=1)
+        must("novel.py brief ch_0004" in out,
+             "P4-G：简报未编译 → 下一步给 brief 命令")
+        must("git checkout" in out,
+             "P4-G：基线不净 → 下一步给清理命令")
+        out = run(["gate", "approve", "ch_0002"], cwd=proj, expect=1)
+        must("review add ch_0002" in out, "P4-G：缺回执 → 下一步给 review add")
+        must("机检不绿" in out and "check --unit ch_0002" in out,
+             "P4-G：机检 FAIL → 下一步给 check --unit + 修订循环去向")
+
+        # ---- P4-R：rollup CLI（批量手改 meta 后手动重算）
+        mp3 = proj / "chapters/ch_0003.meta.json"
+        m3 = json.loads(mp3.read_text(encoding="utf-8"))
+        m3["summary_after"] = "第 3 章改写后的摘要：信物来历浮出水面。"
+        mp3.write_text(json.dumps(m3, ensure_ascii=False, indent=1), encoding="utf-8")
+        out = run(["rollup"], cwd=proj)
+        must("已重算" in out, "P4-R：rollup 命令输出统计")
+        rj = (proj / "state/rollup.json").read_text(encoding="utf-8")
+        must("改写后的摘要" in rj, "P4-R：手改 summary_after 经 rollup 进卷积")
+
+        # ---- P4-D：revise_rubric 蒸馏（lessons → style 黑名单 → 机检生效）
+        run(["task", "add", "revise_rubric", "style"], cwd=proj, expect=1)
+        must(True, "P4-D：revise_rubric 缺 evidence 被拒")
+        run(["task", "add", "revise_rubric", "book", "--evidence", "x"],
+            cwd=proj, expect=1)
+        must(True, "P4-D：revise_rubric 目标限 style（book 被拒）")
+        t_rr = run(["task", "add", "revise_rubric", "style", "--evidence",
+                    "lessons: ch_0001/ch_0003 轻评两次复现「指节发白」滥用"],
+                   cwd=proj).strip().splitlines()[-1]
+        style_now = (proj / "tree/style.md").read_text(encoding="utf-8")
+        staged_style = tmp / "style_staged.md"
+        staged_style.write_text(
+            style_now.replace("- 嘴角勾起一抹", "- 指节发白\n- 嘴角勾起一抹", 1),
+            encoding="utf-8")
+        out = run(["commit", t_rr, "--file", str(staged_style), "-m", "蒸馏黑名单"],
+                  cwd=proj)
+        must("蒸馏入库" in out, "P4-D：revise_rubric commit 走蒸馏路径")
+        run(["task", "done", t_rr], cwd=proj)
+        style2 = (proj / "tree/style.md").read_text(encoding="utf-8")
+        must("- 指节发白" in style2, "P4-D：style 黑名单已增补")
+        ch1 = (proj / "chapters/ch_0001.md").read_text(encoding="utf-8")
+        must("status: approved" in ch1, "P4-D：蒸馏不波及既有章（无 stale）")
+        cand5 = tmp / "c5.md"
+        cand5.write_text(envelope("ch_0003", TEXT3 + "\n她攥紧刀柄，指节发白。",
+                                  title="识物"), encoding="utf-8")
+        out = run(["check", "--unit", "ch_0003", "--candidate", str(cand5),
+                   "--writeback", str(wb3f)], cwd=proj, expect=1)
+        must("禁忌命中" in out and "指节发白" in out,
+             "P4-D：新黑名单即刻被 check --unit 强制（蒸馏回路闭环）")
 
         run(["check", "--project"], cwd=proj)
         print("\nREFACTOR PASS：%d 步全绿" % STEP[0])
