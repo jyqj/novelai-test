@@ -381,11 +381,11 @@ novel-orchestrator/
   tools/novel.py tools/README.md tools/tests/
   templates/                  # init/tree add 母版(清单见下)
   roles/                      # 12 角色卡(含 extractor 抽取器——CLI 对账的帽子/加强抽查版)
-  rubrics/                    # 11 张共享判据卡(自包含 ≤120 行/张;含 traditional 三卡 scene-value/theme/imagery)
-  personas/                   # 9 张读者人设卡(7 张网文/短篇 + 2 张传统路线文学口味)
-  rhythm/                     # 5 节奏模板(含结构评审检查单)
-  knowledge/ knowledge-blocks.md knowledge-index.md   # 深读图书馆(经 knowledge-map 进入)
-  knowledge-map.md            # 111 块归属 + 防膨胀规则
+  rubrics/                    # 11 张判据卡(自包含 ≤120 行/张;每卡唯一所有阶段,见 knowledge-map §卡表)
+  personas/                   # 9 张读者人设卡(所有权=s1;7 张网文/短篇 + 2 张传统路线文学口味)
+  rhythm/                     # 5 节奏模板(所有权=s4;含结构评审检查单)
+  knowledge/ knowledge-blocks.md   # 深读原文 + K-ID 锚点解析(无全库索引;进入只经所属阶段包)
+  knowledge-map.md            # 全资产所有权台账(111 块+卡/人设/节奏,每资产唯一所有阶段) + 防膨胀规则
 ```
 
 (历史注:v1 前身 `novel-writing-workflow` 与其只读存档 `legacy/` 已随技术债清理移除;

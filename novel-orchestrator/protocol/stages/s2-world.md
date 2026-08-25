@@ -13,7 +13,8 @@
 - `protocol/court.md` §2 S2 行 + §3 回合协议
 - S1 暂存稿 + dec_001（上游约束）
 - `templates/world.md`（必需节骨架）
-- `rubrics/power.md`（体系设计底线：锚定表/越阶配额/金手指审计）
+- `rubrics/power.md`（**所有权=s2**，体系设计底线：锚定表/越阶配额/金手指审计；
+  s3/vol/review 引用须署名）
 
 ## 选读池（庭审附件 K 池，11 块；本场 ≤4 块、只取锚点段）
 
@@ -33,8 +34,9 @@
 
 ## 禁读
 
-- knowledge/ 池外任何块；`knowledge-index.md`；往期 transcript
-- 世界观「仅 learn」理论基座（双重分裂/三层同心圆/隐喻本体论等）——疑难才走 diag 阶段
+- knowledge/ 池外任何块；往期 transcript
+- 世界观理论基座（双重分裂/三层同心圆/隐喻本体论等，**所有权=diag**）——疑难走
+  `protocol/stages/diagnose.md`，不在本场拉块
 
 ## 锚点读法
 

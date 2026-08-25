@@ -13,10 +13,11 @@
 - `protocol/court.md` §2 S4 行 + §3 回合协议与定稿落盘
 - S1–S3 全部暂存稿 + dec_001..003
 - `templates/volume.md`（卷蓝图九节骨架）、`templates/style.md`（style 定稿骨架）
-- `rhythm/` 五模板（弧划分选配；traditional 全书骨架固定 `rhythm/classic24.md`）
-- `rubrics/redline.md`（书级红线自查结论签署）、`rubrics/payoff.md`（卷爽点大节奏）
+- `rhythm/` 五模板（**所有权=s4**：节奏选型权在本场；vol/arc 沿用本场所选并署名）
+- `rubrics/redline.md`（书级红线自查结论签署，所有权=s1）、
+  `rubrics/payoff.md`（卷爽点大节奏，所有权=write）
 
-## 选读池（庭审附件 K 池，8 块；本场 ≤4 块、只取锚点段）
+## 选读池（庭审附件 K 池，7 块；本场 ≤4 块、只取锚点段）
 
 | K-ID | 名称 | 何时挑 |
 |---|---|---|
@@ -26,13 +27,13 @@
 | K-STRUCT-005 | 序列7–12详解 | 二幕前半布局 |
 | K-STRUCT-006 | 序列13–18详解 | 二幕后半布局 |
 | K-STRUCT-007 | 序列19–23详解 | 第三幕收束 |
-| K-STRUCT-019 | 幕节奏公式 | 节拍间隔参数 |
 | K-WRITE-007 | 叙述视角与解说 | style 叙述基准选型 |
 
 ## 禁读
 
-- knowledge/ 池外任何块；`knowledge-index.md`；往期 transcript
-- 章级正文判据（prose-disease 等）——style 定稿只定基准与禁忌，不评正文
+- knowledge/ 池外任何块；往期 transcript
+- 卷级嵌套/幕节奏参数块（所有权=vol）——卷内套用是卷庭议题
+- 章级正文判据（prose-disease 等，所有权=write）——style 定稿只定基准与禁忌，不评正文
 
 ## 锚点读法
 

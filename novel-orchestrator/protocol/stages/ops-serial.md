@@ -14,15 +14,16 @@
 |---|---|---|
 | buffer/publish | `protocol/serial-ops.md` §1–2、`novel.py status`/`gate publish` 输出 | knowledge/ 全部 |
 | retcon | `protocol/serial-ops.md` §3、相关 `court/dec_*.md`、`templates/decision.md` | knowledge/ |
-| 卷末 checkpoint | `protocol/serial-ops.md` §4、`state/reports/vol_NN.md`、`rubrics/structure.md`（卷级深评时随 review 阶段附） | knowledge/；卷内正文重读（以报告与摘要为准） |
+| 卷末 checkpoint | `protocol/serial-ops.md` §4、`state/reports/vol_NN.md`、`rubrics/structure.md`（所有权=s3，卷级深评时随 review 阶段附） | knowledge/；卷内正文重读（以报告与摘要为准） |
 | 读者反馈分诊 | `roles/data-analyst.md`、反馈原文、近期 verdict 摘要、ledger 统计 | knowledge/（归因需要学理支撑 → 编排者转 diag 阶段） |
 
 ## 运营知识去哪了
 
 连载流程/爽点工程/毒点运营的**可操作面**已蒸馏进 `protocol/serial-ops.md` 本身与
-`rubrics/payoff.md`、`rubrics/toxicity.md`、`rubrics/power.md`；开书商业与免费流模型属
-s1 阶段 K 池（开书期用）。运营期出现「为什么掉量/为什么被骂」类归因问题 =
-diag 阶段（`protocol/stages/diagnose.md`，症状路由进 `knowledge-index.md` §二/§四），
+`rubrics/payoff.md`（所有权=write）、`rubrics/toxicity.md`（所有权=s1）、
+`rubrics/power.md`（所有权=s2）；开书商业与免费流模型属 s1 阶段 K 池（开书期用）。
+运营期出现「为什么掉量/为什么被骂」类归因问题 = diag 阶段
+（`protocol/stages/diagnose.md` 包内症状路由，连载/毒点理论块属 diag 池），
 由编排者深读后转任务，**不给数据分析角色开 knowledge/ 权限**。
 
 ## 退出前自查

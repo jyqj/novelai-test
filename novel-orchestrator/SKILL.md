@@ -13,7 +13,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 1. **文件即记忆**：上下文会丢，写进项目文件的才存在。一切共识（设定、决策、进度）落盘后才算发生。
 2. **commit 是唯一写路径**：任何产物先机检（`novel.py check`）后落盘（`novel.py commit`）；机检不绿不入库。`published` 章**永不改写**，修错走 retcon（`protocol/serial-ops.md` §3）。
-3. **知识按阶段装载，运行期读 rubrics，深读才回 knowledge**：全生命周期切成 11 个阶段，每阶段有唯一配套知识包（`protocol/stages/`；总目录与硬规则=`protocol/knowledge-orchestration.md`）——**进环节 = `novel.py stage enter <id>` + 读包**（进阶段写 `state/stage.json`，是各受辖操作的钥匙：court open/brief/commit/publish… 阶段不匹配即被闸门拒绝），按包内「必读/选读池/禁读」装载，不再自行翻库。可操作面已蒸馏进 rubrics/（带阈值判据），写作与评审只引用 rubrics；庭审附件从本场包 K 池挑 ≤4 块只取锚点段；仅 diag 阶段（诊断疑难/学理求教）经症状路由按块读 knowledge/（≤2 块），读完即弃，不进简报。`novel.py stage current` 读持久化阶段与包路径。
+3. **没有全 skill 通用知识——每个知识资产归且只归一个阶段**：全生命周期切成 11 个阶段，每阶段有唯一配套知识包（`protocol/stages/`；总目录与硬规则=`protocol/knowledge-orchestration.md`），每块知识/判据卡/人设卡/节奏模板都有唯一所有阶段（台账=`knowledge-map.md`）——**进环节 = `novel.py stage enter <id>` + 读包**（进阶段写 `state/stage.json`，是各受辖操作的钥匙：court open/brief/commit/publish… 阶段不匹配即被闸门拒绝），按包内「必读/选读池/禁读」装载，不再自行翻库。可操作面已蒸馏进 rubrics/（带阈值判据），写作与评审只引用 rubrics；庭审附件从本场**专属** K 池挑 ≤4 块只取锚点段；仅 diag 阶段（诊断疑难/学理求教）经其包内症状路由按块读自有 33 块（≤2 块/次），读完即弃，不进简报。`novel.py stage current` 读持久化阶段与包路径。
 
 ## 1. 能力探测（进入任务先答三问；四档剖面与降级矩阵详见 `modes/capability-profiles.md`）
 
@@ -69,7 +69,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 | 教训蒸馏进判据 | `protocol/workflow.md` §6 蒸馏回路（CLI：`task add revise_rubric style`） | `ledgers/lessons.md`、`tree/style.md` |
 | 存量旧稿收编/半途接管 | `protocol/adopt.md`（CLI：`novel.py adopt`；批量补录后 `novel.py rollup`） | `protocol/formats.md` §15 |
 | 冲突/翻案 | `protocol/court.md` §4（否决案台账） | 相关 `court/dec_*.md` |
-| 诊断疑难/学理深读 | `protocol/stages/diagnose.md`（诊断五步+预算）→ `knowledge-index.md` 症状路由 → `knowledge-blocks.md` 锚点按块读 | `knowledge-map.md`（块级归属台账） |
+| 诊断疑难/学理深读 | `protocol/stages/diagnose.md`（诊断五步+预算+**包内**症状路由，只覆盖 diag 专属 33 块）→ `knowledge-blocks.md` 锚点按块读 | `knowledge-map.md`（全资产所有权台账） |
 | 术语歧义 | `protocol/glossary.md`（SSOT） | — |
 
 ## 5. 最小回应契约（所有角色/帽子通用）
@@ -107,17 +107,17 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 ## 8. 目录速查
 
 ```
-SKILL.md(本文件)  README.md(人类快速开始)  knowledge-map.md(111 块知识归属台账)
+SKILL.md(本文件)  README.md(人类快速开始)  knowledge-map.md(全资产所有权台账：块/卡/人设/节奏各归唯一阶段)
 modes/      三模式作业手册（orchestrated / solo / traditional 差分）+ capability-profiles（宿主四档）
 protocol/   workflow(主循环总装图) pipeline(产线) court(设计庭) serial-ops(连载运营)
             knowledge-orchestration(阶段×知识装载 SSOT) stages/(11 个阶段配套知识包)
             formats(文件与CLI契约) glossary(术语SSOT) manual-check(无shell人工自查) adopt(存量收编)
 roles/      12 张角色卡（spawn 提示词/帽子定义；含 extractor 抽取器）
-rubrics/    11 张判据卡（运行期唯一评审依据）
-personas/   9 张读者人设卡（庭审投票用；含 2 张传统路线文学口味卡）  rhythm/   5 张节奏模板（弧/卷规划用）
+rubrics/    11 张判据卡（运行期唯一评审依据；每卡有唯一所有阶段，见 knowledge-map §卡表）
+personas/   9 张读者人设卡（所有权=s1）  rhythm/   5 张节奏模板（所有权=s4）
 templates/  全部资产模板（novel.py init/tree add 的源）
-tools/      novel.py(核心 CLI) tests/(冒烟+重构回归+长程测试) README.md(覆盖表)
-knowledge/ + knowledge-blocks.md + knowledge-index.md   深读知识库（经 knowledge-map 进入）
+tools/      novel.py(CLI 入口，实现在 novel_lib/) tests/(冒烟+重构回归+阶段/知识+长程) README.md(覆盖表)
+knowledge/ + knowledge-blocks.md   深读原文与锚点解析（无全库索引；进入只经所属阶段包）
 ```
 
 （前身 `novel-writing-workflow`（v1）已随技术债清理移除；旧项目迁移对照 `protocol/glossary.md` §2。）

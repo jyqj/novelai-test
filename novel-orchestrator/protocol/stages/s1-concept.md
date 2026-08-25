@@ -12,9 +12,10 @@
 
 - `protocol/court.md` §2 S1 行 + §3 回合协议（阵容/回合/预算）
 - `templates/book.md`（目标节点必需节骨架）
-- `rubrics/redline.md`、`rubrics/toxicity.md`、`rubrics/theme.md`（主控思想验收）
-- `personas/` 九卡概览（读者代表选卡依据；traditional 路线用
-  `personas/literary-purist.md` + `personas/bookclub-mainstream.md` 双卡）
+- `rubrics/redline.md`、`rubrics/toxicity.md`、`rubrics/theme.md`（三卡**所有权=s1**，
+  主控思想验收；他阶段引用须署名）
+- `personas/` 九卡概览（**所有权=s1**：读者代表选卡权在本场，后续各庭沿用本场所选；
+  traditional 路线用 `personas/literary-purist.md` + `personas/bookclub-mainstream.md` 双卡）
 
 ## 选读池（庭审附件 K 池，13 块；本场 ≤4 块、只取锚点段）
 
@@ -36,9 +37,10 @@
 
 ## 禁读
 
-- knowledge/ 池外任何块（要投先改 `knowledge-map.md` 归属，orchestration §6）
-- `knowledge-index.md`（diag/求教专用）；`state/court/` 往期 transcript（court.md §4 纪律）
-- 正文级判据卡（prose-disease/voice 等）——本场不评正文
+- knowledge/ 池外任何块（要投先改 `knowledge-map.md` 所有权，orchestration §6）
+- 概念辨析类理论块（高概念/前提混淆辨析，所有权=diag）——疑难才走
+  `protocol/stages/diagnose.md`；`state/court/` 往期 transcript（court.md §4 纪律）
+- 正文级判据卡（prose-disease/voice 等，所有权=write）——本场不评正文
 
 ## 锚点读法
 

@@ -13,8 +13,9 @@
 - `protocol/court.md` §2 弧行（阵容=1 提案 + 合并评审 + 主编，预算 3）
 - 卷蓝图弧划分行 + 前弧收尾摘要 + active threads
 - payoff/promise 窗口欠账（`novel.py ledger payoff|promise|timeline` 输出）
-- 所选 `rhythm/` 模板检查单
-- `rubrics/structure.md`（因果链判据）、`rubrics/payoff.md`（期待操作表）
+- 所选 `rhythm/` 模板检查单（所有权=s4，沿用分卷庭所选）
+- `rubrics/structure.md`（因果链判据，所有权=s3）、
+  `rubrics/payoff.md`（期待操作表，所有权=write）
 
 ## 选读池（庭审附件 K 池，3 块；本场 ≤4 块、只取锚点段）
 
@@ -27,13 +28,14 @@
 ## traditional 差分（route=traditional 时叠加）
 
 - 细纲工序按 `modes/route-traditional.md` §2：beats 6–10 拍 + scene_intents + turn；
-  检查判据换 `rubrics/scene-value.md`（场景合法性/价值翻转）。
-- 全书节拍对位以 `rhythm/classic24.md` 为准。
+  检查判据换 `rubrics/scene-value.md`（场景合法性/价值翻转，所有权=trad）。
+- 全书节拍对位以 `rhythm/classic24.md` 为准（所有权=s4）。
 
 ## 禁读
 
-- knowledge/ 池外任何块；`knowledge-index.md`；往期 transcript
-- 书庭/卷庭级 K 块（结构理论基座等）——弧规划只消化卷蓝图，不重开卷级议题
+- knowledge/ 池外任何块；往期 transcript
+- 书庭/卷庭池块（序列详解所有权=s4、嵌套/高潮块所有权=vol、结构理论基座所有权=diag）
+  ——弧规划只消化卷蓝图，不重开卷级议题
 
 ## 锚点读法
 

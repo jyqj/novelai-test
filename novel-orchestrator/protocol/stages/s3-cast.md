@@ -12,9 +12,9 @@
 
 - `protocol/court.md` §2 S3 行 + §3 回合协议
 - S1–S2 暂存稿 + dec_001/dec_002（上游约束）
-- `rubrics/structure.md`（主线电缆/引线/支线判据）、`rubrics/power.md`（锚定表核对）、
-  `rubrics/voice.md`（声纹种子）
-- `templates/entity-char.md`（实体卡种子骨架）；人设卡（本场读者代表所用）
+- `rubrics/structure.md`（**所有权=s3**，主线电缆/引线/支线判据）、
+  `rubrics/power.md`（锚定表核对，所有权=s2）、`rubrics/voice.md`（声纹种子，所有权=write）
+- `templates/entity-char.md`（实体卡种子骨架）；人设卡（S1 所选沿用，所有权=s1）
 
 ## 选读池（庭审附件 K 池，14 块；本场 ≤4 块、只取锚点段）
 
@@ -37,8 +37,9 @@
 
 ## 禁读
 
-- knowledge/ 池外任何块；`knowledge-index.md`；往期 transcript
-- 人物「仅 learn」块（塑造vs深层/压力揭示等）——写作期症状才走 diag 阶段
+- knowledge/ 池外任何块；往期 transcript
+- 人物理论基座（塑造vs深层/压力揭示等，**所有权=diag**）——写作期症状走
+  `protocol/stages/diagnose.md`，不在本场拉块
 
 ## 锚点读法
 
