@@ -1,6 +1,8 @@
 # pipeline.md — 写作产线协议(Phase B · 编排者操作手册)
 
 > 依据 spec §5;格式与 CLI 以 `protocol/formats.md`(F§n)为准。角色文件在 roles/,判据在 rubrics/。
+> 本文件是**单章产线**的工序细则;产线在全书主循环中的位置、各棒交接的验收谓词、
+> solo/traditional/C·D 档覆盖,见 `protocol/workflow.md`(W§n,尤其 W§3 交接契约表)。
 > 不变量:worker 只返回文本;项目内一切写入经 `novel.py commit`(附笔纪律见 court.md §3);**任何 worker spawn 前工作区必须干净**。
 
 ## 0. 冷启动与会话纪律
@@ -28,9 +30,10 @@
 5 提取: 双产出分存 <tmp>/ch_NNNN.md(信封+## 正文,F§5)与 <tmp>/ch_NNNN.writeback.json
 6 机检: novel.py check --unit ch_NNNN --candidate <tmp章> --writeback <tmp json>
     # 对未落盘候选执行 staging 机检(含抽取器对账:出场申报 vs 文本实测、新专名候选、
-    # 剧透泄漏候选,F§17);NEEDS_REVIEW 项转 7 轻评裁定
+    # 剧透泄漏候选、known_by 角色知识越界候选,F§17);NEEDS_REVIEW 项转 7 轻评裁定
     不绿 → 输出并入 §2 修订循环(计一次修订)
-7 轻评: spawn T3(附:简报+候选正文+前章尾 500 字+后章任务卡+rubrics)→ verdict(F§12):
+7 轻评: spawn T3(附:简报+候选正文+前章尾 500 字+后章任务卡+机检 NEEDS_REVIEW 清单
+    +rubrics)→ verdict(F§12):
     pass     → 8
     revise   → §2 修订循环
     escalate → §3 升级
@@ -153,9 +156,11 @@ schema 与枚举以附件样例为准(formats.md §5)。
 ```
 你是轻评。先读:roles/critic-light.md(建议与写手异族模型)
 附件:简报、候选正文 <tmp>、前章尾 500 字、后章 task.json(若已排批)、
+机检 NEEDS_REVIEW 清单(check --unit 输出摘录)、
 rubrics/prose-disease.md、voice.md、payoff.md。
-任务:判 钩子力度/爽点兑现/人设声纹/前后衔接/概述病;对照简报分辨「写手错」还是「包错」
-(包错在该条前标 brief_issue,编排者据此修包而非逼写手)。
+任务:判 钩子力度/爽点兑现/人设声纹/前后衔接/正文病/知识边界(六判);逐条裁定机检
+NEEDS_REVIEW 项(含剧透泄漏与角色知识越界候选——裁定去向:改暗写/补获知场景/删句);
+对照简报分辨「写手错」还是「包错」(包错在该条前标 brief_issue,编排者据此修包而非逼写手)。
 产出:首行 verdict: pass|revise|escalate;随后问题清单,每条=- [定位≤20字] 问题 → 可执行建议(formats.md §12)。 [通用尾注]
 ```
 
@@ -173,5 +178,6 @@ anti-plagiarism.md、**power.md(必附:战力预算与越阶配额对账)**。
 
 ---
 
+*rev 4 · 2026-08-25 · 与 workflow.md 主循环对齐(头注+W§3 交接契约);机检说明补 known_by 知识越界候选;T3 附机检 NEEDS_REVIEW 清单并升级六判。*
 *rev 3 · 2026-08-24 · gate 版:冷启动接 gate next;步骤 4/8 接 gate write/approve;回执一律 review add 落盘(note 通道删除);机检说明补抽取器对账。*
 *rev 2 · 2026-08-24 · 步骤 8 回执顺序对齐 P1-5;泄漏检查补 check --leak 机械半边;T4 必附 power 卡;spawn 路径去硬编码。*

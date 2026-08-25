@@ -7,8 +7,8 @@ python3 标准库实现，零第三方依赖。契约 SSOT 见 `../protocol/form
 ```bash
 python3 tools/novel.py --help          # 全部子命令
 python3 tools/tests/test_smoke.py      # 端到端冒烟（101 步，含 15 条负例）
-python3 tools/tests/test_longrun.py    # 35 章长程合成（规模化不变量）
-python3 tools/tests/test_refactor.py   # P0–P3 重构专项回归（92 步）
+python3 tools/tests/test_longrun.py    # 35 章长程合成（规模化不变量+中途返修）
+python3 tools/tests/test_refactor.py   # P0–P4 重构专项回归（140 步）
 ```
 
 ### 实现覆盖表（对照 formats §15/§16）
@@ -24,16 +24,18 @@ python3 tools/tests/test_refactor.py   # P0–P3 重构专项回归（92 步）
 | `check --unit [--candidate F --writeback F]` | ✅ | 断言明细见下；回写引用越权（未登记实体/线索/非法迁移）FAIL；含抽取器对账 |
 | `check --window [--since ch]` / `check --project` | ✅ | 窗口含战力变更频率告警+**故事日历**（elapsed 数值化/story_date 单调）；project 含 decision/review 契约校验+半事务检出 |
 | `check --leak <候选> --brief <简报>` | ✅ | 已登记专名（实体+别名）出现在候选但不在简报 → 逐条列出 |
-| `commit`（write/revise/design/revise_design/review_deep） | ✅ | 唯一写路径：先验后写零部分落盘+**state/txn 事务日志**；台账带 rev 列（(chapter,rev) 语义）；**revise 撤销重放零双计**；design 两遍制多文件原子；含 facts 登记/rollup 重算/分层 ngram/stale 递归传播；`--draft` 部分落盘 |
+| `commit`（write/revise/design/revise_design/review_deep/revise_rubric） | ✅ | 唯一写路径：先验后写零部分落盘+**state/txn 事务日志**；台账带 rev 列（(chapter,rev) 语义）；**revise 撤销重放零双计**；design 两遍制多文件原子；含 facts 登记（**含 known_by 知情名单**）/rollup 重算/分层 ngram/stale 递归传播；`--draft` 部分落盘；**revise_rubric=蒸馏轻量路径**（限 style，rev 自动+1，无 stale） |
 | `publish` | ✅ | 连续性谓词（自 last_published+1）+ approved 校验 + 首发 buffer 校验 |
 | `ledger payoff/promise/timeline/power` | ✅ | 台账视图（读侧按 (chapter) 取最新 rev 去重；timeline 含累计天数） |
 | `retcon` | ✅ | 校验 old_fact_id 与 decision 文件真实存在；追加 retcons[] 作废链，不改旧事实原文 |
 | `report volume` / `checkpoint` | ✅ | report 产出 `state/reports/vol_NN.md`（导出对账/线索健康/爽点·战力统计）；checkpoint 要求报告绿，收卷并预填下卷 imports |
 | `adopt <file> --as ch_NNNN` | ✅ | 存量旧稿收编：落盘 drafted 章 + task/meta 骨架 + ngram 指纹（协议见 `protocol/adopt.md`） |
 | `review add/list` | ✅ | 评审回执落盘 reviews/（rev_reviewed 默认=章当前 rev）——approved 闸门唯一回执载体 |
-| `facts import/list` | ✅ | import=adopt 补录机械半边（幂等，顺带刷新 rollup）；list 支持 `--entity` 过滤 |
-| `extract <ch> [--candidate --writeback]` | ✅ | 抽取器独立入口：出场实测 vs cast_actual、引号新专名候选、剧透泄漏候选 |
-| `gate next/write/approve/publish/checkpoint` | ✅ | 编排剧本机器半边：next 输出优先级调度；其余为各关口前置谓词（只判不写） |
+| `facts import/list` | ✅ | import=adopt 补录机械半边（幂等，顺带刷新 rollup）；list 支持 `--entity` 过滤，视图带 spoiler/知情名单标记 |
+| `knowledge grant/reveal/query` | ✅ | 知识矩阵（fact×角色×读者）：grant 授予知情（known_by 追加）；reveal 读者揭示销账（spoiler→0 记 revealed_reader_ch）；query 矩阵视图（单条/按实体知与不知/读者未知欠账盘点） |
+| `rollup` | ✅ | 手动重算章→弧→卷摘要卷积（批量手改 meta.json/adopt 补录后；commit 路径已自动） |
+| `extract <ch> [--candidate --writeback]` | ✅ | 抽取器独立入口：出场实测 vs cast_actual、引号新专名候选、剧透泄漏候选、known_by 角色知识越界候选（角色卡 `roles/extractor.md`） |
+| `gate next/write/approve/publish/checkpoint` | ✅ | 编排剧本机器半边：next 输出优先级调度；其余为各关口前置谓词（只判不写）；**每条 FAIL 附「↳ 下一步」可执行修复命令** |
 | `court open/status/close` | ✅ | 庭审工作区机械管理：open 建场次+R0 骨架；close 校验裁决落盘后清场 |
 
 ### check 断言分级

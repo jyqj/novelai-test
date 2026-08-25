@@ -34,9 +34,10 @@
 | 信息沙箱（写手只见简报） | 保（物理隔离） | 降：帽子协议 + 泄漏自查（mode-solo §1） | 保 | 降：同 B |
 | 对抗评审（异族多方案） | 保 | 降：1 提案+判据自评+抽人设卡（mode-solo §3） | 保 | 降：同 B |
 | 机检断言集（check --unit/--window/--project） | 保 | 保 | 失→人工表（manual-check §1） | 失→人工表 |
-| 抽取器对账/跨章指纹/故事日历 | 保 | 保 | **失**（manual-check §2 明示） | **失** |
+| 抽取器对账/跨章指纹/故事日历 | 保 | 保 | **失**→extractor 帽手工对账（roles/extractor.md，低召回） | **失**→同 C |
+| 知识矩阵扫描（剧透/known_by 越界候选） | 保 | 保 | 失→手翻 facts 的 spoiler/known_by 字段核对 | 失→同 C |
 | 台账自动回写（commit 副作用） | 保 | 保 | 失→逐项手做（manual-check §1 末段） | 失→逐项手做 |
-| 队列自动化/gate 剧本/rollup | 保 | 保 | 失→队列 ≤10 条 + 人脑剧本 | 失→同 C |
+| 队列自动化/gate 剧本（含 FAIL 修复提示）/rollup | 保 | 保 | 失→队列 ≤10 条 + 按 workflow §1 人脑走位 | 失→同 C |
 | 原子提交/半事务检出 | 保 | 保 | 失→`.bak` 副本纪律 | 失→同 C |
 | git 泄漏检查基线 | 保 | 保 | 视宿主（有 git 无 python 也可跑 §git 纪律） | 视宿主 |
 | 评审回执落盘（reviews/） | 保（review add） | 保 | 降：手写回执文件（manual-check §1） | 降：同 C |

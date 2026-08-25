@@ -7,6 +7,9 @@
 
 ## 1. 全书主循环（装配总图）
 
+> 主循环的**逐环节作业表**（入口闸门/CLI/角色/判据/失败去向 + 各棒交接验收谓词）
+> 在 `protocol/workflow.md`——本节只给鸟瞰；对表干活以 workflow 为准。
+
 ```
 init（CLI）
   └─ 书庭 S1→S4（protocol/court.md）→ book/world/style commit
@@ -46,8 +49,8 @@ init（CLI）
 | 4 | 机检候选 | `novel.py check --unit ch_NNNN --candidate 草稿.md --writeback 回写.json`（含抽取器对账） |
 | 5 | 轻评审 | spawn `roles/critic-light.md`；裁定机检的 NEEDS_REVIEW 项 |
 | 6 | 落盘 | `novel.py commit <tid> --chapter 草稿.md --writeback 回写.json -m …` |
-| 7 | 收尾 | `review add ch_NNNN --depth light --verdict pass`（回执落盘）→ `task done <tid>` → `tree set-status ch_NNNN approved` |
-| 8 | 周期项 | 每 5 章 `check --window`；每 `deep_every` 章深评；每 `reconcile_every` 章 `entity due` |
+| 7 | 收尾 | `review add ch_NNNN --depth light --verdict pass`（回执落盘）→ `task done <tid>` → `gate approve` → `tree set-status ch_NNNN approved` |
+| 8 | 周期项 | 每 5 章 `check --window`；每 `deep_every` 章深评；每 `reconcile_every` 章 `entity due`；弧末/卷末 `knowledge query` 盘点读者未知欠账（workflow §4） |
 
 修订循环、escalate 升级、深评采样的细则不在本文件重复——见 `protocol/pipeline.md` §2–4。
 
