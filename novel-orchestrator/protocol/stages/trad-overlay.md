@@ -11,11 +11,11 @@
 
 | 宿主阶段 | web 默认装载 | traditional 置换/追加 |
 |---|---|---|
-| s1（概念庭） | personas 网文卡 | 读者代表固定 `personas/literary-purist.md` + `personas/bookclub-mainstream.md` 双卡 |
-| s4（分卷庭） | rhythm/ 五选一 | 全书骨架固定 `rhythm/classic24.md`（24 节拍映射卷/弧边界） |
-| arc（细纲工序） | 三拍粗批 | 追加 `rubrics/scene-value.md`（场景合法性 + turn 验收；route-traditional §2） |
-| write（章循环） | 轻评三卡 | 轻评判据不变；章尾钩降建议级（CLI 已按 route 自动降级，route-traditional §3） |
-| review（三遍修订） | 采样深评 | 结构遍加 `rubrics/theme.md`；场景遍加 `rubrics/scene-value.md`；语言遍加 `rubrics/imagery.md` |
+| s1（概念庭） | personas 网文卡（所有权=s1） | 读者代表固定 `personas/literary-purist.md` + `personas/bookclub-mainstream.md` 双卡（所有权=s1） |
+| s4（分卷庭） | rhythm/ 五选一（所有权=s4） | 全书骨架固定 `rhythm/classic24.md`（24 节拍映射卷/弧边界；所有权=s4） |
+| arc（细纲工序） | 三拍粗批 | 追加 `rubrics/scene-value.md`（场景合法性 + turn 验收，**所有权=trad**；route-traditional §2） |
+| write（章循环） | 轻评三卡（所有权=write） | 轻评判据不变；章尾钩降建议级（CLI 已按 route 自动降级，route-traditional §3） |
+| review（三遍修订） | 采样深评 | 结构遍加 `rubrics/theme.md`（所有权=s1）；场景遍加 `rubrics/scene-value.md`、语言遍加 `rubrics/imagery.md`（两卡**所有权=trad**） |
 
 ## 知识装载纪律（与 web 相同，无豁免）
 

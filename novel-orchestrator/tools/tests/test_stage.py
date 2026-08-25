@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""阶段×知识编排专项测试（P6-S，stdlib only）。
+"""阶段×知识编排专项测试（P6-S + P8-K 所有权分区，stdlib only）。
 
 覆盖两半：
-  一、文档契约（knowledge-orchestration.md §4 对账规则的机检半边）
+  一、文档契约（knowledge-orchestration.md §4 对账规则的机检半边；
+     P8-K：无 skill 通用知识——每个知识资产有且只有一个所有阶段）
      D1 阶段包齐全且每包 ≤80 行（薄路由纪律）
-     D2 设计阶段包 K 池 ≡ knowledge-map 场次标注（含 S4/卷庭双标）
-     D3 产线/运营/差分/诊断五包正文零 K-ID（零知识装载的文字面保证）
+     D2 六个设计庭包 K 池 ≡ knowledge-map 所有权标注（单场单标，无双标）
+     D3 产线/运营/差分四包正文零 K-ID；diag 包 K 池 ≡ map 诊断·diag 33 块
      D4 rubrics 卡脚注 K-ID 集 ≡ knowledge-map「蒸馏」列（全 ID 逐个列出）
      D5 knowledge-map 111 行 ≡ knowledge/ 锚点集（无死块、无幽灵锚）
      D6 阶段包与 orchestration 引用的 skill 侧路径全部存在（死链扫描）
+     D7 所有权分区：蒸馏/庭审附件/诊断三类不重不漏切完 111 块；
+        运行期各池两两不相交（任何 K-ID 不出现在两个阶段包）
+     D8 卡/人设/节奏所有权：rubrics 全 11 卡在 map 卡表各有唯一所有阶段；
+        personas 九卡=s1、rhythm 五模板=s4；非所有阶段的包引用必带 所有权= 署名
+     D9 全库索引已废除：knowledge-index.md 不存在，运行期文档零引用
+        （glossary v1→v2 迁移表除外）
   二、stage CLI 与阶段闸门（P6-S + P7-S 机器半边）
      C1 stage list/show 全阶段可用；未知 id 拒绝
      C2 stage enter/current：持久化 state/stage.json 为准；启发式推断只做核对
@@ -88,8 +95,11 @@ SECTIONS = {
 }
 
 
+COURT_TAG = {"S1": "s1", "S2": "s2", "S3": "s3", "S4": "s4", "卷庭": "vol", "弧/细纲": "arc"}
+
+
 def doc_contract():
-    print("---- 一、文档契约 ----")
+    print("---- 一、文档契约（含 P8-K 所有权分区） ----")
     stages_dir = SKILL / "protocol" / "stages"
     # D1 包齐全且 ≤80 行
     for sid, fn in STAGE_FILES.items():
@@ -100,45 +110,38 @@ def doc_contract():
     extra = {f.name for f in stages_dir.glob("*.md")} - set(STAGE_FILES.values())
     must(not extra, "D1 stages/ 无目录外文件（发现 %s）" % (extra or "无"))
 
-    # D2 设计阶段 K 池对账（map 场次标注 → 期望池）
+    # D2 设计庭 K 池对账（map 所有权标注 → 期望池；单场单标）
     rows = map_rows()
     must(len(rows) == 111, "D5 knowledge-map 111 行（实测 %d）" % len(rows))
-    pool = {"s1": set(), "s2": set(), "s3": set(), "s4": set(), "vol": set(), "arc": set()}
+    pool = {sid: set() for sid in ("s1", "s2", "s3", "s4", "vol", "arc")}
+    diag_pool, distilled = set(), set()
     for kid, belong in rows:
         b = belong.strip()
-        if not b.startswith("庭审附件"):
-            continue
-        tag = b.split("·", 1)[1]
-        if tag == "S1":
-            pool["s1"].add(kid)
-        elif tag == "S2":
-            pool["s2"].add(kid)
-        elif tag == "S3":
-            pool["s3"].add(kid)
-        elif tag == "S4":
-            pool["s4"].add(kid)
-        elif tag == "S4/卷庭":
-            pool["s4"].add(kid)
-            pool["vol"].add(kid)
-        elif tag == "卷庭":
-            pool["vol"].add(kid)
-        elif tag == "弧/细纲":
-            pool["arc"].add(kid)
+        if b.startswith("蒸馏"):
+            distilled.add(kid)
+        elif b.startswith("诊断"):
+            diag_pool.add(kid)
+        elif b.startswith("庭审附件"):
+            tag = b.split("·", 1)[1]
+            must(tag in COURT_TAG, "D7 场次标注单场单标：%s（%s）" % (tag, kid))
+            pool[COURT_TAG[tag]].add(kid)
         else:
-            must(False, "D2 未知场次标注：%s（%s）" % (tag, kid))
+            must(False, "D7 未知归属类：%s（%s）" % (b, kid))
     for sid in ("s1", "s2", "s3", "s4", "vol", "arc"):
         got = set(KID_RE.findall((stages_dir / STAGE_FILES[sid]).read_text(encoding="utf-8")))
         must(got == pool[sid],
-             "D2 %s K 池 ≡ map 场次标注（%d 块；差异 %s）"
+             "D2 %s K 池 ≡ map 所有权标注（%d 块；差异 %s）"
              % (sid, len(pool[sid]), sorted(got ^ pool[sid]) or "无"))
 
-    # D3 五个零装载包正文无 K-ID
-    for sid in ("write", "review", "ops", "trad", "diag"):
+    # D3 产线/运营/差分四包零 K-ID；diag 包 K 池 ≡ map 诊断·diag
+    for sid in ("write", "review", "ops", "trad"):
         got = KID_RE.findall((stages_dir / STAGE_FILES[sid]).read_text(encoding="utf-8"))
         must(not got, "D3 %s 包零 K-ID（发现 %s）" % (sid, got or "无"))
+    got = set(KID_RE.findall((stages_dir / STAGE_FILES["diag"]).read_text(encoding="utf-8")))
+    must(got == diag_pool, "D3 diag 包 K 池 ≡ map 诊断·diag（%d 块；差异 %s）"
+         % (len(diag_pool), sorted(got ^ diag_pool) or "无"))
 
     # D4 rubrics 脚注 ≡ 蒸馏列
-    distilled = {k for k, b in rows if "蒸馏" in b}
     found = set()
     for f in (SKILL / "rubrics").glob("*.md"):
         found |= set(KID_RE.findall(f.read_text(encoding="utf-8")))
@@ -165,6 +168,63 @@ def doc_contract():
             if not (SKILL / ref).is_file():
                 dead.append("%s → %s" % (f.name, ref))
     must(not dead, "D6 阶段包/编排 SSOT 引用零死链（发现 %s）" % (dead or "无"))
+
+    # D7 所有权分区：三类不重不漏切完 111 块；运行期各池两两不相交
+    runtime_pools = dict(pool, diag=diag_pool, 蒸馏=distilled)
+    ids = sorted(runtime_pools)
+    for i, a in enumerate(ids):
+        for b in ids[i + 1:]:
+            inter = runtime_pools[a] & runtime_pools[b]
+            must(not inter, "D7 池不相交 %s∩%s=∅（发现 %s）" % (a, b, sorted(inter) or "无"))
+    total = set()
+    for s in runtime_pools.values():
+        total |= s
+    must(total == allk and len(rows) == len(allk),
+         "D7 三类归属不重不漏切完 111 块（蒸馏 %d + 庭审 %d + 诊断 %d）"
+         % (len(distilled), sum(len(pool[s]) for s in pool), len(diag_pool)))
+
+    # D8 卡/人设/节奏所有权 + 借用署名
+    map_txt = (SKILL / "knowledge-map.md").read_text(encoding="utf-8")
+    card_owner = dict(re.findall(r"^\| (rubrics/[a-z\-]+\.md) \| ([a-z0-9]+) \|", map_txt, re.M))
+    real_cards = {"rubrics/" + f.name for f in (SKILL / "rubrics").glob("*.md")}
+    must(set(card_owner) == real_cards and len(card_owner) == 11,
+         "D8 rubrics 11 卡 ≡ map 卡表（差异 %s）" % (sorted(set(card_owner) ^ real_cards) or "无"))
+    must(set(card_owner.values()) <= set(STAGE_FILES),
+         "D8 卡所有阶段均为合法阶段 id（%s）" % sorted(set(card_owner.values())))
+    personas = sorted(f.stem for f in (SKILL / "personas").glob("*.md"))
+    must(len(personas) == 9 and all(p in map_txt for p in personas)
+         and "personas/ 九卡 → 所有权=s1" in map_txt,
+         "D8 personas 九卡逐名登记且所有权=s1")
+    rhythms = sorted(f.stem for f in (SKILL / "rhythm").glob("*.md"))
+    must(len(rhythms) == 5 and all(r in map_txt for r in rhythms)
+         and "rhythm/ 五模板 → 所有权=s4" in map_txt,
+         "D8 rhythm 五模板逐名登记且所有权=s4")
+    asset_re = re.compile(r"(?:rubrics|personas|rhythm)/[a-z0-9\-]+\.md")
+    owner_of = dict(card_owner)
+    violations = []
+    for sid, fn in STAGE_FILES.items():
+        for line in (stages_dir / fn).read_text(encoding="utf-8").splitlines():
+            for ref in set(asset_re.findall(line)):
+                owner = owner_of.get(ref) or ("s1" if ref.startswith("personas/") else "s4")
+                if owner != sid and ("所有权=%s" % owner) not in line:
+                    violations.append("%s: %s（所有权=%s 未署名）" % (fn, ref, owner))
+    must(not violations, "D8 借用必署名：非所有阶段引用逐处标 所有权=（违规 %s）"
+         % (violations or "无"))
+
+    # D9 全库索引已废除
+    must(not (SKILL / "knowledge-index.md").exists(), "D9 knowledge-index.md 已删除")
+    offenders = []
+    runtime_docs = ([SKILL / "SKILL.md", SKILL / "knowledge-map.md", SKILL / "knowledge-blocks.md"]
+                    + list((SKILL / "protocol").rglob("*.md"))
+                    + list((SKILL / "roles").glob("*.md"))
+                    + list((SKILL / "rubrics").glob("*.md"))
+                    + list((SKILL / "modes").glob("*.md")))
+    for f in runtime_docs:
+        if f.name == "glossary.md":
+            continue  # v1→v2 迁移表登记旧名，属历史对照
+        if "knowledge-index" in f.read_text(encoding="utf-8"):
+            offenders.append(str(f.relative_to(SKILL)))
+    must(not offenders, "D9 运行期文档零 knowledge-index 引用（发现 %s）" % (offenders or "无"))
 
 
 def cli_half():

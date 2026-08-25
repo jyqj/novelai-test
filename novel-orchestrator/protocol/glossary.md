@@ -68,7 +68,7 @@ v1 = 原 `novel-writing-workflow` skill（**已随技术债清理整体移除**�
 | web-serial-playbook（Fast-Start/缓冲） | `protocol/serial-ops.md` | buffer 语义化为水位动作表 |
 | validate.py | `tools/novel.py check`（全部机检断言已收编并扩展） | v1 校验器已随清理移除 |
 | route: traditional/web + dual_track | `config.json "route"` + modes/route-traditional.md | dual_track/hybrid 取消：混合需求按卷切 route |
-| knowledge-index（diagnose/learn 意图） | `knowledge-map.md`（归属）+ `knowledge-index.md`（症状检索，收编） | 运行期默认不进知识库 |
+| knowledge-index（diagnose/learn 意图） | `knowledge-map.md`（所有权台账）+ `protocol/stages/diagnose.md`（diag 专属池症状路由） | 全库索引已废除；运行期默认不进知识库 |
 | 阶段门禁（phase gate） | 机检闸门 + 设计庭 R0–R4 + 审批点（formats §19） | gate 谓词机器化的部分全部进 CLI |
 | 恢复点（Status.mode/current_phase） | `tasks/queue.json` + `novel.py status` | 断点=队列头，不依赖会话记忆 |
 | 洋葱五层（surface…wound） | 实体卡「设定」节自由结构 + `rubrics/voice.md` 声纹判据 | 五层可作写卡参考，不再机器校验 |

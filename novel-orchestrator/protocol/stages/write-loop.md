@@ -21,7 +21,7 @@
 | 编排者 | `protocol/pipeline.md` §1–5、`protocol/workflow.md` §3、章 task.json、gate/check 输出 | knowledge/ 全部 |
 | 资料员（T1 审包） | `roles/librarian.md` + 项目仓库（只读，核对简报配料） | knowledge/、skill 侧判据卡（审包不评质量） |
 | 写手（T2） | `briefs/ch_NNNN.brief.md` **唯一输入**（roles/writer.md 随 spawn 附） | 项目内其余一切 + knowledge/ + rubrics/ |
-| 轻评（T3） | `roles/critic-light.md`、`rubrics/prose-disease.md`、`rubrics/payoff.md`、`rubrics/voice.md`、简报、候选、前章尾、机检 NEEDS_REVIEW 清单 | knowledge/、tree/ 原文 |
+| 轻评（T3） | `roles/critic-light.md`、`rubrics/prose-disease.md`、`rubrics/payoff.md`、`rubrics/voice.md`（三卡**所有权=write**，产线自有）、简报、候选、前章尾、机检 NEEDS_REVIEW 清单 | knowledge/、tree/ 原文 |
 | 抽取器（CLI / C·D 档帽） | 候选正文 + writeback + aliases（`roles/extractor.md`） | knowledge/ |
 
 ## 退出前自查
