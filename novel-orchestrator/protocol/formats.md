@@ -48,6 +48,7 @@
                             # safety-auditor 与发布前自查按需读取,编排者只读)
   tasks/queue.json  tasks/archive.json      # archive = task archive 归档的 done 任务
   state/index.json  dashboard.md  ngram_cache.json  rollup.json   # 生成物,禁止手改
+  state/stage.json          # 已进入阶段(stage enter 独占维护;阶段闸门的裁决依据,§14)
   state/txn/                # 原子提交事务日志(txn_begin/txn_end;done=false 残留 = 半事务,fsck 检出)
   state/reports/vol_NN.md   # 卷报告(report volume 生成;唯一可编辑处=对账三态标注)
   state/court/              # 庭审中间态工作区(R0 简报/R1 提案/R2 评审/R3 主编稿,
@@ -242,6 +243,7 @@ frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass
 - `state/dashboard.md` 段落:项目一行(含深评游标与逾期提醒)· 树进度表(卷|状态|弧|章数)· 树节点 · 章按状态 · 队列头 5 条 · 告警(check --window 摘要)· 最近 3 次 git commit
 - `state/ngram_cache.json`:分层指纹(P2-4)——窗口内(最近 `ngram_window_chapters` 章)`{"n12": […], "n8": […]}` 两级全量;窗口外降级为归档层 `{"n12s": […]}`(12-gram 稳定降采样 ≤`ngram_archive_sample` 条/章,不留 n8)。12 字级自我复读检测覆盖**全史**而体积有界;commit 更新(旧版扁平数组格式读取时视为 n12,兼容)
 - `state/rollup.json`:自动摘要卷积(P1-1)——`{arcs: {arc_id: {vol, span, lines[]}}, volumes: {vol_id: [弧一行摘要…]}}`;弧级=各成稿章 summary_after 首句,卷级=各弧首末摘要压缩;commit/adopt/facts import 后重算,brief §2 注入为远程记忆层
+- `state/stage.json`(P7-S):`{stage, entered_at, history:[{from,to,at}…]}`——**当前已进入阶段**,由 `stage enter <id>` 独占维护(history 留最近 20 次迁移)。这是阶段闸门(§15 辖区表)的唯一裁决依据:受辖命令执行前校验之,不看启发式推断;缺失 = 项目未进入任何阶段,一切受辖操作被拒。禁手改;误进阶段的纠正方式就是再 `stage enter` 正确阶段(迁移留痕)
 - `state/txn/txn_*.json`:原子提交事务日志——多文件落盘前写 `done=false`,全部写完置 `done=true`(保留最近 20 份完成事务);`done=false` 残留 = 半事务,`fsck`/`check --project` FAIL,恢复=按 §18 reset 未提交内容后删除 journal
 - `state/reports/vol_NN.md`:`report volume` 生成;**例外**——「exports 对账」节的三态标注(`[待对账]` → `[兑现 ch_NNNN]|[移交]|[废止 dec_xxx]`)由编排者手工编辑,checkpoint 机检
 - `state/court/`:庭审中间态工作区(非生成物,编排者按场次存 R0–R4 中间产物;见 court.md §3)
@@ -292,9 +294,12 @@ novel.py extract <ch_id> [--candidate F] [--writeback F]
 novel.py gate next                        # 机器版编排剧本:按优先级输出下一步(修账>深评>对账>
                                           #   欠账[spoiler 挂账 ≥spoiler_debt_chapters 章]>缓冲>推进)
                                           #   末行附当前阶段推断+配套知识包路径——迷路时的第一命令(workflow §0)
-novel.py stage list|show <id>|current     # 阶段导航(只读):总表/打印配套知识包全文/按项目状态推断
-                                          #   当前阶段(court 工作区>设计缺口>队首任务类型;启发式,
-                                          #   歧义以 workflow §1 人判为准;SSOT=protocol/knowledge-orchestration.md)
+novel.py stage list|show <id>             # 阶段总表 / 打印某阶段配套知识包全文(只读)
+novel.py stage enter <id>                 # 进入阶段:写 state/stage.json(§14)+git;受辖操作的前提;
+                                          #   与启发式推断不一致时打印核对提醒(跨阶段进入须确认收口)
+novel.py stage current                    # 读持久化阶段(不是启发式!)+配套包路径+启发式核对;
+                                          #   未进入任何阶段 → exit 1 并给 enter 提示
+                                          #   (SSOT=protocol/knowledge-orchestration.md §5)
 novel.py gate write|approve <ch_id>       # 前置谓词闸门(只判不写):write=排批齐+简报在+基线净;
                                           #   approve=drafted+落盘回执 rev 匹配+机检绿
                                           #   P4-G:每条 FAIL 附「↳ 下一步」可执行修复命令
@@ -307,6 +312,24 @@ novel.py fsck                             # = check --project(含半事务检出
 ```
 
 reconcile 汇总仍按 serial-ops §5 由编排者执行(`entity due` + `entity update` 已覆盖机械部分)。`status` 重算 index/dashboard;其余命令按需读取。项目根定位:cwd 向上探测或 `--root`。实现覆盖表与差异细节见 `tools/README.md`。
+
+**阶段闸门辖区表(P7-S;受辖命令执行前校验 `state/stage.json`,不匹配 = exit 1 + `stage enter` 修复提示)**:
+
+| 受辖操作 | 允许阶段 |
+|---|---|
+| `court open S1/S2/S3/S4` | 对应 `s1/s2/s3/s4`(`vol_*` 场→`vol`;`arc_*` 场→`arc`;adhoc 场→任意已进入阶段) |
+| `commit design\|revise_design`(book/world/style 级) | `s1\|s2\|s3\|s4` |
+| `commit design\|revise_design`(`vol_*` 目标) | `s4\|vol` |
+| `commit design\|revise_design`(`arc_*`/`ch_*` 目标) | `arc` |
+| `brief` · `commit write\|revise` · `gate write` · `review add --depth light` | `write` |
+| `gate approve` | `write\|review` |
+| `commit revise_rubric`(蒸馏) | `review` |
+| `commit review_deep` · `review add --depth deep` | `review\|ops` |
+| `knowledge grant` | `write\|review` |
+| `knowledge reveal` | `write\|review\|ops` |
+| `publish` · `retcon` · `report volume` · `checkpoint` · `gate publish\|checkpoint` | `ops` |
+
+不受辖(只读/记账/清理/引导):`init` `adopt` `status` `fsck` `check` `extract` `query` 类视图(`knowledge query`/`facts list`/`ledger`)、`tree`/`task`/`entity`/`thread` 登记、`rollup`、`review list`、`court status|close`、`stage *`、`gate next`(advisory——未进入阶段时打提醒而非拒绝)。
 
 ## 16. commit 按 task.type 行为表(唯一写路径)
 
@@ -372,6 +395,7 @@ v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧�
 
 ---
 
+*rev 6 · 2026-08-25 · P7-S 阶段强制闸门:state/stage.json 持久化(§1/§14)/stage enter·current 语义改版(§15)/阶段闸门辖区表(§15)/init 下一步指向 stage enter s1。*
 *rev 5 · 2026-08-25 · P6-S 阶段×知识编排:stage CLI 与 gate next 阶段推断/欠账项(§15)/config 增 spoiler_debt_chapters(§13)/目录补 knowledge-orchestration.md 与 stages/(§20)。*
 *rev 4 · 2026-08-25 · P4 批次:知识矩阵 known_by/revealed_reader_ch 与 knowledge CLI(§5/§9/§15/§17)/gate FAIL 附「下一步」修复命令(§15)/rollup 手动重算命令(§15)/revise_rubric 蒸馏任务类型与 commit 行(§10/§16)/新增 protocol/workflow.md 主循环总装图与 roles/extractor.md(§20)。*
 *rev 3 · 2026-08-24 · 内核重构对齐:台账 (chapter,rev) 语义与撤销重放(§9/§16)/回执收紧与 review CLI(§12)/原子提交 state/txn 与半事务检出(§14/§17)/简报条目级预算+声纹速查+rollup 记忆分层(§6)/抽取器对账与故事日历入 check(§17)/分层指纹(§14)/gate·court·facts·extract CLI(§15)。*

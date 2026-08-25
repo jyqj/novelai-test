@@ -3,11 +3,14 @@
 > 定位：全生命周期被切成若干**阶段（stage）**，每个阶段有且只有一个**配套知识包**
 > （`protocol/stages/` 下的薄路由文件）。「现在处于哪个阶段、该装载什么、装多少、
 > 禁装什么」以本文件 + 对应包为准。块级归属台账仍是 `knowledge-map.md`（分工见 §4）。
-> 机器半边：`novel.py stage list|show|current`；`gate next` 末行附当前阶段推断。
+> 机器半边（P7-S）：阶段是**持久化状态 + 强制闸门**——`stage enter <id>` 进入（写
+> `state/stage.json`），受辖操作在阶段不匹配时被拒（§5；辖区表 F§15）；
+> `stage current` 读持久化阶段；`gate next` 末段附阶段与包路径。
 
 ## 0. 三条硬规则（先记住再干活）
 
-1. **进阶段先读包**：任何环节开工前，先读对应 `protocol/stages/<包>.md`（每包 ≤80 行），
+1. **进阶段 = `stage enter` + 读包**：任何环节开工前，先 `novel.py stage enter <id>`
+   （不 enter，受辖操作会被闸门拒绝，§5），再读对应 `protocol/stages/<包>.md`（每包 ≤80 行），
    按包内「必读 / 选读池 / 禁读」装载——**不再「去 knowledge/ 逛逛」**。
 2. **产线零知识**：write 阶段（章循环）任何角色不装载 knowledge/ 任何块——写手只见简报，
    评审只见判据卡。这是默认态，不是降级态。
@@ -66,13 +69,19 @@
 stages/ 各包 K 池 ≡ knowledge-map 场次标注（含 S4/卷庭双标）；包内引用路径全部存在；
 rubrics 卡脚注 K-ID 集 ≡ map「蒸馏」列；产线三包（write/review/ops）与 trad/diag 包正文零 K-ID。
 
-## 5. CLI（导航用，只读不写）
+## 5. 阶段状态机与闸门（P7-S：阶段是钥匙，不是导航建议）
 
-- `novel.py stage list`：阶段总表（id + 定位 + 包绝对路径）。
-- `novel.py stage show <id>`：打印对应包全文（附解析路径）——spawn/装配前照包取料。
-- `novel.py stage current`：按项目状态推断当前阶段（court 工作区 > 设计缺口 > 队首任务类型），
-  route=traditional 时提示叠加 trad 包。`gate next` 末行输出同款推断。
-- 推断是**启发式导航**，不是闸门；有歧义以 `protocol/workflow.md` §1 人判为准。
+- **进入 = `novel.py stage enter <id>`**：写项目 `state/stage.json`（stage/entered_at/history，
+  F§14）。这是各受辖操作的**前提**——court open、brief、commit、publish、checkpoint、
+  gate write… 执行前校验持久化阶段，不匹配 = exit 1 + `stage enter` 修复提示
+  （辖区全表 = F§15 阶段闸门辖区表）。
+- **`stage current`**：读持久化阶段 + 配套包路径 + 启发式核对（court 工作区 > 设计缺口 >
+  队首任务类型）。未进入任何阶段 → exit 1。启发式推断只做**核对与导航**（不一致时提示
+  收口后 enter），阶段的定义以 stage.json 为准；歧义以 `protocol/workflow.md` §1 人判为准。
+- **迁移纪律**：完成本阶段退出判据（§1 表）后才 enter 下一阶段；`stage enter` 与推断不一致
+  时打印核对提醒，跨阶段进入须确认上一环节已收口。误进 = 再 enter 正确阶段（history 留痕）。
+- `stage list` / `stage show <id>`：总表 / 打印包全文（spawn/装配前照包取料）。
+  `gate next` 末段附已进入阶段与包路径（未进入时打高优先级提醒，advisory 不拒绝）。
 
 ## 6. 知识流动的三条回路（谁有权改哪层）
 
@@ -86,4 +95,5 @@ rubrics 卡脚注 K-ID 集 ≡ map「蒸馏」列；产线三包（write/review/
 
 ---
 
+*rev 2 · 2026-08-25 · P7-S 阶段强制闸门：§0 规则 1 与 §5 改版——stage enter 持久化 state/stage.json 为阶段定义，受辖操作阶段不匹配即拒绝（辖区表 F§15）；启发式推断降为核对。*
 *rev 1 · 2026-08-25 · 初版：11 阶段目录 + 装载三层模型 + 禁装规则 + 四路由文件分工与机检对账 + stage CLI + 知识流动三回路。*

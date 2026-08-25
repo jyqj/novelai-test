@@ -62,9 +62,9 @@ python3 tools/tests/test_stage.py      # P6-S 阶段×知识编排（文档对�
 | `knowledge grant/reveal/query` | ✅ | 知识矩阵（fact×角色×读者）：grant 授予知情（known_by 追加）；reveal 读者揭示销账（spoiler→0 记 revealed_reader_ch）；query 矩阵视图（单条/按实体知与不知/读者未知欠账盘点） |
 | `rollup` | ✅ | 手动重算章→弧→卷摘要卷积（批量手改 meta.json/adopt 补录后；commit 路径已自动） |
 | `extract <ch> [--candidate --writeback]` | ✅ | 抽取器独立入口：出场实测 vs cast_actual、引号新专名候选、剧透泄漏候选、known_by 角色知识越界候选（角色卡 `roles/extractor.md`） |
-| `gate next/write/approve/publish/checkpoint` | ✅ | 编排剧本机器半边：next 输出优先级调度（修账>深评>对账>**欠账**[spoiler 挂账 ≥`spoiler_debt_chapters` 章]>缓冲>推进），末行附**当前阶段推断+配套知识包路径**；其余为各关口前置谓词（只判不写）；**每条 FAIL 附「↳ 下一步」可执行修复命令** |
+| `gate next/write/approve/publish/checkpoint` | ✅ | 编排剧本机器半边：next 输出优先级调度（修账>深评>对账>**欠账**[spoiler 挂账 ≥`spoiler_debt_chapters` 章]>缓冲>推进），末段附**已进入阶段+配套知识包路径**（未进入时打提醒，advisory）；其余为各关口前置谓词（只判不写，且受阶段闸门辖区约束）；**每条 FAIL 附「↳ 下一步」可执行修复命令** |
 | `court open/status/close` | ✅ | 庭审工作区机械管理：open 建场次+R0 骨架；close 校验裁决落盘后清场 |
-| `stage list/show/current` | ✅ | 阶段导航（只读，P6-S）：list=11 阶段总表；show=打印配套知识包全文（`protocol/stages/`）；current=启发式推断当前阶段（court 工作区>设计缺口>队首任务类型；SSOT=`protocol/knowledge-orchestration.md`） |
+| `stage list/show/enter/current` | ✅ | 阶段状态机（P6-S/P7-S）：list=11 阶段总表；show=打印配套知识包全文（`protocol/stages/`）；**enter=进入阶段（写 `state/stage.json`，受辖操作的钥匙）**；current=读持久化阶段+启发式核对（未进入任何阶段 exit 1）。受辖命令（court open/brief/commit/publish/checkpoint/gate write…）阶段不匹配即拒绝并给 enter 提示——辖区表见 `protocol/formats.md` §15（SSOT=`protocol/knowledge-orchestration.md` §5） |
 
 ### check 断言分级
 

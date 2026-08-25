@@ -4,6 +4,7 @@ import json
 
 from .common import ch_num, die, git_autocommit, read, write
 from .project import Project, find_root
+from .stagectl import stage_guard
 
 
 def locate_fact(proj, fact_id):
@@ -25,7 +26,9 @@ def cmd_knowledge(args):
     reveal = 读者揭示（spoiler 1→0，记 revealed_reader_ch——悬念资产销账）
     query  = 矩阵视图：--fact 单条全貌 / --entity 某角色知与不知 / 默认盘点读者未知欠账"""
     proj = Project(find_root(args))
+    # 矩阵改账属工作流环节内操作：grant=章循环/回路对账；reveal 另可在运营销账
     if args.knowledge_cmd == "grant":
+        stage_guard(proj, ("write", "review"), "knowledge grant")
         f, data, x = locate_fact(proj, args.fact_id)
         if not x:
             die("fact 不存在：%s（novel.py facts list 查现有 id）" % args.fact_id, 1)
@@ -47,6 +50,7 @@ def cmd_knowledge(args):
               % (args.ch or "未记"))
         return 0
     if args.knowledge_cmd == "reveal":
+        stage_guard(proj, ("write", "review", "ops"), "knowledge reveal")
         f, data, x = locate_fact(proj, args.fact_id)
         if not x:
             die("fact 不存在：%s" % args.fact_id, 1)

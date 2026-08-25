@@ -8,6 +8,7 @@ from .common import (NOW, RETCON_STRATEGIES, THREAD_LIVE, Report, ch_num, die,
                      parse_frontmatter, read, replace_section, write)
 from .checks import check_window
 from .project import Project, find_root
+from .stagectl import stage_guard
 
 
 def publish_problems(proj, frm, to):
@@ -37,6 +38,7 @@ def publish_problems(proj, frm, to):
 
 def cmd_publish(args):
     proj = Project(find_root(args))
+    stage_guard(proj, ("ops",), "publish")
     frm = ch_num(args.ch_from)
     to = ch_num(args.ch_to) if args.ch_to else frm
     probs = publish_problems(proj, frm, to)
@@ -56,6 +58,7 @@ def cmd_publish(args):
 def cmd_retcon(args):
     """P0-4：retcon CLI 化（serial-ops §3）。旧 fact 填 superseded_by，retcons[] 追加。"""
     proj = Project(find_root(args))
+    stage_guard(proj, ("ops",), "retcon")
     if args.strategy not in RETCON_STRATEGIES:
         die("strategy 须为 %s" % "|".join(RETCON_STRATEGIES))
     # 定位旧 fact
@@ -114,6 +117,7 @@ def cmd_report(args):
     """P0-4：卷报告汇编（serial-ops §4 步骤 1 的机械部分）。
     产出 state/reports/vol_NN.md；exports 行预标 [待对账]，编排者改三态后跑 checkpoint。"""
     proj = Project(find_root(args))
+    stage_guard(proj, ("ops",), "report volume")
     vol_id = args.vol_id
     vp = proj.node_path(vol_id)
     if not vp or not vp.is_file():
@@ -222,6 +226,7 @@ def cmd_checkpoint(args):
     """P0-4：卷末结账（formats §16 checkpoint 行）。
     校验：报告存在 + exports 三态齐 + 卷内无未完稿章；动作：卷标记 + 下卷 imports 预填。"""
     proj = Project(find_root(args))
+    stage_guard(proj, ("ops",), "checkpoint")
     vol_id = args.vol_id
     m0 = re.match(r"^vol_(\d{2})$", vol_id)
     if not m0:

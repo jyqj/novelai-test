@@ -14,6 +14,26 @@ from .checks import check_unit, writeback_ref_errors
 from .journal import register_facts
 from .project import Project, find_root
 from .rollup import update_rollup
+from .stagectl import stage_guard
+
+
+def commit_stage_allowed(ttype, target):
+    """commit 的阶段辖区（P7-S）：任务类型 × 目标 → 允许阶段集。
+    未知类型返回 None（由 cmd_commit 尾部用法报错兜底）。"""
+    if ttype in ("write", "revise"):
+        return ("write",)
+    if ttype == "review_deep":
+        return ("review", "ops")
+    if ttype == "revise_rubric":
+        return ("review",)
+    if ttype in ("design", "revise_design"):
+        tgt = str(target or "")
+        if tgt.startswith("vol"):
+            return ("s4", "vol")
+        if tgt.startswith("arc") or tgt.startswith("ch_"):
+            return ("arc",)
+        return ("s1", "s2", "s3", "s4")
+    return None
 
 
 def unapply_chapter_logs(proj, ch_id):
@@ -232,6 +252,9 @@ def cmd_commit(args):
         die("任务不存在：%s" % args.task_id)
     ttype = t["type"]
     msg = args.m or ""
+    allowed = commit_stage_allowed(ttype, t.get("target"))
+    if allowed:
+        stage_guard(proj, allowed, "commit %s(%s)" % (ttype, t.get("target")))
 
     if ttype in ("write", "revise"):
         if not (args.chapter and args.writeback):

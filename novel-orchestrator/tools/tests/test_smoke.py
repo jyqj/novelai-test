@@ -321,10 +321,17 @@ def main():
         (proj / "chapters/ch_0001.task.json").write_text(
             json.dumps(TASK_JSON, ensure_ascii=False, indent=1), encoding="utf-8")
 
-        # ---- P0-6：design 缺节拒绝（负例）与 --draft 部分落盘（正例）
+        # ---- P7-S 阶段闸门：未进入任何阶段 → 受辖操作被拒（负例）
         tid = run(["task", "add", "design", "arc_01_1"], cwd=proj).strip().splitlines()[-1]
         partial = tmp / "arc_partial.md"
         partial.write_text(ARC_PARTIAL, encoding="utf-8")
+        out = run(["commit", tid, "--file", str(partial), "-m", "未进阶段应拒"],
+                  cwd=proj, expect=1)
+        must("阶段闸门" in out and "stage enter" in out,
+             "P7-S 未进入阶段 → commit 被闸门拒绝并给 enter 提示")
+        run(["stage", "enter", "arc"], cwd=proj)
+
+        # ---- P0-6：design 缺节拒绝（负例）与 --draft 部分落盘（正例）
         run(["commit", tid, "--file", str(partial), "-m", "缺节应拒"], cwd=proj, expect=1)
         run(["commit", tid, "--file", str(partial), "--draft", "-m", "中间态部分落盘"],
             cwd=proj)
@@ -336,9 +343,13 @@ def main():
         out = run(["tree", "show"], cwd=proj)
         must("arc_01_1" in out and "committed" in out, "弧节点已 committed")
 
-        # 写章任务 + 简报
+        # 写章任务 + 简报（P7-S：错阶段 brief 被拒 → enter write 后放行）
         tid2 = run(["task", "add", "write", "ch_0001"], cwd=proj).strip().splitlines()[-1]
         run(["task", "start", tid2], cwd=proj)
+        out = run(["brief", "ch_0001"], cwd=proj, expect=1)
+        must("阶段闸门" in out and "stage enter write" in out,
+             "P7-S 错阶段（arc）brief 被拒并提示 enter write")
+        run(["stage", "enter", "write"], cwd=proj)
         run(["brief", "ch_0001"], cwd=proj)
         brief = (proj / "briefs/ch_0001.brief.md").read_text(encoding="utf-8")
         must(all(s in brief for s in
@@ -432,9 +443,10 @@ def main():
              (proj / "chapters/ch_0001.md").read_text(encoding="utf-8"),
              "P1-5 approved 回执已记录")
 
-        # 窗口/全库检查 + 发布
+        # 窗口/全库检查 + 发布（publish 属 ops 阶段）
         run(["check", "--window"], cwd=proj)
         run(["check", "--project"], cwd=proj)
+        run(["stage", "enter", "ops"], cwd=proj)
         run(["publish", "ch_0001"], cwd=proj)
         out = run(["status"], cwd=proj)
         must("last_published=1" in out, "游标 last_published=1")
@@ -449,6 +461,7 @@ def main():
                      payoff_quota=[{"kind": "reveal", "intent": "匣内无钥只有名单"}])
         (proj / "chapters/ch_0002.task.json").write_text(
             json.dumps(task2, ensure_ascii=False, indent=1), encoding="utf-8")
+        run(["stage", "enter", "write"], cwd=proj)
         run(["brief", "ch_0002"], cwd=proj)
         brief2 = (proj / "briefs/ch_0002.brief.md").read_text(encoding="utf-8")
         must("黑木匣" in brief2 and "fact_0001" in brief2, "P0-1 brief §6 召回已登记 fact")
@@ -468,7 +481,8 @@ def main():
                    "--writeback", str(wb_conflict)], cwd=proj)
         must("facts 冲突候选" in out, "P0-1 同实体同键矛盾 → NEEDS_REVIEW")
 
-        # ---- P0-4 retcon：正例 + 3 负例
+        # ---- P0-4 retcon：正例 + 3 负例（retcon 属 ops 阶段）
+        run(["stage", "enter", "ops"], cwd=proj)
         (proj / "court/dec_001_matter.md").write_text(DEC_GOOD, encoding="utf-8")
         run(["retcon", "fact_9999", "--new", "x", "--strategy", "reconcile",
              "--decision", "dec_001_matter"], cwd=proj, expect=1)  # fact 不存在
@@ -482,6 +496,7 @@ def main():
              "P0-4 retcon 已登记且旧 fact 填 superseded_by")
         run(["retcon", "fact_0001", "--new", "y", "--strategy", "reconcile",
              "--decision", "dec_001_matter"], cwd=proj, expect=1)  # 重复 retcon
+        run(["stage", "enter", "write"], cwd=proj)
         run(["brief", "ch_0002"], cwd=proj)
         brief2 = (proj / "briefs/ch_0002.brief.md").read_text(encoding="utf-8")
         must("已被覆盖" in brief2 and "explicit_fix" in brief2,
@@ -505,11 +520,13 @@ def main():
         out = run(["task", "list", "--state", "pending"], cwd=proj)
         must(t_b in out, "P0-2 task reset：failed → pending")
 
-        # ---- 卷设计 commit → report volume → checkpoint
+        # ---- 卷设计 commit（vol 阶段）→ report volume → checkpoint（ops 阶段）
+        run(["stage", "enter", "vol"], cwd=proj)
         volf = tmp / "vol_staged.md"
         volf.write_text(VOLUME_STAGED, encoding="utf-8")
         run(["commit", t_b, "--file", str(volf), "-m", "卷蓝图定稿"], cwd=proj)
         run(["task", "done", t_b], cwd=proj)
+        run(["stage", "enter", "ops"], cwd=proj)
         run(["report", "volume", "vol_01"], cwd=proj)
         rp = proj / "state/reports/vol_01.md"
         must(rp.is_file() and "[待对账]" in rp.read_text(encoding="utf-8"),
@@ -565,7 +582,7 @@ def main():
         run(["check", "--project"], cwd=proj)
         run(["fsck"], cwd=proj)
 
-        print("\nSMOKE PASS：%d 步全绿（含 %d 条负例拒绝路径）" % (STEP[0], 15))
+        print("\nSMOKE PASS：%d 步全绿（含 %d 条负例拒绝路径）" % (STEP[0], 17))
         return 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)

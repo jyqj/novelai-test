@@ -9,8 +9,12 @@
 1. **冷启动/换会话/迷路**：`novel.py status` → `novel.py gate next` → 对照 §1 总图定位所处环节 → 跳到该环节小节按表执行。禁止凭记忆续写。
 2. **每个环节四件套**：入口条件（gate 谓词，机器判）→ 动作（CLI + 执行角色/帽子）→ 验收（gate/check 绿）→ 失败去向（明确写在表里，不临场发明）。
 3. **模式与档位不改变主线**，只改变「谁来干、哪些验收降级」：solo 帽子映射、traditional 差分、C/D 档损失一律查 §7 三张覆盖表，不散落。
-4. **进环节先读阶段包**：每个环节有唯一配套知识包（§1.1 对照表；SSOT=`protocol/knowledge-orchestration.md`），
-   开工前先读包、按包内「必读/选读池/禁读」装载——不凭感觉翻库。`novel.py stage current` 打印当前包路径。
+4. **进环节 = `stage enter` + 读包**（P7-S 强制）：每个环节有唯一配套知识包（§1.1 对照表；
+   SSOT=`protocol/knowledge-orchestration.md`）。开工顺序钉死：`novel.py stage enter <id>`（写
+   `state/stage.json`，是各受辖操作的钥匙）→ 读包 → 按包内「必读/选读池/禁读」装载。
+   受辖命令（court open/brief/commit/publish/checkpoint/gate write…全表见 F§15 辖区表）在
+   阶段不匹配时**直接拒绝**并给 `stage enter` 修复提示——跨阶段操作不是警告，是不可执行。
+   `novel.py stage current` 读持久化阶段（未进入任何阶段时 exit 1）。
 
 ## 1. 全生命周期总图
 
@@ -47,7 +51,11 @@ init ──书庭 S1–S4──> book/world/style/vol_01 committed          （�
 | traditional 差分 | trad | trad-overlay.md | 叠加层：判据卡置换（scene-value/theme/imagery），无 knowledge 豁免 |
 | 诊断/学理（§6） | diag | diagnose.md | 唯一可进 knowledge/：症状→K-ID，≤2 块/次，读完即弃 |
 
-机器半边：`novel.py stage list|show <id>|current`；`gate next` 末行附阶段推断与包路径。
+机器半边：`novel.py stage list|show <id>|enter <id>|current`；`gate next` 末段附已进入阶段与包路径
+（未进入时打高优先级提醒）。阶段迁移即 `stage enter`：完成本环节退出判据（§1.1/编排 SSOT §1）后
+显式进入下一阶段；`stage enter` 会与启发式推断核对，跨阶段进入须确认上一环节已收口。误进 = 再
+enter 正确阶段（`state/stage.json` history 留痕）。典型迁移链:`s1→s2→s3→s4→vol→arc→write⇄ops`
+（发布节拍）与 `write→review→write`（周期回路）；trad 是叠加层不占阶段位。
 
 ## 2. 阶段一：冷启动与设计层
 
@@ -55,10 +63,10 @@ init ──书庭 S1–S4──> book/world/style/vol_01 committed          （�
 |---|---|---|---|---|
 | 0 探测 | 新任务/新会话 | 按 `modes/capability-profiles.md` §0 两问定档（A/B/C/D），route 定 web/traditional | 档位记入首个 task note | 无 shell → C/D：先向用户申明 `manual-check.md` §2 损失 |
 | 1 init | 新书 | `novel.py init <dir> --name X` | `status` 可跑 | 环境错误 → 修 python3/git |
-| 2 书庭 | init 完成 | `court open S1..S4`；R0–R4 回合（C§3）：架构师提案 ×2 → 结构/安全/读者评审 → 主编合成 → dec 落盘 | 每场 dec + 节点稿暂存；S4 后 `commit --file` 全定稿（book/world/style/vol_01 → committed） | 红线 blocking → 升级用户（C§4）；中断 → `court status` 续场 |
-| 3 卷庭 | 上卷 checkpoint 完成（首卷随书庭） | C§2 卷庭行：附上卷 exports+报告；判据 rubrics/power+redline+payoff | vol_NN 九节 committed | 否决案拦截（C§4 X7） |
-| 4 弧规划 | 写作游标距弧前沿 ≤1 弧 | C§1 弧简流程（1 提案+合并评审+主编）；节奏模板选 `rhythm/` 一张 | arc_NN_n 六节 committed | 评审全否 → C§4 处置 |
-| 5 排批 | 弧 committed | `tree add chapter` + 编排者补全 task.json（goal/beats/hook/payoff_quota/threads/cast，P§1 步骤 0）→ `task add write` | `gate write` 的任务卡谓词过 | 占位未填 → gate write FAIL 自带指引 |
+| 2 书庭 | init 完成 | `stage enter s1..s4`（逐场进阶段，court open 闸门校验）→ `court open S1..S4`；R0–R4 回合（C§3）：架构师提案 ×2 → 结构/安全/读者评审 → 主编合成 → dec 落盘 | 每场 dec + 节点稿暂存；S4 后 `commit --file` 全定稿（book/world/style/vol_01 → committed） | 红线 blocking → 升级用户（C§4）；中断 → `court status` 续场 |
+| 3 卷庭 | 上卷 checkpoint 完成（首卷随书庭） | `stage enter vol` → C§2 卷庭行：附上卷 exports+报告；判据 rubrics/power+redline+payoff | vol_NN 九节 committed | 否决案拦截（C§4 X7） |
+| 4 弧规划 | 写作游标距弧前沿 ≤1 弧 | `stage enter arc` → C§1 弧简流程（1 提案+合并评审+主编）；节奏模板选 `rhythm/` 一张 | arc_NN_n 六节 committed | 评审全否 → C§4 处置 |
+| 5 排批 | 弧 committed | `stage enter write` → `tree add chapter` + 编排者补全 task.json（goal/beats/hook/payoff_quota/threads/cast，P§1 步骤 0）→ `task add write` | `gate write` 的任务卡谓词过 | 占位未填 → gate write FAIL 自带指引 |
 
 设计庭判据投递按 C§2 每场规格表；templates/ 为唯一骨架来源。**checkpoint 未完成不开下卷卷庭**（S§4）。
 
@@ -84,16 +92,16 @@ init ──书庭 S1–S4──> book/world/style/vol_01 committed          （�
 
 | 回路 | 节律 | 命令/动作 | 验收/去向 |
 |---|---|---|---|
-| 深评采样 | 每 `deep_every` 章 + 弧末 + 卷末 | `task add review_deep` → T4（P§4）；lessons 摘一行入台账 | escalate 自动开 revise_design |
+| 深评采样 | 每 `deep_every` 章 + 弧末 + 卷末 | `stage enter review` → `task add review_deep` → T4（P§4）；lessons 摘一行入台账；蒸馏（revise_rubric）同属本阶段 | escalate 自动开 revise_design；回路收口后 `stage enter write` 回产线 |
 | 实体对账 | `entity due` 非空（每 `reconcile_every` 章） | S§5 对账轮：资料员 B 模式 → `entity update` | 矛盾上报编排者裁决 |
 | knowledge 欠账 | 弧末/卷末；超龄欠账（≥`spoiler_debt_chapters` 章未揭示）`gate next` 自动顶出【欠账】项 | `knowledge query`（读者未知欠账盘点）→ 逐条决定：继续吊 / 排「揭示章」进任务卡 + `knowledge reveal` 销账 / 走 retcon 废止 | 长期挂账的悬念 = 期待账户坏账，深评必查 |
 | buffer 水位 | 每批章后 | `status` 看 ready；按 S§1 水位表动作 | ready=0 → 停发只补稿 |
-| 发布 | 计划到期/用户指令 | `gate publish` 试跑 → 审批（F§19）→ `publish` | FAIL 附下一步（补链/补审） |
+| 发布 | 计划到期/用户指令 | `stage enter ops` → `gate publish` 试跑 → 审批（F§19）→ `publish`；发完 `stage enter write` 回产线 | FAIL 附下一步（补链/补审） |
 | 队列卫生 | 队列 >30 条 | `task archive` | — |
 
 ## 5. 阶段四：卷末结账与跨卷
 
-S§4 全流程；闸门视角速查：`check --project` 绿 → `report volume` → **手工三态对账**（report 是唯一允许手改的生成物）→ 卷级深评 → recap 更新 → `gate checkpoint` 试跑（FAIL 附下一步）→ 审批 → `checkpoint`（下卷 imports 自动预填）→ 卷庭（回 §2 步 3）。
+S§4 全流程；闸门视角速查：`stage enter ops` → `check --project` 绿 → `report volume` → **手工三态对账**（report 是唯一允许手改的生成物）→ 卷级深评 → recap 更新 → `gate checkpoint` 试跑（FAIL 附下一步）→ 审批 → `checkpoint`（下卷 imports 自动预填）→ `stage enter vol` 开卷庭（回 §2 步 3）。
 
 ## 6. 异常轨与反馈回路
 
@@ -159,9 +167,11 @@ S§4 全流程；闸门视角速查：`check --project` 绿 → `report volume` 
 7. 写手不发明简报外专名；known_by 外的角色不说破事实；spoiler 事实只可潜台词。
 8. 同目标失败 ×2 自动升级设计层，勿硬写第 3 次。
 9. 教训 ≥2 次复现走蒸馏（revise_rubric）；单例记 lessons 不动判据。
-10. 迷路 = `status` + `gate next`，不凭记忆续写。
+10. 迷路 = `status` + `gate next` + `stage current`，不凭记忆续写；换环节必 `stage enter`
+    （阶段闸门会替你拒绝跨阶段操作，别跟它讲道理，去收口）。
 
 ---
 
+*rev 3 · 2026-08-25 · P7-S 阶段强制闸门：§0 军规改「进环节 = stage enter + 读包」+ §1.1 迁移链与 enter 语义 + §2/§4/§5 各环节动作列前置 stage enter + 军规 10 补 stage current/enter；辖区表见 F§15。*
 *rev 2 · 2026-08-25 · 阶段×知识编排：§0 加「进环节先读阶段包」军规 + §1.1 阶段↔配套包对照表 + §4 欠账行接 gate next 超龄顶出；与 protocol/knowledge-orchestration.md、protocol/stages/ 十一包、`novel.py stage` 同批落地（P6-S）。*
 *rev 1 · 2026-08-25 · 初版：主循环脊柱 + 交接契约表 + knowledge/蒸馏回路 + solo/traditional/C·D 三覆盖表；与 gate 修复提示（P4-G）、knowledge CLI（P4-K）、rollup（P4-R）、revise_rubric（P4-D）同批落地。*

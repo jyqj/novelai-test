@@ -225,12 +225,14 @@ def main():
         tid = run(["task", "add", "design", "arc_01_1"], cwd=proj).strip().splitlines()[-1]
         staged = tmp / "arc_staged.md"
         staged.write_text(ARC_STAGED, encoding="utf-8")
+        run(["stage", "enter", "arc"], cwd=proj)
         run(["commit", tid, "--file", str(staged), "-m", "弧定稿"], cwd=proj)
         run(["task", "done", tid], cwd=proj)
 
         # ---- rev1 提交
         t_w = run(["task", "add", "write", "ch_0001"], cwd=proj).strip().splitlines()[-1]
         run(["task", "start", t_w], cwd=proj)
+        run(["stage", "enter", "write"], cwd=proj)
         run(["brief", "ch_0001"], cwd=proj)
         cand = tmp / "c1.md"
         cand.write_text(envelope("ch_0001", CHAPTER_TEXT), encoding="utf-8")
@@ -396,12 +398,16 @@ def main():
         run(["gate", "write", "ch_0008"], cwd=proj)
         run(["tree", "add", "chapter", "ch_0009", "--parent", "arc_01_1"], cwd=proj)
         run(["gate", "write", "ch_0009"], cwd=proj, expect=1)  # 未排批+无简报
+        run(["stage", "enter", "ops"], cwd=proj)  # publish/checkpoint 闸门属 ops
         run(["gate", "publish", "ch_0005"], cwd=proj, expect=1)  # 连续性谓词
         out = run(["gate", "next"], cwd=proj)
         must("机器版编排剧本" in out, "P3-1：gate next 输出调度剧本")
         run(["gate", "checkpoint", "vol_01"], cwd=proj, expect=1)  # 卷未 committed
 
-        # ---- P3-2：court 工作区
+        # ---- P3-2：court 工作区（court open S1 属 s1 阶段）
+        out = run(["court", "open", "S1", "--node", "book"], cwd=proj, expect=1)
+        must("阶段闸门" in out, "P7-S 错阶段（ops）court open S1 被拒")
+        run(["stage", "enter", "s1"], cwd=proj)
         run(["court", "open", "S1", "--node", "book"], cwd=proj)
         must((proj / "state/court/S1/r0_brief.md").is_file(), "P3-2：R0 骨架就位")
         out = run(["court", "status"], cwd=proj)
@@ -451,6 +457,7 @@ status: active
         t_k = run(["task", "add", "write", "ch_0003"],
                   cwd=proj).strip().splitlines()[-1]
         run(["task", "start", t_k], cwd=proj)
+        run(["stage", "enter", "write"], cwd=proj)
         cand3 = tmp / "c3.md"
         cand3.write_text(envelope("ch_0003", TEXT3, title="识物"), encoding="utf-8")
         wb3f = tmp / "wb3.json"
@@ -554,6 +561,7 @@ status: active
         staged_style.write_text(
             style_now.replace("- 嘴角勾起一抹", "- 指节发白\n- 嘴角勾起一抹", 1),
             encoding="utf-8")
+        run(["stage", "enter", "review"], cwd=proj)  # 蒸馏属周期回路
         out = run(["commit", t_rr, "--file", str(staged_style), "-m", "蒸馏黑名单"],
                   cwd=proj)
         must("蒸馏入库" in out, "P4-D：revise_rubric commit 走蒸馏路径")

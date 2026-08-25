@@ -5,6 +5,19 @@ import shutil
 
 from .common import die, git_autocommit, write
 from .project import Project, find_root
+from .stagectl import stage_guard
+
+
+def session_stage_allowed(session):
+    """场次代号 → 所属阶段（P7-S court open 闸门）：S1..S4 → s1..s4；
+    vol_* → vol；arc_* → arc；adhoc 等自由场次只要求已进入某阶段（None）。"""
+    if session in ("S1", "S2", "S3", "S4"):
+        return (session.lower(),)
+    if session.startswith("vol"):
+        return ("vol",)
+    if session.startswith("arc"):
+        return ("arc",)
+    return None
 
 
 def cmd_court(args):
@@ -13,6 +26,8 @@ def cmd_court(args):
     proj = Project(find_root(args))
     base = proj.p("state", "court")
     if args.court_cmd == "open":
+        stage_guard(proj, session_stage_allowed(args.session),
+                    "court open %s" % args.session)
         d = base / args.session
         d.mkdir(parents=True, exist_ok=True)
         stub = d / "r0_brief.md"
