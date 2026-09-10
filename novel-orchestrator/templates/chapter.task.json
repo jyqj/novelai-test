@@ -2,10 +2,37 @@
   "id": "[ch_0001]",
   "arc": "[arc_01_1]",
   "goal": "[本章一句话目标]",
-  "beats": ["[拍 1]", "[拍 2]", "[拍 3]"],
-  "hook": {"open": null, "close": "[收尾钩一句话,必填]"},
-  "payoff_quota": [{"kind": "dopamine", "intent": "[兑现什么爽点]"}],
-  "threads": [{"id": "[thread_slug]", "op": "advance"}],
-  "cast": ["[char_slug]", "[fac_slug]"],
-  "word_target": [2000, 4500]
+  "beats": [
+    "[拍 1]",
+    "[拍 2]",
+    "[拍 3]"
+  ],
+  "hook": {
+    "open": null,
+    "close": "[收尾钩一句话,必填]"
+  },
+  "payoff_quota": [
+    {
+      "kind": "dopamine",
+      "intent": "[兑现什么爽点]"
+    }
+  ],
+  "threads": [
+    {
+      "id": "[thread_slug]",
+      "op": "advance"
+    }
+  ],
+  "cast": [
+    "[char_slug]",
+    "[fac_slug]"
+  ],
+  "word_target": [
+    2000,
+    4500
+  ],
+  "context_entities": [],
+  "memory_keywords": [],
+  "fact_refs": [],
+  "memory_refs": []
 }

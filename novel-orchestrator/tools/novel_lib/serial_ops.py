@@ -14,6 +14,8 @@ from .stagectl import stage_guard
 def publish_problems(proj, frm, to):
     """publish 前置谓词（P3 gate 复用：只判不写）。返回 [(问题, 下一步)]（空 = 可发布）。"""
     probs = []
+    if frm < 1 or to < frm:
+        return [("发布区间非法", "使用从小到大的正整章号")]
     cur = proj.cursor()
     if frm != cur["last_published"] + 1:
         probs.append(("连续性谓词失败：应从 ch_%04d 起（当前 last_published=%d），无绕过开关"
@@ -27,6 +29,16 @@ def publish_problems(proj, frm, to):
         probs.append(("区间含非 approved 章：%s" % ["ch_%04d" % n for n in not_ok],
                       "逐章 novel.py gate approve ch_NNNN（FAIL 项自带下一步：评审→"
                       "review add→tree set-status approved），或缩小发布区间"))
+    from .receipts import approval_receipt
+    from .checks import check_unit
+    for n in range(frm, to + 1):
+        if n not in chs or chs[n]["meta"].get("status") != "approved":
+            continue
+        cid = "ch_%04d" % n
+        if not approval_receipt(proj, cid):
+            probs.append(("发布前回执失效/有阻塞：%s" % cid, "重新评审当前正文"))
+        if any(level == "FAIL" for level, _, _, _ in check_unit(proj, cid).items):
+            probs.append(("发布前机械检查失败：%s" % cid, "check --unit 后返修复评"))
     if cur["last_published"] == 0:
         need = proj.config.get("buffer", {}).get("min_before_publish", 1)
         if proj.buffer_ready() < need:
@@ -47,6 +59,8 @@ def cmd_publish(args):
     chs = {ch_num(c["id"]): c for c in proj.chapters()}
     for n in range(frm, to + 1):
         c = chs[n]
+        from .receipts import sha
+        c["meta"]["published_hash"] = sha(c["body"].strip())
         c["meta"]["status"] = "published"
         c["meta"]["updated_at"] = NOW()
         write(c["path"], dump_frontmatter(c["meta"]) + "\n" + c["body"].lstrip("\n"))
@@ -94,8 +108,10 @@ def cmd_retcon(args):
         "id": rid, "entity_ids": entity_ids,
         "old_fact_id": args.old_fact_id, "new_fact": args.new,
         "strategy": args.strategy, "decision_ref": dec_hits[0].stem,
+        "effective_ch": proj.cursor()["last_drafted"] + 1,
     })
     hit_fact["superseded_by"] = rid
+    hit_fact["superseded_at"] = proj.cursor()["last_drafted"] + 1
     write(hit_file, json.dumps(hit_data, ensure_ascii=False, indent=1))
     git_autocommit(proj.root, "[retcon] %s → %s（%s，%s）"
                    % (args.old_fact_id, rid, args.strategy, dec_hits[0].stem))

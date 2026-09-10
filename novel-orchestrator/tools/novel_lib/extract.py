@@ -6,6 +6,7 @@ import re
 
 from .common import Report, ch_num, die, ngram_sim, parse_frontmatter, read, sentences_of
 from .project import Project, find_root
+from .narrative import effective_knowers, fact_exists, reader_knows
 
 
 def extract_observations(proj, text):
@@ -64,7 +65,8 @@ def extract_reconcile(proj, ch_id, text, wb, rep):
     num = ch_num(ch_id)
     sents = None
     spoilers = [x for x, _ in proj.all_facts()
-                if x.get("spoiler") and not x.get("superseded_by")]
+                if not reader_knows(x, num) and fact_exists(x, num)
+                and (not x.get("superseded_by") or num < x.get("superseded_at", 0))]
     if spoilers:
         leaks = []
         sents = sentences_of(text)
@@ -85,14 +87,15 @@ def extract_reconcile(proj, ch_id, text, wb, rep):
     # 他不该知道）——评审裁定：改写为该角色不知情的演法 / 正文补获知场景并
     # knowledge grant（或 scope add 入圈）/ 删句。
     guarded = [x for x, _ in proj.all_facts()
-               if x.get("known_by") and not x.get("superseded_by")
+               if x.get("known_by") and fact_exists(x, num)
+               and (not x.get("superseded_by") or num < x.get("superseded_at", 0))
                and x.get("revealed_ch") != num]
     if guarded and cast:
         if sents is None:
             sents = sentences_of(text)
         overreach = []
         for x in guarded:
-            unaware = sorted(cast - proj.expand_knowers(x["known_by"]))
+            unaware = sorted(cast - effective_knowers(proj, x, num))
             if not unaware:
                 continue
             for s in sents:

@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from support import legacy_fixture_invoke
 
 TOOLS = Path(__file__).resolve().parent.parent
 NOVEL = TOOLS / "novel.py"
@@ -37,8 +38,7 @@ STEP = [0]
 
 
 def run(args, cwd, expect=0):
-    r = subprocess.run([sys.executable, str(NOVEL)] + args,
-                       cwd=str(cwd), capture_output=True, text=True)
+    r = legacy_fixture_invoke(args, cwd)
     if r.returncode != expect:
         print("FAILED: novel.py %s\nexit=%d (期望 %d)\n--- stdout ---\n%s\n--- stderr ---\n%s"
               % (" ".join(args), r.returncode, expect, r.stdout, r.stderr))
@@ -436,7 +436,7 @@ def main():
 
         # ---- P1-5 approved 回执闸门：无回执拒绝 → 回执后通过
         run(["tree", "set-status", "ch_0001", "approved"], cwd=proj, expect=1)
-        (proj / "reviews/ch_0001.light.md").write_text(REVIEW_PASS, encoding="utf-8")
+        run(["review", "add", "ch_0001", "--depth", "light", "--verdict", "pass"], cwd=proj)
         run(["task", "done", tid2, "--note", "light=pass"], cwd=proj)
         run(["tree", "set-status", "ch_0001", "approved"], cwd=proj)
         must("approved_evidence" in
@@ -499,7 +499,7 @@ def main():
         run(["stage", "enter", "write"], cwd=proj)
         run(["brief", "ch_0002"], cwd=proj)
         brief2 = (proj / "briefs/ch_0002.brief.md").read_text(encoding="utf-8")
-        must("已被覆盖" in brief2 and "explicit_fix" in brief2,
+        must("本章待执行兼容修正" in brief2 and "explicit_fix" in brief2,
              "brief §6 连带 retcon 条目")
 
         # ---- P0-2 队列：blocked 自动解锁 + reset 正/负例

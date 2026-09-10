@@ -1,3 +1,5 @@
+> 当前升级约定：按 `protocol/reliability.md`（同目录为 reliability.md）执行证据回执、历史视图和安全恢复；旧流程中的 pass 要附逐项证据，人工附笔需单独确认保存，不能假定后续 CLI 会替它进入事务。
+
 # serial-ops.md — 连载运营协议(编排者操作手册)
 
 > 依据 spec §5.6/§10;buffer/发布顺序谓词/retcon/卷末 checkpoint 教义收编自 v1 连载手册(v1 已移除,只迁思想不迁机制);格式与 CLI 以 `protocol/formats.md`(F§n)为准。

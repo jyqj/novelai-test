@@ -1,0 +1,64 @@
+name: Novel skill regression
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    name: Python ${{ matrix.python-version }} regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Record exact source and interpreter
+        run: |
+          mkdir -p test-artifacts
+          git rev-parse HEAD > test-artifacts/commit.txt
+          git archive --format=zip --output=test-artifacts/source.zip HEAD
+          python3 --version | tee test-artifacts/python-version.txt
+      - name: Compile Python sources
+        run: python3 -m compileall -q novel-orchestrator/tools
+      - name: Run all standalone regression suites
+        shell: bash
+        run: |
+          set -o pipefail
+          failed=0
+          count=0
+          for suite in novel-orchestrator/tools/tests/test_*.py; do
+            count=$((count + 1))
+            name="$(basename "$suite" .py)"
+            echo "::group::$name"
+            if ! python3 "$suite" 2>&1 | tee "test-artifacts/$name.log"; then
+              failed=1
+            fi
+            echo "::endgroup::"
+          done
+          test "$count" -gt 0 || exit 1
+          exit "$failed"
+      - name: Retain reproducible test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: novel-test-evidence-py${{ matrix.python-version }}
+          path: test-artifacts/
+          retention-days: 14

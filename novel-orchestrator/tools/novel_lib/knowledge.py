@@ -6,6 +6,7 @@ import json
 from .common import ch_num, die, git_autocommit, read, write
 from .project import Project, find_root
 from .stagectl import stage_guard
+from .narrative import effective_knowers, fact_exists, grant_event, reader_knows
 
 
 def locate_fact(proj, fact_id):
@@ -21,23 +22,27 @@ def locate_fact(proj, fact_id):
     return None, None, None
 
 
-def fmt_knowers(proj, known_by):
-    """known_by 显示串：群体条目展开圈成员（fac_x圈(char_a,char_b)），个体照抄。"""
-    scopes = proj.scopes()
-    parts = []
-    for k in known_by:
-        if k.startswith(Project.GROUP_PREFIXES):
-            mem = scopes.get(k, [])
-            parts.append("%s圈(%s)" % (k, ",".join(mem) if mem else "空"))
-        else:
-            parts.append(k)
-    return ",".join(parts)
+def fmt_knowers(proj, fact, at=None):
+    """Display actual event-time knowers, never the group's current membership."""
+    known = effective_knowers(proj, fact, at)
+    events = fact.get("knowledge_events")
+    if events is None:
+        return ",".join(sorted(known)) + "（旧记录无历史时间证据）"
+    provenance = []
+    for event in events:
+        if at is not None and event["chapter"] > at:
+            continue
+        provenance.append("ch_%04d 来源=%s；当时获知=%s" % (
+            event["chapter"], ",".join(event.get("via", [])),
+            ",".join(event.get("knowers", [])) or "空"))
+    return "实际知情：" + ",".join(sorted(known)) + "；" + " | ".join(provenance)
+
 
 
 def cmd_scope(proj, args):
     """知识矩阵 v2 范围知情圈：scope add/remove/list——把 char 成员编入
     fac/loc/item 群体的知情圈（entities/scopes.json，novel.py 独占维护）。
-    known_by 里的群体条目按此圈展开为有效知情者（brief/extract/query 同一口径）。"""
+    成员表只用于下一次 grant 的快照；不会追溯赋予或撤销历史知识。"""
     if args.scope_cmd == "list":
         scopes = proj.scopes()
         pick = None
@@ -85,6 +90,7 @@ def cmd_scope(proj, args):
     git_autocommit(proj.root, "[knowledge] scope %s %s ± %s"
                    % (args.scope_cmd, gid, ",".join(sorted(set(members)))))
     print("知情圈已更新：%s = %s" % (gid, ",".join(sorted(cur)) or "（空圈，已除名）"))
+    print("[提醒] 入圈不会自动追溯获得旧秘密；请用带 --ch 的 grant 记录获知。离圈不会遗忘。")
     print("[提醒] 入圈/出圈须有正文/日志支撑（入伙、驻留、易手等场景）——账实一致由评审抽查")
     return 0
 
@@ -116,12 +122,14 @@ def cmd_knowledge(args):
                 print("[提醒] %s 是范围授予但知情圈为空——先 knowledge scope add %s "
                       "<char…> 编圈，否则展开后无人知情" % (eid, eid))
             ids.append(eid)
-        x["known_by"] = sorted(set(x.get("known_by") or []) | set(ids))
+        if not args.ch:
+            die("grant 必须提供 --ch，不能把当前知情状态当作全部历史", 1)
+        grant_event(proj, x, ids, ch_num(args.ch))
         write(f, json.dumps(data, ensure_ascii=False, indent=1))
         git_autocommit(proj.root, "[knowledge] grant %s → %s%s"
                        % (args.fact_id, ",".join(sorted(set(ids))),
                           "（%s 获知）" % args.ch if args.ch else ""))
-        print("已授予知情：%s known_by=%s" % (args.fact_id, fmt_knowers(proj, x["known_by"])))
+        print("已授予知情：%s known_by=%s" % (args.fact_id, fmt_knowers(proj, x)))
         print("[提醒] 获知须有正文/日志支撑（获知场景章号：%s）——账实一致由评审抽查"
               % (args.ch or "未记"))
         return 0
@@ -133,6 +141,8 @@ def cmd_knowledge(args):
         if not x.get("spoiler"):
             die("fact %s 本就读者已知（spoiler=0），无需 reveal" % args.fact_id, 1)
         num = ch_num(args.ch)
+        if num < int(x.get("revealed_ch") or 0):
+            die("读者揭示不能早于事实登记章", 1)
         x["spoiler"] = 0
         x["revealed_reader_ch"] = num
         write(f, json.dumps(data, ensure_ascii=False, indent=1))
@@ -141,17 +151,27 @@ def cmd_knowledge(args):
               "此后简报不再带【读者未知】约束" % (args.fact_id, num))
         return 0
     # query
-    facts = [x for x, _ in proj.all_facts() if not x.get("superseded_by")]
+    at = ch_num(args.at) if getattr(args, "at", None) else None
+    facts = [x for x, _ in proj.all_facts()
+             if (at is None or fact_exists(x, at))
+             and (not x.get("superseded_by") or (at is not None and at < x.get("superseded_at", 0)))]
     if args.fact_id:
         f, data, x = locate_fact(proj, args.fact_id)
         if not x:
             die("fact 不存在：%s" % args.fact_id, 1)
-        print(json.dumps(x, ensure_ascii=False, indent=1))
+        if at is not None and not fact_exists(x, at):
+            die("该事实在所查询章节尚未登记", 1)
+        view = dict(x)
+        if at is not None:
+            view["knowledge_events"] = [e for e in x.get("knowledge_events", []) if e["chapter"] <= at]
+            view["known_by"] = sorted(effective_knowers(proj, x, at))
+            view["spoiler"] = 0 if reader_knows(x, at) else 1
+        print(json.dumps(view, ensure_ascii=False, indent=1))
         known = x.get("known_by")
-        print("读者：%s" % ("未知（spoiler=1，简报带潜台词约束）" if x.get("spoiler")
+        print("读者：%s" % ("未知（spoiler=1，简报带潜台词约束）" if not reader_knows(x, at if at is not None else 999999)
                             else "已知（ch%s 揭示）" % x.get("revealed_reader_ch",
                                                             x.get("revealed_ch"))))
-        print("角色：%s" % ("知情仅 " + fmt_knowers(proj, known) if known
+        print("角色：%s" % ("知情仅 " + fmt_knowers(proj, x, at) if known
                             else "未建模（known_by 空 = 不设知情约束）"))
         return 0
     if args.entity:
@@ -160,9 +180,9 @@ def cmd_knowledge(args):
             die("实体未登记：%s" % args.entity, 1)
         groups = sorted(g for g, mem in proj.scopes().items() if eid in mem)
         about = [x for x in facts if eid in (x.get("entity_ids") or [])]
-        knows = [x for x in facts if eid in proj.expand_knowers(x.get("known_by"))]
+        knows = [x for x in facts if eid in effective_knowers(proj, x, at)]
         blind = [x for x in facts if x.get("known_by")
-                 and eid not in proj.expand_knowers(x["known_by"])]
+                 and eid not in effective_knowers(proj, x, at)]
         print("== knowledge query %s ==" % eid)
         if eid.startswith(Project.GROUP_PREFIXES):
             print("知情圈成员：%s" % (",".join(proj.scopes().get(eid, [])) or
@@ -174,18 +194,20 @@ def cmd_knowledge(args):
             print("  %-10s %s" % (x["id"], x.get("fact")))
         print("知情 %d 条（含经知情圈展开）：" % len(knows))
         for x in knows:
-            via = [g for g in (x.get("known_by") or [])
-                   if g.startswith(Project.GROUP_PREFIXES) and eid in
-                   proj.scopes().get(g, [])]
+            via = sorted({g for event in x.get("knowledge_events", [])
+                          if (at is None or event["chapter"] <= at)
+                          and eid in event.get("knowers", [])
+                          for g in event.get("via", [])
+                          if g.startswith(Project.GROUP_PREFIXES)})
             print("  %-10s %s%s" % (x["id"], x.get("fact"),
                                     "（经 %s 圈）" % ",".join(via) if via else ""))
         print("不知情 %d 条（known_by 有限定且展开后不含该实体——正文不得由其说破）：" % len(blind))
         for x in blind:
             print("  %-10s %s（知情仅 %s）" % (x["id"], x.get("fact"),
-                                               fmt_knowers(proj, x["known_by"])))
+                                               fmt_knowers(proj, x, at)))
         return 0
     # 默认：读者未知欠账盘点（悬念资产台账）
-    spoilers = sorted([x for x in facts if x.get("spoiler")],
+    spoilers = sorted([x for x in facts if not reader_knows(x, at if at is not None else 999999)],
                       key=lambda x: x.get("revealed_ch") or 0)
     modeled = [x for x in facts if x.get("known_by")]
     print("== knowledge query（矩阵总览）==")
@@ -193,7 +215,7 @@ def cmd_knowledge(args):
           % (len(facts), len(modeled), len(spoilers)))
     for x in spoilers:
         print("  %-10s ch%-4s %s%s" % (x["id"], x.get("revealed_ch"), x.get("fact"),
-                                       "（知情仅 %s）" % fmt_knowers(proj, x["known_by"])
+                                       "（知情仅 %s）" % fmt_knowers(proj, x, at)
                                        if x.get("known_by") else ""))
     if spoilers:
         print("（悬念欠账：埋下未揭示的读者钩子——弧末/卷末逐条决定 继续吊/knowledge "
