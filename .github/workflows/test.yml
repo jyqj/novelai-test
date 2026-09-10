@@ -1,0 +1,40 @@
+name: Novel skill regression
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: novel-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Archive exact source for reproducibility
+        run: git archive --format=zip --output=source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-snapshot
+          path: source.zip
+          retention-days: 7
+      - name: Compile Python sources
+        run: python3 -m compileall -q novel-orchestrator/tools
+      - name: Run all regression suites
+        working-directory: novel-orchestrator
+        run: |
+          set -euo pipefail
+          for suite in tools/tests/test_*.py; do
+            echo "::group::$suite"
+            python3 "$suite"
+            echo "::endgroup::"
+          done
