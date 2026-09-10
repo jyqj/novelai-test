@@ -13,7 +13,7 @@ def first_sentence(text, limit=60):
 
 
 def update_rollup(proj):
-    """P1-1 自动摘要卷积（章→弧→卷），commit 后增量重算 state/rollup.json。
+    """P1-1 自动摘要卷积（章→弧→卷），commit 后全量重算 state/rollup.json。
     弧级 = 各章 summary_after 首句；卷级 = 各弧首末摘要压缩。brief §2 注入为
     远程记忆层——距离越远颗粒越粗，百万字仍可在预算内召回前情。"""
     chs = {}
@@ -26,18 +26,18 @@ def update_rollup(proj):
             continue
         arc = (proj.chapter_task(c["id"]) or {}).get("arc") \
             or c["meta"].get("parent") or "arc_?"
-        chs[c["id"]] = {"arc": arc, "vol": vol_of_arc(arc) or "vol_01", "summary": s}
+        chs[c["id"]] = {"arc": arc, "vol": vol_of_arc(arc) or "vol_01", "summary": s, "memories": mj.get("narrative_memory", [])}
     arcs = {}
     for cid in sorted(chs):
         e = chs[cid]
         arcs.setdefault(e["arc"], {"vol": e["vol"], "chapters": []})["chapters"].append(cid)
-    rollup = {"generated_at": NOW(), "arcs": {}, "volumes": {}}
+    rollup = {"schema_version": 2, "generated_at": NOW(), "arcs": {}, "volumes": {}, "episodes": chs}
     for aid in sorted(arcs):
         a = arcs[aid]
         ids = a["chapters"]
         rollup["arcs"][aid] = {
             "vol": a["vol"], "span": [ids[0], ids[-1]],
-            "lines": ["%s：%s" % (cid, first_sentence(chs[cid]["summary"]))
+            "lines": ["%s：%s" % (cid, chs[cid]["summary"])
                       for cid in ids]}
     for aid in sorted(rollup["arcs"]):
         a = rollup["arcs"][aid]

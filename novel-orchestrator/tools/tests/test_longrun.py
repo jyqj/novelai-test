@@ -24,6 +24,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from support import legacy_fixture_invoke
 
 TOOLS = Path(__file__).resolve().parent.parent
 NOVEL = TOOLS / "novel.py"
@@ -35,8 +36,7 @@ KIND_CYCLE = ["dopamine", "upgrade", "emotion", "reveal", "humor", "reversal"]
 
 
 def run(args, cwd, expect=0):
-    r = subprocess.run([sys.executable, str(NOVEL)] + args,
-                       cwd=str(cwd), capture_output=True, text=True)
+    r = legacy_fixture_invoke(args, cwd)
     if r.returncode != expect:
         print("LONGRUN FAILED: novel.py %s\nexit=%d (期望 %d)\n%s\n%s"
               % (" ".join(args[:6]), r.returncode, expect, r.stdout[-2000:], r.stderr[-800:]))

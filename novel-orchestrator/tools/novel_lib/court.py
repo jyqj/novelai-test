@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """court — 庭审工作区 CLI（P3-2）：open 建场次目录+R0 骨架；status 盘点回合产物；
 close 校验裁决落盘后清理中间态（court.md §3 约定的机械半边）。"""
-import shutil
+import re
 
-from .common import die, git_autocommit, write
+from .common import die, git_autocommit, write, remove
 from .project import Project, find_root
 from .stagectl import stage_guard
 
@@ -25,6 +25,9 @@ def cmd_court(args):
     close 校验裁决落盘后清理中间态（court.md §3 约定的机械半边）。"""
     proj = Project(find_root(args))
     base = proj.p("state", "court")
+    session = getattr(args, "session", None)
+    if session is not None and not re.fullmatch(r"[A-Za-z0-9_-]+", session):
+        die("非法场次 id", 1)
     if args.court_cmd == "open":
         stage_guard(proj, session_stage_allowed(args.session),
                     "court open %s" % args.session)
@@ -47,10 +50,10 @@ def cmd_court(args):
             print("  - %s" % f.name)
         return 0
     if args.court_cmd == "status":
-        if not base.is_dir() or not any(base.iterdir()):
+        if not base.is_dir() or not any(f.is_file() for f in base.rglob("*")):
             print("（无进行中场次）")
         for d in sorted(base.iterdir()) if base.is_dir() else []:
-            if not d.is_dir():
+            if not d.is_dir() or not any(f.is_file() for f in d.rglob("*")):
                 continue
             files = [f.name for f in sorted(d.iterdir())]
             rounds = {r: len([f for f in files if f.startswith(r)])
@@ -72,7 +75,9 @@ def cmd_court(args):
     if missing:
         die("裁决未落盘，不得清场：court/%s*.md 缺失（先随定稿 commit 附笔入库）"
             % " ".join(missing), 1)
-    shutil.rmtree(d)
+    for child in d.rglob("*"):
+        if child.is_file():
+            remove(child)
     git_autocommit(proj.root, "[court] close %s（dec=%s）"
                    % (args.session, " ".join(args.dec)))
     print("场次已清：state/court/%s（裁决 %s 已确认落盘）"

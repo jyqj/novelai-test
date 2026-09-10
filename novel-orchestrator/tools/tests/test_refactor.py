@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from support import legacy_fixture_invoke
 
 TOOLS = Path(__file__).resolve().parent.parent
 NOVEL = TOOLS / "novel.py"
@@ -36,8 +37,7 @@ STEP = [0]
 
 
 def run(args, cwd, expect=0):
-    r = subprocess.run([sys.executable, str(NOVEL)] + args,
-                       cwd=str(cwd), capture_output=True, text=True)
+    r = legacy_fixture_invoke(args, cwd)
     if r.returncode != expect:
         print("FAILED: novel.py %s\nexit=%d (期望 %d)\n--- stdout ---\n%s\n--- stderr ---\n%s"
               % (" ".join(args), r.returncode, expect, r.stdout, r.stderr))
@@ -356,15 +356,12 @@ def main():
         cfg["brief_budget_chars"] = 2600
         (proj / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
                                           encoding="utf-8")
-        run(["brief", "ch_0008"], cwd=proj)
-        brief = (proj / "briefs/ch_0008.brief.md").read_text(encoding="utf-8")
-        must("条目级裁剪" in brief, "P1-2：超预算逐条裁剪并留痕")
-        must("## 0 任务卡" in brief and "## 8 回写契约" in brief
-             and "声纹速查" in brief and "现状：" in brief,
-             "P1-2：must-not-drop 集完整（任务卡/契约/声纹/现状）")
-        must("设定要点" not in brief.split("## 附 溯源")[0]
-             or "本节超预算裁剪" in brief,
-             "P1-2：低分条目（设定要点）先被裁")
+        before = (proj / "briefs/ch_0008.brief.md").read_bytes()
+        out = run(["brief", "ch_0008"], cwd=proj, expect=1)
+        must("必需上下文" in out and "超过预算" in out,
+             "P1-2：不可裁上下文超预算时拒绝交付，不静默丢失")
+        must((proj / "briefs/ch_0008.brief.md").read_bytes() == before,
+             "P1-2：预算失败保留上版简报")
         cfg["brief_budget_chars"] = 24000
         (proj / "config.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
                                           encoding="utf-8")
@@ -395,6 +392,10 @@ def main():
 
         # ---- P3-1：gate 家族
         run(["brief", "ch_0008"], cwd=proj)  # 基线入库（git 干净）
+        # Author-owned fixture changes must be committed explicitly, not absorbed
+        # by brief's auto-commit (which now stages only its own outputs).
+        from support import save_fixture
+        save_fixture(proj)
         run(["gate", "write", "ch_0008"], cwd=proj)
         run(["tree", "add", "chapter", "ch_0009", "--parent", "arc_01_1"], cwd=proj)
         run(["gate", "write", "ch_0009"], cwd=proj, expect=1)  # 未排批+无简报
@@ -439,7 +440,7 @@ status: active
 - 无 | 无 | resolution: adopted
 """, encoding="utf-8")
         run(["court", "close", "S1", "--dec", "dec_001_x"], cwd=proj)
-        must(not (proj / "state/court/S1").exists(), "P3-2：close 校验 dec 后清场")
+        must(not any((proj / "state/court/S1").rglob("*.md")), "P3-2：close 校验 dec 后删除受控文件")
 
         # ---- P4-K：知识矩阵（fact × 角色 × 读者）
         run(["entity", "new", "char_rival"], cwd=proj)
@@ -530,8 +531,8 @@ status: active
         out = run(["gate", "write", "ch_0004"], cwd=proj, expect=1)
         must("novel.py brief ch_0004" in out,
              "P4-G：简报未编译 → 下一步给 brief 命令")
-        must("git checkout" in out,
-             "P4-G：基线不净 → 下一步给清理命令")
+        must("禁止全局清理" in out and "git checkout" not in out,
+             "P4-G：基线不净 → 下一步保护作者改动而非全局清理")
         out = run(["gate", "approve", "ch_0002"], cwd=proj, expect=1)
         must("review add ch_0002" in out, "P4-G：缺回执 → 下一步给 review add")
         must("机检不绿" in out and "check --unit ch_0002" in out,

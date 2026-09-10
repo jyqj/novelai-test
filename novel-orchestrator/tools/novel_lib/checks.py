@@ -188,6 +188,8 @@ def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
         return rep
     if meta.get("kind") != "chapter":
         rep.add("FAIL", "kind 应为 chapter，实为 %s" % meta.get("kind"))
+    if meta.get("id") != ch_id:
+        rep.add("FAIL", "候选章 id 与任务目标不匹配")
     text = body.split("## 正文", 1)[-1] if "## 正文" in body else body
     n_chars = cjk_len(text)
 
@@ -245,7 +247,7 @@ def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
         if len(heads) == 1:
             runs.append("…%s…（%s）" % (sents[i][:12], sents[i][:2]))
     if runs:
-        rep.add("FAIL", "连续 3 句同首词", sorted(set(runs))[:10])
+        rep.add("WARN", "连续 3 句同首词（可能为有意排比，须结合项目审美判断）", sorted(set(runs))[:10])
     else:
         rep.add("PASS", "无连续 3 句同首")
 
@@ -299,6 +301,11 @@ def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
     if wb is None:
         rep.add("FAIL", "缺 writeback/meta.json（回写契约见简报 §8）")
     else:
+        from .narrative import writeback_errors
+        errors = writeback_errors(wb, text)
+        if errors:
+            rep.add("FAIL", "writeback 类型/叙事记忆格式非法", errors)
+            return rep
         missing = [k for k in META_KEYS if k not in wb]
         if missing:
             rep.add("FAIL", "writeback 缺键", missing)
@@ -306,6 +313,13 @@ def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
             rep.add("PASS", "writeback schema 齐全")
         # P0-3/P2-3：越权引用与线索迁移合法性（FAIL 级，阻断 commit）
         ref_errs = writeback_ref_errors(proj, ch_id, wb)
+        for i, memory in enumerate(wb.get("narrative_memory", [])):
+            for ref in memory.get("entity_ids", []):
+                if not proj.resolve_entity(ref):
+                    ref_errs.append("narrative_memory[%d] 实体未登记：%s" % (i, ref))
+            for ref in memory.get("thread_ids", []):
+                if ref not in proj.threads():
+                    ref_errs.append("narrative_memory[%d] 线索未登记：%s" % (i, ref))
         if ref_errs:
             rep.add("FAIL", "writeback 引用越权/迁移非法（不存在实体/线索一律拒绝落盘）",
                     ref_errs)
@@ -556,6 +570,10 @@ def check_project(proj, rep=None):
     ch_fails = []
     for c in proj.chapters():
         cid, m = c["id"], c["meta"]
+        if m.get("status") == "published" and m.get("published_hash"):
+            from .receipts import sha
+            if sha(c["body"].strip()) != m["published_hash"]:
+                ch_fails.append("%s 已发布正文指纹变化" % cid)
         if m.get("status") not in CH_STATUS:
             ch_fails.append("%s status 非法：%s" % (cid, m.get("status")))
         if not proj.p("chapters", cid + ".task.json").is_file():
@@ -693,7 +711,7 @@ def check_project(proj, rep=None):
     # published 连续性
     pub = sorted(ch_num(c["id"]) for c in proj.chapters()
                  if c["meta"].get("status") == "published")
-    if pub and pub != list(range(pub[0], pub[0] + len(pub))):
+    if pub and pub != list(range(1, pub[-1] + 1)):
         rep.add("FAIL", "published 章不连续（存在空洞）",
                 ["published: %s" % pub])
     elif pub:

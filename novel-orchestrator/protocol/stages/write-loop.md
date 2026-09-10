@@ -1,3 +1,5 @@
+> 维护归属与默认池不变；遇具体症状可由编排者 stage consult 有界借阅池外块（见 protocol/knowledge-orchestration.md），不改所有权，不将原文自动投入写手简报。
+
 # stage:write — 章循环（产线）配套知识包 · **零知识装载**
 
 | 键 | 值 |

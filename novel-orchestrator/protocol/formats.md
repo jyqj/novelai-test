@@ -1,3 +1,5 @@
+> **当前执行版本补充**：写入与评审契约以本文 §21 及 reliability.md 为准；旧版字段仍兼容读取，但旧票/无历史记录不能被冒充成当前证据。
+
 # formats.md — v2 文件格式与工具接口契约(实施期 SSOT)
 
 > 本文件钉死**项目侧全部文件格式**与 **novel.py CLI 接口**,是本 skill 的机器契约 SSOT。
@@ -138,8 +140,8 @@ frontmatter:`id: brief_ch_0212`, `kind: review` 除外——用 `kind: brief` �
 ## 附 溯源             (表:资产|rev|用途 + 裁剪留痕行)
 ```
 
-**条目级预算(P1-2)**:每个内容条目带优先级分与 must-not-drop 标记;超 `brief_budget_chars` 时从**最低分条目**逐条裁起(非整节丢弃),裁剪逐项记入对应节内提示行与溯源表。must-not-drop 集(永不裁):任务卡、回写契约、叙述基准+口癖禁忌、前章尾+summary 链、声纹速查、实体现状+最近事件、任务卡指定线与 must_not_drop 线。fact 条目按 时近(≤30 章 +10)/键位(+3)/retcon 连带(+5) 加分。已存在则 `brief_rev+1` 重写(git 保历史)。
-记忆分层(§2):近景=前章尾 500 字+前 3 章 summary 链(must);中景=本弧 rollup 行(距今 >3 章的章级卷积);远景=卷级 rollup 行+`ledgers/recap.md` 尾 12 行——距离越远颗粒越粗,百万字仍在预算内。
+**条目级预算(P1-2)**:每个内容条目带优先级分与 must-not-drop 标记;超 `brief_budget_chars` 时从**最低分条目**逐条裁起(非整节丢弃),裁剪逐项记入对应节内提示行与溯源表。must-not-drop 集(永不裁):任务卡、回写契约、叙述基准+口癖禁忌、前章尾+summary 链、声纹速查、人物内在驱动/关系、历史现状+最近事件、任务卡指定线与 must_not_drop 线。fact 条目按 时近(≤30 章 +10)/键位(+3)/retcon 连带(+5) 加分。已存在则 `brief_rev+1` 重写(git 保历史)。
+记忆分层(§2):近景=前章尾 500 字+前 3 章 summary 链(must);中景=本弧 rollup 行(距今 >3 章的章级卷积);远景=卷级 rollup 行+`ledgers/recap.md` 尾 12 行——远景只作方位索引，重要中间场面由 narrative_memory 按依赖召回；必需条目超预算拒绝，不声称百万字质量已获证。
 **声纹速查(P1-3)**:cast 各实体卡「设定」内声纹条目(口癖/句式/禁词/例句)抽出为 §3 首个独立块,must-not-drop——设定可裁,声纹不裁(防千人一腔)。
 第 4 节召回=任务卡 threads ∪ live 态线中(must_not_drop ∪ volume_scope 含本卷 ∪ payoff_planned 命中本卷或 ≤15 章内,后者加【payoff 临近】标记);第 7 节按 `config.route` 切换 web/traditional 提示组。
 
@@ -189,7 +191,7 @@ frontmatter:`id`, `kind: thread`, `thread_kind: fuse|subplot|relationship|myster
 
 **知识矩阵语义(P4-K/v2:fact × 角色/范围 × 读者)**——每条 fact 两条正交轴:
 - **读者轴** `spoiler`:1=读者未知(简报注【读者未知,只可潜台词】;check 做剧透相似扫描)。读者揭示经 `novel.py knowledge reveal <fact_id> --ch <ch>` 销账(spoiler→0,记 `revealed_reader_ch`;悬念资产的欠账盘点用 `knowledge query`,弧末/卷末例行,workflow §4)。
-- **角色轴** `known_by`(可选):剧中知晓者清单,条目为 `char_`(个体)或 `fac_/loc_/item_`(**范围知情,v2**)。**缺省=未建模,不设约束**(旧数据兼容);一经填写即为白名单——简报 §6 注【知情仅:…】与【本章出场 X 不知情】硬约束,check 抽取器做「越界候选」扫描(有效知情集外的在场角色明写该事实 → NEEDS_REVIEW)。来源两路:commit 自 `continuity_delta[].known_by` 自动登记;剧情中后续获知走 `novel.py knowledge grant <fact_id> --to <实体> [--ch <获知章>]`(获知场景须有正文/日志支撑,评审抽查账实一致)。
+- **角色轴** `known_by`(可选):剧中知晓者清单,条目为 `char_`(个体)或 `fac_/loc_/item_`(**范围知情,v2**)。**缺省=未建模,不设约束**(旧数据兼容);一经填写即为白名单——简报 §6 注【知情仅:…】与【本章出场 X 不知情】硬约束,check 抽取器做「越界候选」扫描(有效知情集外的在场角色明写该事实 → NEEDS_REVIEW)。来源两路:commit 自 `continuity_delta[].known_by` 自动登记;剧情中后续获知走 `novel.py knowledge grant <fact_id> --to <实体> --ch <获知章>`(获知场景须有正文/日志支撑,评审抽查账实一致)。
 
 **范围知情圈(v2)** `entities/scopes.json`(novel.py 独占维护):
 
@@ -198,7 +200,7 @@ frontmatter:`id`, `kind: thread`, `thread_kind: fuse|subplot|relationship|myster
 ```
 
 - 键=已登记的 `fac_/loc_/item_` 群体实体;值=已登记 `char_` 成员(势力成员/常驻知情者/持有人)。经 `novel.py knowledge scope add|remove <群体> <char…>` 维护(入圈/出圈须有正文/日志支撑:入伙、驻留、易手),`scope list` 查圈。
-- **展开口径(全链一致)**:known_by 内群体条目的**有效知情者 = 群体本身 ∪ 圈成员**(简报【知情仅】显示 `fac_x圈(char_a,char_b)`、不知情名单按展开后计算;extract 越界扫描同口径;`knowledge query --entity` 对个体列「经 X 圈」知情,对群体列圈成员)。圈成员变化即时生效于所有引用该群体的 fact——**改圈=改一处,矩阵各处同步**。
+- **历史口径**：新事实/后续 grant 记录授予章与当时的有效知情快照（群体本身及当时成员）。brief / extract / query 使用截止章之前的获知事件。scope 变动只影响下一次 grant，不追溯学习或遗忘。旧无事件记录按兼容逻辑读取并标明历史不确定。
 - 空圈:范围授予但圈无成员 = 展开后无人知情(grant 时打提醒;`check --project` 出 WARN);圈键/成员未登记或类型不符 → `check --project` FAIL。矩阵改账(grant/scope add/remove)受阶段闸门辖 `write|review`(§15)——矩阵更新只发生在章循环/周期回路内,不是自由运维。
 
 - `ledgers/lessons.md`:`- [ch_0212|vol_02|book] 教训一句话(来源 review id)`——例外:本台账由**编排者**经 commit 附笔追加(格式固定),非 novel.py 生成
@@ -227,10 +229,12 @@ transcripts 归档 `court/transcripts/`,**永不进入简报召回**。
 
 ## 12. 评审 reviews/ch_NNNN.{light|deep}.md
 
-frontmatter:`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass|revise|escalate`, `rev_reviewed`(章 rev), `date`。
-节:`## 问题清单`(`- [定位≤20字] 问题 → 建议`,revise 时每条须可执行);`## 教训`(可选,编排者摘入 lessons)。
-**落盘规则(P0-2 收紧)**:一切评审结论必须落盘 reviews/——轻评 pass 用 `novel.py review add <ch> --depth light --verdict pass [--note 要点]`(rev_reviewed 自动取章当前 rev);deep 经 commit type=review_deep 落盘。任务 note 的 `light=pass` 与 `--evidence` 自证通道**已删除**。
-**approved 闸门**:`tree set-status <ch> approved` 仅认 reviews/ 文件且 `verdict=pass ∧ rev_reviewed == 章当前 rev`——章 revise 后旧回执自动失效(打印过期告警),须对新 rev 复评。回执引用写入章 frontmatter `approved_evidence`。
+frontmatter：`id`, `kind: review`, `chapter`, `depth: light|deep`, `verdict: pass|revise|escalate`, `rev_reviewed`, `subject_sha256`, `date`。
+节：`## 问题清单`、`## 逐项裁定`（纯 JSON，完整保存 review checklist 的字段及裁定），可选 `## 教训` / `## 成功样本`。
+
+`review checklist <ch>` 输出 pending 清单；评审后 `review add <ch> --depth light|deep --verdict pass|revise|escalate --evidence <JSON>`。--note 是 --issue 的兼容别名，不能代替逐项证据。深评完整文件也须满足同一证据校验，不能通过 commit 绕过。
+
+approved 需当前内容哈希、修订号、完整裁定和机械检查均有效。同版本 revise/escalate 优先于其他 pass；旧票或正文变更后重评，历史票归档 reviews/history。当前机械回执只覆盖一章；跨章影响须分别开复评任务。可选 strengths 的每条含 quote/effect/scope，quote 必须在本章正文中。
 
 ## 13. config.json(init 默认)
 
@@ -291,7 +295,7 @@ novel.py review add <ch_id> --depth light|deep --verdict pass|revise|escalate
                     [--note N] [--rev R]  # 评审回执落盘 reviews/(rev 默认=章当前 rev);review list
 novel.py facts import <ch_id ...>         # adopt 补录机械半边:自 meta.json continuity_delta
                                           # 分配 fact_id 入账(幂等可重跑);facts list [--entity E]
-novel.py knowledge grant <fact_id> --to <实体> [--to ...] [--ch <获知章>]
+novel.py knowledge grant <fact_id> --to <实体> [--to ...] --ch <获知章>
                                           # 角色/范围轴:known_by 追加——char 个体或 fac/loc/item
                                           #   范围(按知情圈展开;获知须有正文/日志支撑)
 novel.py knowledge reveal <fact_id> --ch <ch>   # 读者轴:spoiler 1→0,记 revealed_reader_ch(悬念销账)
@@ -364,14 +368,16 @@ git 提交消息:`[t_000231] write(ch_0212): 摘要`。
 
 ## 17. check 断言集
 
-**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);**known_by 有限定的事实被明写且在场角色不在有效知情集(个体+fac/loc/item 知情圈展开,v2)→ NEEDS_REVIEW(角色知识越界候选,P4-K——轻评裁定:改暗写/补获知场景后 knowledge grant 或 scope add 入圈/删句)**;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
+**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词 WARN;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);**known_by 有限定的事实被明写且在场角色不在有效知情集(个体+fac/loc/item 知情圈展开,v2)→ NEEDS_REVIEW(角色知识越界候选,P4-K——轻评裁定:改暗写/补获知场景后带章号 knowledge grant（仅入圈不等于获知）/删句)**;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
 **--window [--since CH]**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ live)余额 ∈[2,5];promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;**故事日历(P2-2)**——elapsed 中文数值化(「2天」「三个时辰」→天数)非负 FAIL、story_date(ISO 或中文日期)按章序单调不倒流 FAIL、`ledger timeline` 视图输出累计天数;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。台账读取一律 (chapter) 取最新 rev(§9)。
 **--leak <候选> --brief <简报>**:候选正文中出现、但简报未投递的**已登记专名**(aliases.json + 实体卡 aliases)→ FAIL(信息沙箱违规);未登记的新发明专名机器无法枚举 → NEEDS_REVIEW 交轻评(pipeline §5)。
 **--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;**知情圈台账(v2)**——scopes.json 圈键须为已登记 fac/loc/item、成员须为已登记 char(违者 FAIL),known_by 引用空圈 WARN;published 连续无空洞;必需标题节(§4);queue target 均存在;**半事务检出(P0-3)**——`state/txn/` 有 `done=false` journal → FAIL(上次 commit 中断,先按 §18 恢复)。
 
 ## 18. git 纪律
 
-项目内一切写入经 `novel.py commit`;编排者在**每个 worker 子代理返回后**跑 `git status --porcelain`(项目根),非空 → `git checkout -- . && git clean -fd`,任务 note 记违规。中断恢复:reset 未提交内容,task 回 pending。
+自动修改经 CLI 的逐文件事务边界。worker 返回后比较 `git status --porcelain` 与 `git diff`，先备份并确认作者/worker 改动归属，禁止全工作区丢弃。CLI 自动 Git 提交只带本次触及路径，作者已暂存内容存在时不接管索引。
+
+中断恢复用 `recover` / `recover --rollback`；校验全部前镜像及当前内容，冲突则保留作者编辑，不回退任何文件。旧 journal 缺恢复数据时人工协调，不能直接把任务改 pending 冒充恢复。详见 reliability.md §1。
 
 ## 19. 审批点
 
@@ -414,3 +420,16 @@ v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧�
 *rev 4 · 2026-08-25 · P4 批次:知识矩阵 known_by/revealed_reader_ch 与 knowledge CLI(§5/§9/§15/§17)/gate FAIL 附「下一步」修复命令(§15)/rollup 手动重算命令(§15)/revise_rubric 蒸馏任务类型与 commit 行(§10/§16)/新增 protocol/workflow.md 主循环总装图与 roles/extractor.md(§20)。*
 *rev 3 · 2026-08-24 · 内核重构对齐:台账 (chapter,rev) 语义与撤销重放(§9/§16)/回执收紧与 review CLI(§12)/原子提交 state/txn 与半事务检出(§14/§17)/简报条目级预算+声纹速查+rollup 记忆分层(§6)/抽取器对账与故事日历入 check(§17)/分层指纹(§14)/gate·court·facts·extract CLI(§15)。*
 *rev 2 · 2026-08-24 · 落地增补:facts 生产环/越权机检/线索状态机表/retcon·report·checkpoint·adopt CLI/两级 ngram/power·recap 台账/队列自动化/state.court 与 --draft/decision·review 机检;删除 models 死键与 legacy 引用。*
+
+## 21. 可靠性与历史契约升级
+
+- 所有自动修改统一经 CLI 事务：单主机写锁、触及文件前镜像、非零/异常回滚；recover --rollback 校验后恢复。旧 journal 无前镜像不能自动回退。Git 只提交本命令路径，不接管作者暂存内容。
+- write 只首写 planned；revise 修改已有未发布稿并 rev+1；重复创建不得覆盖；publish 是发布唯一入口且复核回执/机械检查。已消费任务仅允许完全相同输入的无副作用重试。
+- review add 新参数 --evidence <JSON>；review checklist <章> 生成 schema_version/chapter/subject_sha256/summary/findings/strengths。findings 每项保留 id，disposition=pass|waived|revise|escalate，rationale 必填。未裁定项、空总结、哈希过期或额外阻塞不能 pass。--note 只是 --issue 兼容别名，不是批准证据。
+- review 信封新增 subject_sha256；正文必须有 `## 逐项裁定` 纯 JSON。旧回执归档后重评，不自动补哈希；同版本任一深度阻塞覆盖其他 pass。当前机械作用范围为一章。
+- writeback 可选 narrative_memory 数组：kind/text/evidence/entity_ids/thread_ids/keywords；证据须逐字在正文。task 可选 context_entities/memory_keywords/fact_refs/memory_refs 字符串数组，明确引用不可静默裁掉。
+- facts 的 knowledge_events 保存 chapter/knowers/via 授予快照；grant 必须 --ch；读者可见性按 revealed_reader_ch。scope 仅维护当前成员，不重写过去。query --at <章> 支持历史过滤；旧无事件数据保留不确定标记。
+- brief 新增 manifest.json，校验依赖内容哈希、源集合与简报输出哈希；预算为字符上限，必需内容超限拒绝且保留旧简报。补包修源数据/依赖再编译，不手改 manifest。
+- stage consult <K-ID> [<K-ID>] --target <任务/节点> --reason <症状> 为有界跨阶段咨询，记录来源，不改维护归属。stage enter 只证明操作阶段，不替代人工验收。
+
+完整示例、迁移顺序和保证边界见 reliability.md。

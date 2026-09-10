@@ -3,13 +3,14 @@
 及其共享半边（adopt 复用 txn_* 与 update_ngram_cache）。"""
 import datetime
 import json
+import hashlib
 import re
 
 from .common import (NODE_KINDS, NOW, REQUIRED_SECTIONS, cache_fps, ch_num,
                      char_ngrams, cjk_len, die, dump_frontmatter, get_section,
                      git_autocommit, parse_frontmatter, read, split_sections,
                      strip_ch_lines, thread_effective_state, thread_next_state,
-                     write)
+                     write, append)
 from .checks import check_unit, writeback_ref_errors
 from .journal import register_facts
 from .project import Project, find_root
@@ -115,59 +116,40 @@ def apply_writeback(proj, ch_id, wb, rev=1):
     task = proj.chapter_task(ch_id) or {}
     quota = task.get("payoff_quota", [])
     realized = set(wb.get("payoff_realized", []))
-    with open(proj.p("ledgers", "payoff.tsv"), "a", encoding="utf-8") as f:
-        for i, q in enumerate(quota, 1):
-            pid = "payoff_%04d_%d" % (num, i)
-            f.write("%s\t%s\t%s\t%s\t%d\t%d\n"
-                    % (ch_id, pid, q.get("kind", "other"), q.get("intent", ""),
-                       1 if pid in realized else 0, rev))
-    # timeline（rev 列）
+    for i, q in enumerate(quota, 1):
+        pid = "payoff_%04d_%d" % (num, i)
+        append(proj.p("ledgers", "payoff.tsv"),
+               "%s\t%s\t%s\t%s\t%d\t%d\n" %
+               (ch_id, pid, q.get("kind", "other"), q.get("intent", ""),
+                1 if pid in realized else 0, rev))
     ta = wb.get("time_advance", {})
-    with open(proj.p("ledgers", "timeline.tsv"), "a", encoding="utf-8") as f:
-        f.write("%s\t%s\t%s\t\t%d\n"
-                % (ch_id, ta.get("story_date", ""), ta.get("elapsed", ""), rev))
-    # power 台账（P1-6，可选键；rev 列）
+    append(proj.p("ledgers", "timeline.tsv"), "%s\t%s\t%s\t\t%d\n" %
+           (ch_id, ta.get("story_date", ""), ta.get("elapsed", ""), rev))
     pd = wb.get("power_delta", []) or []
     if pd:
         pf = proj.p("ledgers", "power.tsv")
         if not pf.is_file():
             write(pf, "chapter\tentity\tfrom\tto\tnote\trev\n")
-        with open(pf, "a", encoding="utf-8") as f:
-            for d in pd:
-                for ref in d.get("entity_ids", []):
-                    eid = proj.resolve_entity(ref)
-                    f.write("%s\t%s\t%s\t%s\t%s\t%d\n"
-                            % (ch_id, eid, d.get("from", ""), d.get("to", ""),
-                               d.get("note", ""), rev))
+        for d in pd:
+            for ref in d.get("entity_ids", []):
+                append(pf, "%s\t%s\t%s\t%s\t%s\t%d\n" %
+                       (ch_id, proj.resolve_entity(ref), d.get("from", ""),
+                        d.get("to", ""), d.get("note", ""), rev))
         notes.append("power 台账已追加 %d 行" % sum(len(d.get("entity_ids", [])) for d in pd))
     return True, notes
 
 
 # ---------------------------------------------------------------- 事务日志（P0-3）
 def txn_begin(proj, kind, target, task_id=""):
-    """原子提交半边：多文件落盘前写 journal（done=false），全部写完后 txn_end 收口。
-    中途崩溃 → journal 残留 done=false，fsck/check --project 报半事务。"""
-    tdir = proj.p("state", "txn")
-    tdir.mkdir(parents=True, exist_ok=True)
-    # 修剪：已完成 journal 只保留最近 20 份
-    done = sorted([f for f in tdir.glob("txn_*.json")
-                   if json.loads(read(f)).get("done")], key=lambda f: f.name)
-    for f in done[:-20]:
-        f.unlink()
-    txn_id = "txn_%s_%s" % (datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"), target)
-    write(tdir / (txn_id + ".json"), json.dumps(
-        {"id": txn_id, "kind": kind, "target": target, "task": task_id,
-         "started_at": NOW(), "done": False}, ensure_ascii=False, indent=1))
-    return txn_id
+    from .transactions import ACTIVE
+    if ACTIVE is None:
+        raise RuntimeError("写命令须经 CLI 事务入口执行")
+    return ACTIVE.id
 
 
 def txn_end(proj, txn_id):
-    f = proj.p("state", "txn", txn_id + ".json")
-    if f.is_file():
-        data = json.loads(read(f))
-        data["done"] = True
-        data["completed_at"] = NOW()
-        write(f, json.dumps(data, ensure_ascii=False, indent=1))
+    # The outer CLI transaction also covers task consumption and all derived files.
+    pass
 
 
 def update_ngram_cache(proj, ch_id, text):
@@ -225,24 +207,42 @@ def propagate_stale(proj, node_id):
 
 
 def route_staged_file(proj, meta):
-    """按 staged 文件 meta 决定目标路径（id 驱动）。"""
-    kind, fid = meta.get("kind"), meta.get("id", "")
+    """Strict ID/kind pairing; no relative paths or arbitrary review targets."""
+    kind, fid = meta.get("kind"), str(meta.get("id", ""))
+    patterns = {"volume": r"vol_\d{2}", "arc": r"arc_\d{2}_\d+",
+                "entity": r"(?:char|item|loc|fac)_[a-z0-9_]+",
+                "thread": r"thread_[a-z0-9_]+", "decision": r"dec_[a-zA-Z0-9_.-]+"}
     if kind in ("book", "style", "world"):
-        return proj.p("tree", kind + ".md")
-    if kind == "volume":
-        return proj.p("tree", fid, "volume.md")
-    if kind == "arc":
-        return proj.node_path(fid)
-    if kind == "entity":
-        return proj.p("entities", fid + ".md")
-    if kind == "thread":
-        return proj.p("threads", fid + ".md")
-    if kind == "decision":
-        return proj.p("court", fid + ".md")
+        return proj.p("tree", kind + ".md") if fid == kind else None
     if kind == "review":
-        depth = meta.get("depth", "deep")
-        return proj.p("reviews", "%s.%s.md" % (meta.get("chapter", fid), depth))
-    return None
+        ch = str(meta.get("chapter", ""))
+        depth = meta.get("depth")
+        if not re.fullmatch(r"ch_\d{4}", ch) or depth not in ("light", "deep"):
+            return None
+        return proj.p("reviews", "%s.%s.md" % (ch, depth))
+    if kind not in patterns or not re.fullmatch(patterns[kind], fid):
+        return None
+    if kind in ("volume", "arc"):
+        return proj.node_path(fid)
+    directory = {"entity": "entities", "thread": "threads", "decision": "court"}[kind]
+    return proj.p(directory, fid + ".md")
+
+
+def commit_fingerprint(args, task):
+    paths = ([args.chapter, args.writeback] if task["type"] in ("write", "revise")
+             else args.file or [])
+    payload = [task["type"], task["target"], bool(args.draft),
+               [read(p) for p in paths if p]]
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
+
+
+def consume(proj, task_id, fingerprint):
+    q = proj.queue()
+    for task in q["tasks"]:
+        if task["id"] == task_id:
+            task["commit_fingerprint"] = fingerprint
+            task["committed_at"] = NOW()
+    proj.save_queue(q)
 
 
 def cmd_commit(args):
@@ -250,6 +250,14 @@ def cmd_commit(args):
     t = proj.task(args.task_id)
     if not t:
         die("任务不存在：%s" % args.task_id)
+    fingerprint = commit_fingerprint(args, t)
+    if t.get("commit_fingerprint"):
+        if t["commit_fingerprint"] == fingerprint:
+            print("已提交相同产物；幂等重试，未重复记账")
+            return 0
+        die("任务已消费；不同产物必须创建新的 revise/design 任务", 1)
+    if t["state"] not in ("pending", "running"):
+        die("只能提交 pending/running 且依赖已完成的任务", 1)
     ttype = t["type"]
     msg = args.m or ""
     allowed = commit_stage_allowed(ttype, t.get("target"))
@@ -267,8 +275,15 @@ def cmd_commit(args):
             return 1
         exist_p = proj.p("chapters", ch_id + ".md")
         old_meta = parse_frontmatter(read(exist_p))[0] if exist_p.is_file() else {}
-        if ttype == "revise" and old_meta.get("status") == "published":
-            die("published 章不可 revise——走 serial-ops.md §3 retcon", 1)
+        old_meta = old_meta or {}
+        if old_meta.get("status") == "published":
+            die("published 章不可改写——走 serial-ops.md §3 retcon", 1)
+        if ttype == "write" and (old_meta.get("status") != "planned"
+                                 or proj.chapter_meta_json(ch_id) is not None):
+            die("write 只接受首次写作的 planned 章；已有正文必须使用 revise", 1)
+        if ttype == "revise" and (old_meta.get("status") not in ("drafted", "approved", "stale")
+                                  or proj.chapter_meta_json(ch_id) is None):
+            die("revise 需要已有未发布正文", 1)
         cand_meta, cand_body = parse_frontmatter(read(args.chapter))
         wb = json.loads(read(args.writeback))
         text = cand_body.split("## 正文", 1)[-1]
@@ -302,6 +317,7 @@ def cmd_commit(args):
               json.dumps(wb, ensure_ascii=False, indent=1))
         update_ngram_cache(proj, ch_id, text)
         update_rollup(proj)
+        consume(proj, args.task_id, fingerprint)
         txn_end(proj, txn)
         for w in msgs:
             print("[info] " + w)
@@ -338,6 +354,20 @@ def cmd_commit(args):
                 if missing or empty:
                     die("design 校验失败 %s：缺节 %s / 空节 %s（全批未落盘）"
                         % (meta.get("id"), missing, empty), 1)
+            if any(dest == target for _, _, dest in staged):
+                die("同批多个产物写入同一目标：%s" % target, 1)
+            if meta.get("kind") == "review":
+                from .receipts import receipt_errors
+                errors = receipt_errors(proj, meta, body)
+                if errors:
+                    die("评审证据无效：" + "; ".join(errors), 1)
+            if ttype == "review_deep" and (meta.get("kind") != "review"
+                                           or meta.get("depth") != "deep"
+                                           or meta.get("chapter") != t["target"]):
+                die("review_deep 只能提交目标章的深评回执", 1)
+            if meta.get("kind") in NODE_KINDS and target.is_file():
+                previous, _ = parse_frontmatter(read(target))
+                meta["rev"] = ((previous or {}).get("rev") or 0) + 1
             staged.append((meta, body, target))
         txn = txn_begin(proj, ttype, t["target"], args.task_id)
         main_done = False
@@ -381,6 +411,8 @@ def cmd_commit(args):
         if ttype == "revise_rubric":
             print("蒸馏入库：style.md rev+1；新黑名单自下一次 check --unit 起机检生效"
                   "（不波及既有章）；来源 evidence：%s" % t.get("evidence"))
+        if not args.draft:
+            consume(proj, args.task_id, fingerprint)
         txn_end(proj, txn)
         git_autocommit(proj.root, "[%s] %s(%s): %s" % (args.task_id, ttype, t["target"], msg))
         return 0

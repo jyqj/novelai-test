@@ -36,6 +36,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from support import legacy_fixture_invoke
 
 TOOLS = Path(__file__).resolve().parent.parent
 NOVEL = TOOLS / "novel.py"
@@ -52,8 +53,7 @@ KID_RE = re.compile(r"K-[A-Z]+-\d{3}")
 
 
 def run(args, cwd, expect=0):
-    r = subprocess.run([sys.executable, str(NOVEL)] + args,
-                       cwd=str(cwd), capture_output=True, text=True)
+    r = legacy_fixture_invoke(args, cwd)
     if r.returncode != expect:
         print("FAILED: novel.py %s\nexit=%d (期望 %d)\n--- stdout ---\n%s\n--- stderr ---\n%s"
               % (" ".join(args), r.returncode, expect, r.stdout, r.stderr))

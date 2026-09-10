@@ -6,7 +6,7 @@ from .checks import check_project, check_unit
 from .project import Project, find_root, load_queue_promoted, next_task_id
 from .serial_ops import checkpoint_problems, publish_problems
 from .stagectl import print_stage_hint, stage_guard
-from .structure import approval_receipt
+from .receipts import approval_receipt
 
 
 def gate_write(proj, ch_id, rep):
@@ -59,17 +59,20 @@ def gate_write(proj, ch_id, rep):
     if not bp.is_file():
         rep.add("FAIL", "简报未编译（写手唯一世界）",
                 fix="novel.py brief %s（编译后资料员审包，pipeline §1 步骤 1–3）" % ch_id)
-    elif tp.is_file() and bp.stat().st_mtime < tp.stat().st_mtime:
-        rep.add("FAIL", "简报早于任务卡（排批后未重编译）",
-                fix="novel.py brief %s（重编译，brief_rev+1）" % ch_id)
     else:
-        rep.add("PASS", "简报存在且不早于任务卡")
+        from .dependencies import stale_brief
+        changed = stale_brief(proj, ch_id)
+        if changed:
+            rep.add("FAIL", "简报依赖已变化", changed,
+                    fix="novel.py brief %s（按内容哈希重编译，不依赖 mtime）" % ch_id)
+        else:
+            rep.add("PASS", "简报与全部依赖内容哈希一致")
     dirty = git_out(proj.root, "status", "--porcelain")
     if dirty:
         rep.add("FAIL", "工作区不干净（spawn 前基线必须干净，pipeline §5）",
                 dirty.splitlines()[:8],
                 fix="附笔请在 commit 前一刻写；散落改动先核对再清：git status --porcelain"
-                    " → git checkout -- . && git clean -fd（worker 中间稿移项目外）")
+                    " → git diff；由作者确认后单独提交/备份相关文件，禁止全局清理")
     else:
         rep.add("PASS", "git 基线干净")
     cur = proj.cursor()
@@ -106,7 +109,7 @@ def gate_approve(proj, ch_id, rep):
     else:
         rep.add("FAIL", "缺有效评审回执（verdict=pass 且 rev_reviewed=章当前 rev）",
                 fix="先真评审（轻评按 roles/critic-light.md），后落盘回执："
-                    "novel.py review add %s --depth light --verdict pass --note <要点>"
+                    "novel.py review add %s --depth light --verdict pass --evidence <逐项裁定.json>"
                     "（章 revise 过则须对新 rev 复评）" % ch_id)
     n_before = sum(1 for l, _, _, _ in rep.items if l == "FAIL")
     check_unit(proj, ch_id, rep=rep)
