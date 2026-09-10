@@ -258,7 +258,8 @@ class IntegrityTests(unittest.TestCase):
         original = transactions.atomic_bytes
         failed = [False]
         def fail_once(path, data):
-            if Path(path) == self.root / "chapters/ch_0001.md" and not failed[0]:
+            # safe_path() resolves symlinks (macOS /var/folders -> /private/var), so compare resolved.
+            if Path(path) == (self.root / "chapters/ch_0001.md").resolve() and not failed[0]:
                 failed[0] = True
                 raise OSError("injected write failure")
             return original(path, data)
