@@ -1,0 +1,66 @@
+name: One-shot methodology source transfer
+
+on:
+  push:
+    branches: ['work/novel-methodology-build-20260920']
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.repository == 'jyqj/novelai-test' && github.ref == 'refs/heads/work/novel-methodology-build-20260920'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Apply exact locally verified source delta
+        run: python3 .methodology-transfer/apply_once.py
+      - name: Run all eight regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p test-artifacts
+          python3 --version | tee test-artifacts/python-version.txt
+          python3 -m compileall -q novel-orchestrator/tools
+          count=0
+          failed=0
+          for suite in novel-orchestrator/tools/tests/test_*.py; do
+            count=$((count + 1))
+            name="$(basename "$suite" .py)"
+            echo "::group::$name"
+            if ! python3 "$suite" 2>&1 | tee "test-artifacts/$name.log"; then failed=1; fi
+            echo '::endgroup::'
+          done
+          test "$count" -eq 8
+          test "$failed" -eq 0
+      - name: Publish only the new correction branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=d29fd450eff951e16cd832791b03ce4ad16a1402
+          expected=d8a4fed265bd9d5c9d894ecbea4f027b5b9cd472
+          target=refs/heads/fix/novel-methodology-20260920
+          test "$(git write-tree)" = "$expected"
+          test -z "$(git ls-remote --heads origin "$target")"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          commit=$(printf '%s\n' 'fix: correct long-fiction methodology, pattern composition, promises and narrative continuity' | git commit-tree "$expected" -p "$base")
+          printf '%s\n' "$commit" | tee test-artifacts/commit.txt
+          printf '%s\n' "$expected" > test-artifacts/tree.txt
+          git archive --format=zip --output=test-artifacts/source.zip "$commit"
+          git diff --binary "$base" "$commit" > test-artifacts/methodology.patch
+          git push origin "$commit:$target"
+          echo "Published $commit only to $target" >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain exact source and verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: methodology-correction-verified-source
+          path: test-artifacts/
+          retention-days: 14
