@@ -9,6 +9,10 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 > **全生命周期主循环的唯一总装图 = `protocol/workflow.md`**：每个环节的入口闸门/CLI/执行角色/判据卡/失败去向都在那一份里；solo、traditional、无 shell 档的覆盖差分也收敛在其 §7。迷路时：`novel.py status` → `novel.py gate next`（机器剧本，FAIL 自带「下一步」修复命令）→ 对照 workflow §1 定位。
 
+## 创作方法入口
+
+新书先读 `methodology/README.md` → `methodology/story-engine.md`，再按阶段组织材料。选择定式读 `methodology/patterns.md`；伏笔/钩子读 `methodology/promises-and-hooks.md`；一致性读 `methodology/continuity.md`。知识的地位见 `methodology/knowledge-policy.md`。这些是有条件的工作方法，不新增发布闸门。
+
 ## 0. 一切工作的三条公理
 
 1. **文件即记忆**：上下文会丢，写进项目文件的才存在。一切共识（设定、决策、进度）落盘后才算发生。

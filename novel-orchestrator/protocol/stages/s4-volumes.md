@@ -39,3 +39,6 @@
 
 K-ID → `knowledge-blocks.md` 锚点取段（L1/L2 优先）；序列详解四块（004–007）体量大，
 只取本卷对应序列段，禁整章拉取。
+
+
+创作方法：编排者按当前问题参考 `methodology/patterns.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。

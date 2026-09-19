@@ -331,11 +331,11 @@ def check_unit(proj, ch_id, candidate=None, writeback=None, rep=None):
         close_ok = bool(wb.get("hooks_realized", {}).get("close"))
         if not close_ok:
             if route != "web":
-                rep.add("WARN", "hooks_realized.close=false（traditional 建议级，须在 issues 说明 turn）")
+                rep.add("WARN", "hooks_realized.close=false（可完整收束；按本章实际作用评审）")
             elif wb.get("issues"):
                 rep.add("WARN", "hooks_realized.close=false，但 issues 已说明（人工裁定）")
             else:
-                rep.add("FAIL", "route=web 章尾钩必须落实（close=false 且 issues 未说明）")
+                rep.add("WARN", "章尾未标钩：检查全局阅读理由或完整收束，不强制悬崖钩")
         task = proj.chapter_task(ch_id)
         if task:
             quota_n = len(task.get("payoff_quota", []))
@@ -420,8 +420,8 @@ def check_window(proj, rep=None, since=None):
             if r["kind"] in BIG_PAYOFF_KINDS:
                 big[n] = big.get(n, 0) + 1
 
-    # route=traditional 时窗口纪律降级为建议（modes/route-traditional.md §3）
-    win_level = "FAIL" if proj.config.get("route", "web") == "web" else "WARN"
+    # 所有路线的旧 3/10 窗口仅作观察；不据此判定文学质量。
+    win_level = "WARN"  # Old 3/10 cadence is an observation, not a universal literary gate.
     v3 = []
     for i in nums:
         win = [i, i + 1, i + 2]
@@ -429,7 +429,7 @@ def check_window(proj, rep=None, since=None):
             if not any(realized.get(n) for n in win):
                 v3.append("ch%04d–ch%04d 零已兑现爽点" % (i, i + 2))
     if v3:
-        rep.add(win_level, "3 章小爽窗口破（rubrics/payoff.md §二）", v3)
+        rep.add(win_level, "3 章样例窗口无兑现记录（仅诊断，按本书体验裁定）", v3)
     else:
         rep.add("PASS", "3 章小爽窗口全绿（%d 章）" % len(nums))
 
@@ -440,7 +440,7 @@ def check_window(proj, rep=None, since=None):
             if not any(big.get(n) for n in win):
                 v10.append("ch%04d–ch%04d 无处境级释放（upgrade/reveal/reversal）" % (i, i + 9))
     if v10:
-        rep.add(win_level, "10 章大爽窗口破", v10[:5])
+        rep.add(win_level, "10 章样例窗口无处境级记录（仅诊断）", v10[:5])
     elif len(nums) >= 10:
         rep.add("PASS", "10 章大爽窗口全绿")
     else:
@@ -452,13 +452,7 @@ def check_window(proj, rep=None, since=None):
                 if t["meta"].get("thread_kind") == "promise"
                 and t["meta"].get("state") in THREAD_LIVE]
     bal = len(promises)
-    if len(nums) >= 5:
-        if 2 <= bal <= 5:
-            rep.add("PASS", "promise 余额 %d ∈ [2,5]" % bal)
-        else:
-            rep.add("WARN", "promise 余额 %d ∉ [2,5]（期待账户失衡，rubrics/payoff.md §四）" % bal)
-    else:
-        rep.add("SKIP", "成稿 <5 章，promise 余额仅报告：%d" % bal)
+    rep.add("SKIP", "promise 未结记录 %d（非读者当前焦点数；不以 [2,5] 判健康，收束可归零）" % bal)
 
     # promise >15 章无推进
     cur = max(nums)
@@ -484,7 +478,7 @@ def check_window(proj, rep=None, since=None):
             n = ch_num(r["chapter"]) if re.match(r"^ch_\d{4}$", r["chapter"]) else 0
             if cur - 9 <= n <= cur:
                 recent[r["entity"]] = recent.get(r["entity"], 0) + 1
-        fast = ["%s 近 10 章 %d 次位阶变动（rubrics/power.md §二：默认 ≤1 大阶/卷）"
+        fast = ["%s 近 10 章 %d 次位阶变动（仅频率观察；按已定机制与实际成长判断）"
                 % (e, c) for e, c in recent.items() if c >= 3]
         if fast:
             rep.add("WARN", "战力升级过快候选（设定审计按 power 卡核预算）", fast)

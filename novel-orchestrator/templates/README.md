@@ -30,3 +30,8 @@ novel.py 从本目录实例化项目文件。占位规约:`[方括号]`=待填,�
 3. 其余模板按需实例化:tree add(volume/arc)、排批(chapter 三件套)、建卡/登记(entity/thread)、庭后(decision)、评审(review)。
 4. ledgers/、tasks/queue.json、state/、entities/aliases.json、briefs/、court/transcripts/、data/feedback/、corpus/ 由 novel.py 内置生成,不从模板拷贝。
 5. 单写者纪律:项目内一切写入经 `novel.py commit`;状态迁移合法性见 formats §3,必需标题节机检见 formats §4/§17。
+
+
+## 编辑工作表（非自动实例化）
+
+pattern-card.md 用于记录有条件的功能模式；reader-state.md 用于标注阅读截止处的观察与编辑假说。二者不新增 CLI 类型。编排者选择相关内容进入设计或任务 creative_brief；不要把它们冒充自动心理推断结果。thread 的回收设计位于推进日志之前，实体补充状态位于事件日志之前，保持追加日志的现有文件约定。

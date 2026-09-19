@@ -35,7 +35,7 @@ def gate_write(proj, ch_id, rep):
     route = proj.config.get("route", "web")
     hook = task.get("hook") or {}
     if route == "web" and (not hook.get("close") or str(hook.get("close")).startswith("[")):
-        rep.add("FAIL", "route=web 章尾钩未排（task.json hook.close 必填）",
+        rep.add("WARN", "章尾未排钩：可完整收束或承接全局期待，交编辑判断",
                 fix="补 chapters/%s.task.json 的 hook.close（一句话钩子，"
                     "pipeline §1 步骤 0）后重跑 gate write" % ch_id)
     if route == "traditional" and not task.get("turn"):

@@ -34,5 +34,14 @@
   "context_entities": [],
   "memory_keywords": [],
   "fact_refs": [],
-  "memory_refs": []
+  "memory_refs": [],
+  "creative_brief": {
+    "experience": "",
+    "emotional_context": "",
+    "reader_state_hypothesis": "",
+    "pattern_choices": [],
+    "freedom_and_limits": "",
+    "method_notes": ""
+  },
+  "context_threads": []
 }

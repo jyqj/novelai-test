@@ -38,3 +38,6 @@
 ## 锚点读法
 
 K-ID → `knowledge-blocks.md` 锚点取段（L1/L2 优先）；附件进设计简报，不进章简报。
+
+
+创作方法：编排者按当前问题参考 `methodology/story-engine.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。
