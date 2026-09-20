@@ -1,0 +1,65 @@
+name: One-shot scene workshop source transfer
+on:
+  push:
+    branches: ['work/novel-scene-transfer-20260920']
+permissions:
+  contents: write
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: transfer
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 38a0cbbc7e72a18b671f6f7e07131b7d98ce0681
+          path: source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Apply exact verified source delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = 38a0cbbc7e72a18b671f6f7e07131b7d98ce0681
+          python3 transfer/.github/scene-transfer/apply.py source
+          mkdir -p evidence
+          git -C source write-tree > evidence/source-tree.txt
+          python3 --version > evidence/python-version.txt
+      - name: Run all nine regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q source/novel-orchestrator/tools
+          git -C source diff --cached --check
+          count=0
+          failed=0
+          for suite in source/novel-orchestrator/tools/tests/test_*.py; do
+            count=$((count + 1))
+            if ! python3 "$suite" 2>&1 | tee "evidence/$(basename "$suite" .py).log"; then
+              failed=1
+            fi
+          done
+          test "$count" = 9
+          test "$failed" = 0
+      - name: Publish only the new improvement branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C source write-tree)" = 752abc3dbef3f9814c1ae06fb35cb39b4894e268
+          test -z "$(git -C source ls-remote --heads origin refs/heads/feat/novel-scene-workshop-20260920)"
+          git -C source -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat: connect scene workshop, long-horizon evidence and reader feedback'
+          git -C source push origin HEAD:refs/heads/feat/novel-scene-workshop-20260920
+          git -C source rev-parse HEAD > evidence/commit.txt
+          git -C source diff 38a0cbbc7e72a18b671f6f7e07131b7d98ce0681 HEAD > evidence/change.patch
+          git -C source archive --format=zip HEAD > evidence/source.zip
+      - name: Retain exact source and verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scene-workshop-verified-source
+          path: evidence/
+          retention-days: 14
