@@ -37,7 +37,7 @@
 
 ## 禁读
 
-- knowledge/ 池外任何块（要投先改 `knowledge-map.md` 所有权，orchestration §6）
+- 未经选择的整库原文；池外有具体问题可 stage consult，不改维护归属
 - 概念辨析类理论块（高概念/前提混淆辨析，所有权=diag）——疑难才走
   `protocol/stages/diagnose.md`；`state/court/` 往期 transcript（court.md §4 纪律）
 - 正文级判据卡（prose-disease/voice 等，所有权=write）——本场不评正文
@@ -45,7 +45,7 @@
 ## 锚点读法
 
 K-ID → `knowledge-blocks.md` 查「来源 + 章节」→ 按 `<!-- K-XXX-NNN -->` 锚点取段，
-L1（定义/速查）、L2（操作步骤）优先；附件进设计简报，不进章简报。
+L1（定义/速查）、L2（操作步骤）优先；原文按问题选读；有用操作与正反例可整理进 creative_brief，不整包投递。
 
 
 创作方法：编排者按当前问题参考 `methodology/story-engine.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。

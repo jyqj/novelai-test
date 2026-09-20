@@ -27,19 +27,19 @@
 
 ## traditional 差分（route=traditional 时叠加）
 
-- 细纲工序按 `modes/route-traditional.md` §2：beats 6–10 拍 + scene_intents + turn；
-  检查判据换 `rubrics/scene-value.md`（场景合法性/价值翻转，所有权=trad）。
-- 全书节拍对位以 `rhythm/classic24.md` 为准（所有权=s4）。
+- 细纲工序按 `modes/route-traditional.md` §2：按需要细化 scene_intents 与场景卡，不限定拍数或强制价值翻转；
+  检查判据换 `rubrics/scene-value.md`（场景作用与体验，所有权=trad）。
+- `rhythm/classic24.md` 是可选整体弧参考（所有权=s4），可选探索式或其他模式组合。
 
 ## 禁读
 
-- knowledge/ 池外任何块；往期 transcript
+- 未经选择的整库原文；往期 transcript 不直接投递（池外可按问题 consult）
 - 书庭/卷庭池块（序列详解所有权=s4、嵌套/高潮块所有权=vol、结构理论基座所有权=diag）
-  ——弧规划只消化卷蓝图，不重开卷级议题
+  ——发现上层前提有问题可提出影响明确的 revise_design，不因阶段拒绝诊断
 
 ## 锚点读法
 
-K-ID → `knowledge-blocks.md` 锚点取段（L1/L2 优先）；附件进设计简报，不进章简报。
+K-ID → `knowledge-blocks.md` 锚点取段（L1/L2 优先）；原文按问题选读；有用操作与正反例可整理进 creative_brief，不整包投递。
 
 
 创作方法：编排者按当前问题参考 `methodology/patterns.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。

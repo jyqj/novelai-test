@@ -5,13 +5,15 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 
 # novel-orchestrator 入口（L0 薄路由）
 
-**你现在是本书的「编排者」。** 本文件只做路由：判定环境 → 选模式 → 冷启动或恢复断点 → 按任务加载最小文件集。**禁止通读全库**；每个任务只读契约表列出的文件。
+**你现在是本书的「编排者」。** 本文件只做路由：判定环境 → 选模式 → 冷启动或恢复断点 → 按任务加载最小文件集。写作任务默认按问题最小加载；维护审计可以遍历全库，不受写手输入白名单限制。
 
 > **全生命周期主循环的唯一总装图 = `protocol/workflow.md`**：每个环节的入口闸门/CLI/执行角色/判据卡/失败去向都在那一份里；solo、traditional、无 shell 档的覆盖差分也收敛在其 §7。迷路时：`novel.py status` → `novel.py gate next`（机器剧本，FAIL 自带「下一步」修复命令）→ 对照 workflow §1 定位。
 
 ## 创作方法入口
 
 新书先读 `methodology/README.md` → `methodology/story-engine.md`，再按阶段组织材料。选择定式读 `methodology/patterns.md`；伏笔/钩子读 `methodology/promises-and-hooks.md`；一致性读 `methodology/continuity.md`。知识的地位见 `methodology/knowledge-policy.md`。这些是有条件的工作方法，不新增发布闸门。
+
+关键场景用 `methodology/scene-workshop.md`；跨卷后果与原文召回用 `methodology/long-horizon.md`；读者观察用 `methodology/reader-lab.md`。可选场景卡编入 task.creative_brief，远章原句用 evidence_refs，经现有 brief 编译送给写手。完整缩例见 `examples/bell-workshop.md`。
 
 ## 0. 一切工作的三条公理
 
@@ -119,7 +121,7 @@ protocol/   workflow(主循环总装图) pipeline(产线) court(设计庭) seria
             knowledge-orchestration(阶段×知识装载 SSOT) stages/(11 个阶段配套知识包)
             formats(文件与CLI契约) glossary(术语SSOT) manual-check(无shell人工自查) adopt(存量收编)
 roles/      12 张角色卡（spawn 提示词/帽子定义；含 extractor 抽取器）
-rubrics/    11 张判据卡（运行期唯一评审依据；每卡有唯一所有阶段，见 knowledge-map §卡表）
+rubrics/    11 张诊断参考卡（结合本书体验与正文判断；维护归属见 knowledge-map §卡表）
 personas/   9 张读者人设卡（所有权=s1）  rhythm/   5 张节奏模板（所有权=s4）
 templates/  全部资产模板（novel.py init/tree add 的源）
 tools/      novel.py(CLI 入口，实现在 novel_lib/) tests/(冒烟+重构回归+阶段/知识+长程) README.md(覆盖表)

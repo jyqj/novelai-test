@@ -3,6 +3,7 @@
 import hashlib
 import json
 from .common import SKILL_ROOT, ch_num, read
+from .evidence import evidence_sources
 
 
 def file_hash(path):
@@ -17,6 +18,7 @@ def brief_sources(proj, ch_id):
             if path.is_file() and path.suffix in (".md", ".json"):
                 files.add(path)
     files.update(proj.facts_files())
+    files.update(evidence_sources(proj, proj.chapter_task(ch_id) or {}))
     for name in ("lessons.md", "recap.md", "strengths.md"):
         files.add(proj.p("ledgers", name))
     files.add(proj.p("state", "rollup.json"))

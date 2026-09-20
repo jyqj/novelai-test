@@ -8,7 +8,11 @@
 | 该用什么定式、如何不套路 | `patterns.md` | arc 的模式组合及其取舍；模板 `pattern-card.md` |
 | 角色行为不可信、跨卷断情绪 | `continuity.md` | 实体关系、事实、narrative_memory；弧因果链 |
 | 如何埋伏笔、回收、安排章尾 | `promises-and-hooks.md` | thread 的回收设计、任务卡创作说明 |
+| 如何把旧章原文精确送入本章简报 | `evidence-usage.md` | task.evidence_refs → brief §2 与来源哈希 |
 | 某条知识到底能否使用 | `knowledge-policy.md` | 选法理由、参数依据、反例；不改知识维护归属 |
+| 当前一场戏如何产生可信选择与读感 | `scene-workshop.md` | 可选 scene-card → task.creative_brief |
+| 跨卷、群像离场与原文回收怎么接续 | `long-horizon.md` | imports/exports、evidence_refs、context_threads |
+| 如何实际记录首次阅读而不泄漏答案 | `reader-lab.md` | reviews/ 下的 reader_notes 普通附件 |
 | 该怎样验证这一套有用 | `../protocol/evaluation.md` | 冷读记录、对照文本、作者反馈，不伪造读者数据 |
 
 ## 一次完整创作的主回路

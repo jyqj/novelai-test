@@ -34,13 +34,13 @@
 
 ## 禁读
 
-- knowledge/ 池外任何块；往期 transcript
+- 未经选择的整库原文；往期 transcript 不直接投递（池外可按问题 consult）
 - 世界观理论基座（双重分裂/三层同心圆/隐喻本体论等，**所有权=diag**）——疑难走
   `protocol/stages/diagnose.md`，不在本场拉块
 
 ## 锚点读法
 
-K-ID → `knowledge-blocks.md` 锚点取段（L1/L2 优先）；附件进设计简报，不进章简报。
+K-ID → `knowledge-blocks.md` 锚点取段（L1/L2 优先）；原文按问题选读；有用操作与正反例可整理进 creative_brief，不整包投递。
 
 
 创作方法：编排者按当前问题参考 `methodology/story-engine.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。

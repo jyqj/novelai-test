@@ -11,6 +11,7 @@ from .narrative import (effective_knowers, entity_status, historical_log,
                         memory_recall, reader_knows, related_facts,
                         setting_blocks, thread_state_at)
 from .dependencies import brief_sources, file_hash
+from .evidence import recall_evidence
 
 
 def tail_chars(text, n):
@@ -156,6 +157,17 @@ def cmd_brief(args):
             has_ctx = True
     if not has_ctx:
         add("2 直接上文", "empty", "（首章，无上文）", must=True)
+
+    # Explicit distant excerpts complement summaries. They never grant knowledge.
+    for evidence in recall_evidence(proj, task, num - 1):
+        add("2 直接上文", evidence["key"],
+            "### 原文证据 %s L%d–L%d [%s]\n"
+            "【已写文本，不自动等于世界真相或角色知情】\n"
+            "选取目的（编辑说明）：%s\n原句：%s\n附近语境：\n%s" %
+            (evidence["source"], evidence["line_start"], evidence["line_end"],
+             evidence["status"], evidence["purpose"], evidence["quote"], evidence["excerpt"]),
+            must=True)
+        prov.append((evidence["source"], "-", "§2 原文证据"))
 
     # §3 实体状态卡：声纹速查+现状/最近事件 must；设定要点可裁（P1-3）
     ents = proj.entities()
