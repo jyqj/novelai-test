@@ -49,6 +49,12 @@ continuity_delta 仅写本章新事实，带 entity_ids、spoiler，秘密类明
 
 可选 narrative_memory 通常 0–3 条，kind 为 consequence / relationship / promise / motif / belief / emotion / scene；每条含 text、entity_ids、thread_ids、keywords、evidence。evidence 必须逐字出现在正文中；记忆解释不能超出文本支持。细节见 protocol/reliability.md §3（由编排者装入简报，不自行翻库）。
 
+## 困难场景的补料
+
+creative_brief 中的 scene_intent、character_options、presentation_order、carry_forward 是可选编辑说明，不是已发生事实。原文证据块是历史文本；引文可能是传言、误信或不可靠叙述，不能自动视为真相或授予角色知识。跨章场景承接动作和情绪，不必每章重启起承转合。
+
+需要旧场景时返回具体章号/原句/用途，由资料员编排 evidence_refs 后重编简报；不要根据模糊摘要补造对白。小尺度语言动作可发展，重大分歧仍走 proposal。
+
 ## 自查
 
 先核对事实、知识、字数与项目硬禁区，再检查人物的选择是否由其动机推动、关系是否承接前情、关键戏是否真实发生。最后核对 writeback 与正文，去掉不能用正文证明的记账。不要在两部分之外输出自我表扬、创作说明或道歉。

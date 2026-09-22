@@ -1,35 +1,31 @@
-> 维护归属与默认池不变；遇具体症状可由编排者 stage consult 有界借阅池外块（见 protocol/knowledge-orchestration.md），不改所有权，不将原文自动投入写手简报。
-
-# stage:write — 章循环（产线）配套知识包 · **零知识装载**
+# stage:write — 章循环配套知识包（默认轻量，按问题咨询）
 
 | 键 | 值 |
 |---|---|
-| 阶段 | write：排批→简报→写→机检→轻评→commit→回执（pipeline.md §1；交接谓词 workflow.md §3） |
-| 进入 | `novel.py gate write ch_NNNN` 全绿 |
-| 退出 | 章 approved（`gate approve` 绿 + `tree set-status`） |
-| 叠加 | route=traditional → 另读 `protocol/stages/trad-overlay.md` |
-| 本包读者 | 编排者；写手/资料员/轻评只收各自白名单内附件 |
+| 阶段 | write：排批、编译简报、写作与既有评审提交；执行顺序以 protocol/reliability.md 为准 |
+| 进入 | `novel.py gate write ch_NNNN` 核对已有机械条件 |
+| 退出 | 当前正文与回执一致、章 approved；不等于文学质量已获证 |
+| 叠加 | traditional 另看 `protocol/stages/trad-overlay.md` |
+| 本包读者 | 编排者；写手/资料员/轻评分别接收选定材料 |
 
-## 本阶段的知识装载 = 0
+## 排章前先把戏说明白
 
-**knowledge/ 在本阶段对所有角色关闭**（knowledge-orchestration §0.2 硬规则）。
-可操作判据已全部蒸馏进 rubrics/ 与项目侧 `tree/style.md`；简报里没有的世界不存在。
-「写到一半想查方法论」= 症状，走 diag 阶段（`protocol/stages/diagnose.md`），不在产线内拉块。
+编排者遇关键或困难场景读 `methodology/scene-workshop.md`，用可选 `templates/scene-card.md` 理清目标、信息、可选行动、呈现与后果。结论入 task.creative_brief，不将整套工作稿都交写手。
 
-## 各棒装载白名单（超出即泄漏，pipeline §5）
+资料员据任务找必要的旧事实、关系记忆与原句；`evidence_refs` 提供远章原文，`context_threads` 可取回已兑现线的余波。选取与用法见 `methodology/long-horizon.md`。引文存在不等于角色知道其内容。
 
-| 角色 | 只读这些 | 禁读 |
+## 装载分工
+
+| 角色 | 输入 | 边界 |
 |---|---|---|
-| 编排者 | `protocol/pipeline.md` §1–5、`protocol/workflow.md` §3、章 task.json、gate/check 输出 | knowledge/ 全部 |
-| 资料员（T1 审包） | `roles/librarian.md` + 项目仓库（只读，核对简报配料） | knowledge/、skill 侧判据卡（审包不评质量） |
-| 写手（T2） | `briefs/ch_NNNN.brief.md` **唯一输入**（roles/writer.md 随 spawn 附） | 项目内其余一切 + knowledge/ + rubrics/ |
-| 轻评（T3） | `roles/critic-light.md`、`rubrics/prose-disease.md`、`rubrics/payoff.md`、`rubrics/voice.md`（三卡**所有权=write**，产线自有）、简报、候选、前章尾、机检 NEEDS_REVIEW 清单 | knowledge/、tree/ 原文 |
-| 抽取器（CLI / C·D 档帽） | 候选正文 + writeback + aliases（`roles/extractor.md`） | knowledge/ |
+| 编排者 | 任务、`protocol/pipeline.md`、需要的方法；可 stage consult | 不整库投递，不把新构想冒充已有事实 |
+| 资料员 | `roles/librarian.md`、任务、项目只读资料 | 给出来源与补料建议，不替作者裁决 |
+| 写手 | `roles/writer.md` 和本章简报；返修加上稿与意见 | 事实来源是经审材料；可发展动作语言，重大变化返回 proposal |
+| 轻评 | `roles/critic-light.md`、正文、简报、`rubrics/prose-disease.md`、`rubrics/payoff.md`、`rubrics/voice.md`（所有权=write） | 评内容与证据，不机械执行统一比例 |
+| 抽取器 | 正文、writeback、aliases；`roles/extractor.md` | 不把设计预测抽成已发生事实 |
 
-## 退出前自查
+默认不装知识原文，不意味着本阶段禁止咨询。编排者可在当前阶段借阅，摘出与具体问题有关的操作和反例；改变的是输入而不是知识维护归属。
 
-- 回执落盘（`review add`）且 rev 匹配；`gate approve` 绿。
-- 每 5 章 `check --window`；到深评/对账节律 → 转 review 阶段（`protocol/stages/review-cycle.md`）。
+## 收工
 
-
-创作方法：编排者按当前问题参考 `methodology/promises-and-hooks.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。
+原有 check/commit/review/approve 保护保留，不新增评分闸门。记录实际发生而非照抄计划；需要独立冷读按 `methodology/reader-lab.md`，切帽子不等于消除答案知识。进入周期回路时看 `protocol/stages/review-cycle.md`。

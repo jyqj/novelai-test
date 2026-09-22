@@ -9,14 +9,9 @@
   ],
   "hook": {
     "open": null,
-    "close": "[收尾钩一句话,必填]"
+    "close": null
   },
-  "payoff_quota": [
-    {
-      "kind": "dopamine",
-      "intent": "[兑现什么爽点]"
-    }
-  ],
+  "payoff_quota": [],
   "threads": [
     {
       "id": "[thread_slug]",
@@ -41,7 +36,12 @@
     "reader_state_hypothesis": "",
     "pattern_choices": [],
     "freedom_and_limits": "",
-    "method_notes": ""
+    "method_notes": "",
+    "scene_intent": "",
+    "character_options": [],
+    "presentation_order": [],
+    "carry_forward": ""
   },
-  "context_threads": []
+  "context_threads": [],
+  "evidence_refs": []
 }

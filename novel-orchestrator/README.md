@@ -82,3 +82,13 @@ for suite in tools/tests/test_*.py; do python3 "$suite" || exit 1; done
 保留 PR #5 的事务、历史记忆与证据评审。本轮不新增发布准出机制；把仍残留的通用三章/十章硬窗口降为诊断，把 hook 缺失与主题数值改为需要判断的事项，避免方法说自由而运行强迫凑配额。
 
 新增 task.creative_brief 是可选文本或对象，随任务原样进入简报 §0；写作者获得本章适用方法、情绪来处和自由度。它不是自动知识图谱或读者心理推理。模板新增编辑字段由编排者维护，不能声称工具已自动完成这些文学工作。详见 `CORRECTIONS.md`。
+
+## 场景工作坊与长程原文记忆（本轮）
+
+从 `methodology/scene-workshop.md` 开始，把最重要或卡住的戏落到人物选择、信息呈现与后果；从 `methodology/long-horizon.md` 做跨卷、群像离场与收束交接；从 `methodology/reader-lab.md` 区分首次阅读与知情复读。
+
+`templates/scene-card.md` 和 `templates/reader-notes.md` 是可选工作稿，不新增 CLI 资产类型或文学评分。关键结论沿现有 task.creative_brief 进入写手简报。
+
+可选 evidence_refs 精确回取远章原句与语境，见 `methodology/evidence-usage.md`；缺失/未来引用不伪补，来源修改会使简报失效。完整缩例在 `examples/bell-workshop.md`，它是机制演示，不是盲评成果。
+
+本轮变化与实际验证范围见 `WORKSHOP_CHANGES.md`。前两轮 CORRECTIONS 与 METHODOLOGY_TEST_RESULTS 是历史记录，不代替本轮验证。

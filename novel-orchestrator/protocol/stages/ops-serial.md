@@ -14,8 +14,8 @@
 |---|---|---|
 | buffer/publish | `protocol/serial-ops.md` §1–2、`novel.py status`/`gate publish` 输出 | knowledge/ 全部 |
 | retcon | `protocol/serial-ops.md` §3、相关 `court/dec_*.md`、`templates/decision.md` | knowledge/ |
-| 卷末 checkpoint | `protocol/serial-ops.md` §4、`state/reports/vol_NN.md`、`rubrics/structure.md`（所有权=s3，卷级深评时随 review 阶段附） | knowledge/；卷内正文重读（以报告与摘要为准） |
-| 读者反馈分诊 | `roles/data-analyst.md`、反馈原文、近期 verdict 摘要、ledger 统计 | knowledge/（归因需要学理支撑 → 编排者转 diag 阶段） |
+| 卷末 checkpoint | `protocol/serial-ops.md` §4、`state/reports/vol_NN.md`、`rubrics/structure.md`（所有权=s3，卷级深评时随 review 阶段附） | 不自动全读；需要判断情绪/兑现效果时回看实际正文，报告不替代阅读 |
+| 读者反馈分诊 | `roles/data-analyst.md`、反馈原文、近期 verdict 摘要、ledger 统计 | knowledge/（归因可当前阶段 consult；复杂问题再进 diag） |
 
 ## 运营知识去哪了
 

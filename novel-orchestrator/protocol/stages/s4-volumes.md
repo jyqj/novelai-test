@@ -31,7 +31,7 @@
 
 ## 禁读
 
-- knowledge/ 池外任何块；往期 transcript
+- 未经选择的整库原文；往期 transcript 不直接投递（池外可按问题 consult）
 - 卷级嵌套/幕节奏参数块（所有权=vol）——卷内套用是卷庭议题
 - 章级正文判据（prose-disease 等，所有权=write）——style 定稿只定基准与禁忌，不评正文
 

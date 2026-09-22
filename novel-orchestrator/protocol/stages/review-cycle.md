@@ -1,34 +1,29 @@
-> 维护归属与默认池不变；遇具体症状可由编排者 stage consult 有界借阅池外块（见 protocol/knowledge-orchestration.md），不改所有权，不将原文自动投入写手简报。
-
-# stage:review — 周期回路（深评/对账/欠账盘点）配套知识包 · 判据卡 only
+# stage:review — 周期创作复盘与连续性对账
 
 | 键 | 值 |
 |---|---|
-| 阶段 | review：深评采样 · 实体对账 · knowledge 欠账盘点 · 蒸馏回路（workflow.md §4/§6） |
-| 进入 | `deep_every` 到期 / 弧末 / 卷末 / `entity due` 非空（gate next 会顶到队首） |
-| 退出 | 深评回执与 lessons 落盘；对账 entity update 完成；欠账逐条有去向 |
-| 叠加 | route=traditional → 三遍修订制替代采样深评（`protocol/stages/trad-overlay.md`） |
-| 本包读者 | 编排者；深评/资料员只收各自白名单内附件 |
+| 阶段 | review：长程编辑、实体对账、承诺盘点与项目经验更新 |
+| 进入 | 既有周期提示、弧/卷收尾、明确创作问题 |
+| 退出 | 观察、问题去向和必要修订留痕；正式回执依 protocol/reliability.md |
+| 叠加 | traditional 的多遍修订按 `protocol/stages/trad-overlay.md` |
 
-## 各棒装载白名单
+## 输入按判断职责分开
 
-| 角色 | 只读这些 | 禁读 |
+| 角色 | 材料 | 不应做的事 |
 |---|---|---|
-| 深评（T4） | `roles/critic-deep.md`、`rubrics/anti-plagiarism.md`（**所有权=review**）、`rubrics/structure.md`（所有权=s3）、`rubrics/payoff.md`（所有权=write）、`rubrics/power.md`（所有权=s2）（四卡必附）、采样窗正文与 meta 摘要、弧/卷计划、ledger 统计 | **knowledge/ 全部**（诊断素材属 diag 阶段，不进评审附件）；自己往期 writeback/轻评单（solo 冷读纪律） |
-| 资料员（对账变体） | `roles/librarian.md` + entities/ 与事件日志（serial-ops §5）；对账连带知情圈（`knowledge scope list` 对照剧情，圈变走 scope add/remove） | knowledge/ |
-| 编排者 | `novel.py knowledge query` 输出（读者未知欠账，CLI 视图不读库）、`entity due`、lessons 台账 | knowledge/（除非转 diag） |
+| 冷读者 | `roles/reader.md`、连续正文与截止点、`templates/reader-notes.md` | 预读大纲、真相、writeback，再自称首次读者 |
+| 长程编辑 | `roles/critic-deep.md`、实际正文、计划、已封存读者记录、相关事实/记忆 | 只凭摘要判断情感效果，或将忠于设计视为唯一目标 |
+| 资料员 | `roles/librarian.md`、目标实体、事件日志、原文 | 将组织成员变化当成自动获得/遗忘知识 |
+| 编排者 | 本书体验、上述记录、既有 knowledge/ledger 查询结果 | 把每一条未公开幕后事实当成欠读者一个谜底 |
 
-## 欠账盘点的去向（每条必择一，不许挂着不管）
+判据按问题选择：`rubrics/structure.md`（所有权=s3）、`rubrics/payoff.md`（所有权=write）、`rubrics/power.md`（所有权=s2）、`rubrics/anti-plagiarism.md`（所有权=review）。必要方法可当前阶段 stage consult，经选择给相应编辑，不整包投递。
 
-继续吊（记 task note）/ 排「揭示章」进任务卡 + `knowledge reveal` 销账 / 走 retcon 废止。
-`gate next` 会在欠账超龄（config `spoiler_debt_chapters`）时自动顶出【欠账】项。
+## 承诺与知识的复盘
 
-## 症状复发 → 转 diag，不在本阶段拉块
+秘密可继续隐藏、部分揭示、有意不揭示；只有读者已被作品引导形成的承诺才承担相应兑现责任。揭示或 grant 要有正文与明确时点，不能为清空统计而提前公布；retcon 只处理真实修订，不是消除普通未揭示信息的工具。
 
-深评报告点名的复发症状（文风病/结构病/战力崩……）：
-- 教训 ≥2 次复现 → 蒸馏回路 `task add revise_rubric style`（workflow §6，动项目侧 style.md）；
-- 需要学理归因 → 编排者进 diag 阶段（`protocol/stages/diagnose.md`，≤2 块），
-  **不把 knowledge 块塞回深评附件重评**。
+按 `methodology/long-horizon.md` 盘点实际后果、读者看到的证据、待消化余波、可变计划。冷读按 `methodology/reader-lab.md` 分段记录，不能用知情编辑结果替代。
 
+## 修订去向
 
-创作方法：编排者按当前问题参考 `methodology/continuity.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。
+材料缺失 → 资料员回找原文；表现不足 → revise 场景；前提失效 → revise_design 并列影响；证据不足 → 记录待观察。经验重复可触发复盘，但不自动生成永久禁令；明确作者偏好与可推广机制的差别。

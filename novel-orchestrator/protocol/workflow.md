@@ -74,6 +74,9 @@ enter 正确阶段（`state/stage.json` history 留痕）。典型迁移链:`s1�
 
 ## 3. 阶段二：章循环（产线交接契约）
 
+创作侧先按 `methodology/scene-workshop.md` 处理重要场景：当时信息→可选行动→选择与后果→读者呈现。只把有用结论编入 task.creative_brief；旧章原话以 evidence_refs 指定，经 brief 自动回取原文与语境。资料员核对语境，不把引文中的说法当成真相。冷读与知情编辑按 `methodology/reader-lab.md` 分离。
+
+
 单章时序细则在 P§1；本节钉死**交接契约**——每一棒谁交什么、谁验收、验收谓词是什么。任何一棒验收不过，产物不得向下传递。
 
 | # | 交接 | 交付物 | 验收人 + 谓词 | 失败去向 |
@@ -145,7 +148,7 @@ S§4 全流程；闸门视角速查：`stage enter ops` → `check --project` �
 
 | 主线环节 | 差分 |
 |---|---|
-| §3 章循环 | 细纲工序前置（beats 6–10 拍+scene_intents）；每章可用 turn 说明作用，不强制翻转；章尾钩降建议级 |
+| §3 章循环 | 细纲工序前置（按需细化 scene_intents）；每章可用 turn 说明作用，不强制翻转；章尾钩降建议级 |
 | §4 buffer/publish | **整段移除**（无连载发布）；`gate publish` 不使用 |
 | §4 深评 | 三遍修订制替代采样深评；判据换 scene-value/theme/imagery |
 | §5 卷末 | 按作者选用的结构与阅读体验复盘 |
