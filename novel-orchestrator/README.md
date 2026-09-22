@@ -91,4 +91,6 @@ for suite in tools/tests/test_*.py; do python3 "$suite" || exit 1; done
 
 可选 evidence_refs 精确回取远章原句与语境，见 `methodology/evidence-usage.md`；缺失/未来引用不伪补，来源修改会使简报失效。完整缩例在 `examples/bell-workshop.md`，它是机制演示，不是盲评成果。
 
+简报现在默认带入书级“阅读体验契约”、本卷方向与 imports、本弧“当前创作问题”，并标为编辑来源；creative_brief 负责说明本场如何落实，而不是重复口号。历史检索优先匹配明确关键词/线索（含 context_threads），不只找最近同人物事件。后文记忆可用 reinterprets 指向旧解释，召回时连同解释沿革整体带入，见 `methodology/continuity.md`。没有这些可选数据的旧项目仍可使用；不自动推断读者心理，也不自动补齐创作决策。
+
 本轮变化与实际验证范围见 `WORKSHOP_CHANGES.md`。前两轮 CORRECTIONS 与 METHODOLOGY_TEST_RESULTS 是历史记录，不代替本轮验证。

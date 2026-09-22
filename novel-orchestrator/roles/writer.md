@@ -49,6 +49,8 @@ continuity_delta 仅写本章新事实，带 entity_ids、spoiler，秘密类明
 
 可选 narrative_memory 通常 0–3 条，kind 为 consequence / relationship / promise / motif / belief / emotion / scene；每条含 text、entity_ids、thread_ids、keywords、evidence。evidence 必须逐字出现在正文中；记忆解释不能超出文本支持。细节见 protocol/reliability.md §3（由编排者装入简报，不自行翻库）。
 
+后文改变早先理解时，可增加 reinterprets: ["ch_0001#0"]（零基记忆序号，仅更早章节）；text 写谁的哪种理解改变及其边界，evidence 指向本章实际依据。旧经历和当时误解仍保留，不将新解释自动等同世界真相。只引用简报明确给出的记忆 id，不猜编号。
+
 ## 困难场景的补料
 
 creative_brief 中的 scene_intent、character_options、presentation_order、carry_forward 是可选编辑说明，不是已发生事实。原文证据块是历史文本；引文可能是传言、误信或不可靠叙述，不能自动视为真相或授予角色知识。跨章场景承接动作和情绪，不必每章重启起承转合。

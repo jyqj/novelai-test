@@ -8,9 +8,9 @@
 
 ## 1. 单章顺序
 
-1. 从 committed 弧计划排章，`tree add chapter` 只新建；补完整 task.json，设 goal/beats/cast/word_target，以及 context_entities/memory_keywords/fact_refs/memory_refs。规划草案不能当已发生事实。
+1. 从当前弧计划排章（已提交仍是可修计划，不是历史），`tree add chapter` 只新建；先明确本场问题、历史依据/反证、可行行动及取舍，将有用结论写 creative_brief，再补 goal/beats/cast/word_target 与 context_entities/context_threads/memory_keywords/fact_refs/memory_refs。不每章强制工作坊。规划草案不能当已发生事实。
 2. `task add write <章>`，使用返回的真实 id；`task start <任务>`；`brief <章>` 编译。
-3. 资料员审包，检查人物关系、内在驱动、历史截止点和关键记忆。缺料修源数据/任务依赖，再编译；**不直接改 brief 或 manifest**。预算拒绝时缩减无关材料或拆场。
+3. 资料员审包，核对 §5 的书级体验/本卷方向与承接/本弧问题是否真正转成了本场选择，而非只存在简报里。检查人物关系、历史截止点、反证及解释沿革。缺料修源数据/任务依赖，再编译；**不直接改 brief 或 manifest**。预算拒绝时缩减无关材料或拆场。
 4. `gate write <章>` 通过后，写手只读简报与 roles/writer.md。确认 Git 改动的归属，作者保存/提交自己的改动后继续；无 Git 明示降级，禁止 destructive clean。
 5. 双产出存外部临时目录；`check --leak <正文> --brief <简报>` 和 `check --unit <章> --candidate <正文> --writeback <回写>`。机械 FAIL 修正后再继续，NEEDS_REVIEW 不当作自动通过。
 6. `commit <任务> --chapter <正文> --writeback <回写>` 落为 drafted；`review checklist <章>` 导出确切版本的 pending 清单。
