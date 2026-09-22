@@ -12,16 +12,15 @@
 | 宿主阶段 | web 默认装载 | traditional 置换/追加 |
 |---|---|---|
 | s1（概念庭） | personas 网文卡（所有权=s1） | 读者代表固定 `personas/literary-purist.md` + `personas/bookclub-mainstream.md` 双卡（所有权=s1） |
-| s4（分卷庭） | rhythm/ 五选一（所有权=s4） | 全书骨架固定 `rhythm/classic24.md`（24 节拍映射卷/弧边界；所有权=s4） |
+| s4（分卷庭） | 按模式维度组合（rhythm/，所有权=s4） | 可选 `rhythm/classic24.md` 或探索式/其他组合（所有权=s4），不强制节点齐全 |
 | arc（细纲工序） | 三拍粗批 | 追加 `rubrics/scene-value.md`（场景合法性 + turn 验收，**所有权=trad**；route-traditional §2） |
 | write（章循环） | 轻评三卡（所有权=write） | 轻评判据不变；章尾钩降建议级（CLI 已按 route 自动降级，route-traditional §3） |
 | review（三遍修订） | 采样深评 | 结构遍加 `rubrics/theme.md`（所有权=s1）；场景遍加 `rubrics/scene-value.md`、语言遍加 `rubrics/imagery.md`（两卡**所有权=trad**） |
 
 ## 知识装载纪律（与 web 相同，无豁免）
 
-- 本差分**不新增任何 knowledge/ 权限**：细纲工序可用的 K 块在 arc 阶段包选读池内
-  （`protocol/stages/arc-plan.md`）；章循环仍零装载；三遍修订只读判据卡。
-- 文学向疑难（主题贯穿/意象系统失灵等）同样走 diag 阶段症状路由，不开后门。
+- 默认只装本任务所需；具体文学问题可在当前阶段 consult，知识维护归属不是使用权限。
+- 方法摘要与例子经设计简报或 creative_brief 传给写手，不整库灌入。
 
 ## 退出前自查
 

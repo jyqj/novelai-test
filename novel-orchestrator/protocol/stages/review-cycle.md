@@ -29,3 +29,6 @@
 - 教训 ≥2 次复现 → 蒸馏回路 `task add revise_rubric style`（workflow §6，动项目侧 style.md）；
 - 需要学理归因 → 编排者进 diag 阶段（`protocol/stages/diagnose.md`，≤2 块），
   **不把 knowledge 块塞回深评附件重评**。
+
+
+创作方法：编排者按当前问题参考 `methodology/continuity.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。

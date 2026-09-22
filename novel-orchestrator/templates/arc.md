@@ -9,14 +9,17 @@ updated_at: [YYYY-MM-DDTHH:MM:SSZ]
 
 ## 弧目标与节奏模板
 
-[弧目标一句话(价值从 X 到 Y)+模板 id 与参数。模板五选一:classic24|wave|dungeon|episodic|ensemble,结构评审按所选模板检查单审]
+[写本弧希望发生的体验和变化；旧模板 id 作兼容主标签，不再五选一。按整体弧/情绪/活动/单元/视角分维度组合，说明使用与省略的功能。见 methodology/patterns.md。]
 
 - 目标: [一句话]
 - 模板: [wave] | 参数: [如:两轮升级,回落 1 章]
 
 ## 因果链
 
-[5–10 个事件,每个一句话,标价值方向。判据:相邻事件有因果,删任一环链条即断]
+[按需要列事件及前提、行动者信息与动机、选择、后果；允许分叉汇合。场景贡献可在事件、读者理解或体验，不以删后链不断直接判水。]
+
+### 读者信息与情绪路径
+[读者此前见过什么、自然会怎样理解、在乎什么；本弧怎样推进或重释。标记为编辑假说，与冷读记录分开。]
 
 - [事件一句话]（价值 [-→+]）
 - [事件一句话]（价值 [+→-]）
@@ -37,7 +40,7 @@ updated_at: [YYYY-MM-DDTHH:MM:SSZ]
 
 ## 爽点与期待操作表
 
-[对接 payoff 台账与承诺账户;kind 枚举 dopamine|upgrade|reveal|reversal|emotion|humor|other。窗口约束:3 章 ≥1 小爽,10 章 ≥1 处境级]
+[对接 payoff 台账与承诺账户;kind 枚举 dopamine|upgrade|reveal|reversal|emotion|humor|other。按本弧体验规划，不设统一窗口配额；收束期可只关闭承诺]
 
 - [ch_NNNN] | [kind] | [意图一句话]
 

@@ -145,10 +145,10 @@ S§4 全流程；闸门视角速查：`stage enter ops` → `check --project` �
 
 | 主线环节 | 差分 |
 |---|---|
-| §3 章循环 | 细纲工序前置（beats 6–10 拍+scene_intents）；每章必有 turn；章尾钩降建议级 |
+| §3 章循环 | 细纲工序前置（beats 6–10 拍+scene_intents）；每章可用 turn 说明作用，不强制翻转；章尾钩降建议级 |
 | §4 buffer/publish | **整段移除**（无连载发布）；`gate publish` 不使用 |
 | §4 深评 | 三遍修订制替代采样深评；判据换 scene-value/theme/imagery |
-| §5 卷末 | classic24 全书节拍对账替代爽点大节奏 |
+| §5 卷末 | 按作者选用的结构与阅读体验复盘 |
 
 ### 7.3 C/D 档降级（无 shell；诚实降级协议 manual-check）
 
@@ -179,3 +179,12 @@ S§4 全流程；闸门视角速查：`stage enter ops` → `check --project` �
 *rev 3 · 2026-08-25 · P7-S 阶段强制闸门：§0 军规改「进环节 = stage enter + 读包」+ §1.1 迁移链与 enter 语义 + §2/§4/§5 各环节动作列前置 stage enter + 军规 10 补 stage current/enter；辖区表见 F§15。*
 *rev 2 · 2026-08-25 · 阶段×知识编排：§0 加「进环节先读阶段包」军规 + §1.1 阶段↔配套包对照表 + §4 欠账行接 gate next 超龄顶出；与 protocol/knowledge-orchestration.md、protocol/stages/ 十一包、`novel.py stage` 同批落地（P6-S）。*
 *rev 1 · 2026-08-25 · 初版：主循环脊柱 + 交接契约表 + knowledge/蒸馏回路 + solo/traditional/C·D 三覆盖表；与 gate 修复提示（P4-G）、knowledge CLI（P4-K）、rollup（P4-R）、revise_rubric（P4-D）同批落地。*
+
+
+## 创作主回路（不是新的 CLI 闸门）
+
+新书：体验契约/开放问题 → 世界-人物-冲突往返 → 试写 → 远期承诺与近期行动。
+
+每弧：选择模式组合 → 因果与读者信息路径 → 在任务 creative_brief 写本章体验/情绪来处/自由度/适用方法 → 原章节循环 → 独立冷读与连续性审阅 → 从正文提取证据与后果 → 更新下弧。
+
+卷末：除对账还复盘已兑现的余波、人物关系和误信；收束阶段减少新开承诺，终局可以归零。文学方案有效与否不由 stage、回执或台账条数证明。手册入口 methodology/README.md。

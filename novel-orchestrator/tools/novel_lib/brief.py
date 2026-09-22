@@ -206,7 +206,8 @@ def cmd_brief(args):
         return bool(mm) and 0 <= int(mm.group(1)) - num <= 15
 
     threads = proj.threads()
-    listed = {t["id"] for t in task.get("threads", [])}
+    listed = ({t["id"] for t in task.get("threads", [])}
+              | set(task.get("context_threads", [])))
     n_threads = 0
     for tid, th in threads.items():
         m = th["meta"]
@@ -230,8 +231,16 @@ def cmd_brief(args):
             % (tid, m.get("thread_kind"), state_at, tags,
                stmt.splitlines()[0] if stmt else "", log_tail or "（无）"),
             PRIO["thread_near"] if near else PRIO["thread_scope"], must=pinned)
+        design = get_section(th["body"], "回收设计") or ""
+        if design and (tid in listed or near):
+            add("4 活跃线索", "thread:%s:回收设计" % tid,
+                "### %s 回收设计【编辑计划，不是已发生事实】\n%s" % (tid, design),
+                70, must=tid in listed)
         prov.append(("threads/%s.md" % tid, m.get("rev"), "§4 线索"))
         n_threads += 1
+    for missing in sorted(listed - set(threads)):
+        add("4 活跃线索", "缺线:%s" % missing,
+            "【缺线】%s：任务明确依赖未找到；报告缺料，不补造。" % missing, must=True)
     if not n_threads:
         add("4 活跃线索", "empty", "（无活跃线索命中）", must=True)
 
@@ -298,9 +307,9 @@ def cmd_brief(args):
     if route == "traditional":
         tips = [
             "核心纪律速记（traditional 差分，全文见 modes/route-traditional.md）：",
-            "- 按细纲逐拍执行（beats 6–10 拍；scene_intents 标场景/过场）",
-            "- 每章必有价值翻转（task.json 的 turn 字段；正负极性要兑现）",
-            "- 章尾钩为建议级：close 缺席须在 issues 说明 turn 已落实",
+            "- 细纲是近期计划；按 scene_intents 的实际作用安排，不强制固定拍数",
+            "- 按本章目标完成事件、理解或体验变化，不强制正负翻转",
+            "- 章尾可完整收束、留下余波或承接全局期待，不强制悬崖钩",
             "- 场景、概述和静态描写的比例由本书审美与叙述目的决定",
             "- 禁发明简报外专名；缺料写 issues，不脑补",
         ]
@@ -312,6 +321,8 @@ def cmd_brief(args):
             "- 关键戏按作品的叙述距离完成；动作句长服从清晰度与节奏",
             "- 禁发明简报外专名；缺料写 issues，不脑补",
         ]
+    tips.append("- 任务卡 creative_brief 是本章创作说明；其中读者状态是编辑假说，不是新 canon")
+    tips.append("- 兑现可关闭而不新开；已闭合线索的关系和后果仍可按任务明确召回")
     add("7 写作提示", "tips", "\n".join(tips), PRIO["tips"])
     lessons_p = proj.p("ledgers", "lessons.md")
     lessons = [l for l in read(lessons_p).splitlines() if l.startswith("- ")][-5:] \

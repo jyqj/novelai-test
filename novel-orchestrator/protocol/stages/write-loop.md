@@ -30,3 +30,6 @@
 
 - 回执落盘（`review add`）且 rev 匹配；`gate approve` 绿。
 - 每 5 章 `check --window`；到深评/对账节律 → 转 review 阶段（`protocol/stages/review-cycle.md`）。
+
+
+创作方法：编排者按当前问题参考 `methodology/promises-and-hooks.md`，把结论写入既有设计节或任务 creative_brief；不整篇强投写手，不新增阶段门槛。

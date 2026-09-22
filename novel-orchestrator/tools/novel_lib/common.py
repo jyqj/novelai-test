@@ -54,7 +54,7 @@ UNIT_NEEDS_REVIEW = [
     "智商漂移两问（rubrics/prose-disease.md §六）",
     "关键场面是否完成其戏剧与情感任务（允许有意概述、留白与静态描写）",
     "爽点兑现有效性：触发条件成立、非空转（rubrics/payoff.md §一/§六）",
-    "毒点七问与负面节拍降档（rubrics/toxicity.md）",
+    "读者契约与负面体验（rubrics/toxicity.md，区分口味与安全）",
     "与前章尾 500 字的衔接、与后章任务卡是否顶牛（roles/critic-light.md 四）",
 ]
 

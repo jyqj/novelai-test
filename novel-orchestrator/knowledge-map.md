@@ -208,3 +208,7 @@ SSOT=`protocol/knowledge-orchestration.md`），本表是所有权对账基准�
 - 新增知识块时：knowledge/ 原文加锚 → 登记 knowledge-blocks.md → 本表补归属行
   （**指定唯一所有阶段**）→ 同步该阶段包 K 池补行 → test_stage 绿
   （knowledge-orchestration §6.3）；无所有阶段的块不得被任何流程引用。
+
+## 2026-09-20 使用语义
+
+本表的阶段归属仅用于维护和默认池，不限定学理适用范围。修订块仍保留原 K-ID；主张的性质、条件与反例见 methodology/knowledge-policy.md。methodology 下的跨任务手册不混入本表 111 块对账；按 SKILL 的任务入口调用。

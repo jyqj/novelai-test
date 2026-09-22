@@ -369,7 +369,7 @@ git 提交消息:`[t_000231] write(ch_0212): 摘要`。
 ## 17. check 断言集
 
 **--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词 WARN;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);**known_by 有限定的事实被明写且在场角色不在有效知情集(个体+fac/loc/item 知情圈展开,v2)→ NEEDS_REVIEW(角色知识越界候选,P4-K——轻评裁定:改暗写/补获知场景后带章号 knowledge grant（仅入圈不等于获知）/删句)**;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
-**--window [--since CH]**:任意 3 章窗口 payoff realized ≥1、10 章窗口处境级(upgrade/reveal/reversal)≥1;promise 线(thread_kind=promise ∧ live)余额 ∈[2,5];promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;**故事日历(P2-2)**——elapsed 中文数值化(「2天」「三个时辰」→天数)非负 FAIL、story_date(ISO 或中文日期)按章序单调不倒流 FAIL、`ledger timeline` 视图输出累计天数;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。台账读取一律 (chapter) 取最新 rev(§9)。
+**--window [--since CH]**:三章/十章样例兑现统计只给诊断 WARN，不再作为普遍准出要求；promise 只报告未结总数（非读者焦点数），收束可归零；promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;**故事日历(P2-2)**——elapsed 中文数值化(「2天」「三个时辰」→天数)非负 FAIL、story_date(ISO 或中文日期)按章序单调不倒流 FAIL、`ledger timeline` 视图输出累计天数;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。台账读取一律 (chapter) 取最新 rev(§9)。
 **--leak <候选> --brief <简报>**:候选正文中出现、但简报未投递的**已登记专名**(aliases.json + 实体卡 aliases)→ FAIL(信息沙箱违规);未登记的新发明专名机器无法枚举 → NEEDS_REVIEW 交轻评(pipeline §5)。
 **--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;**知情圈台账(v2)**——scopes.json 圈键须为已登记 fac/loc/item、成员须为已登记 char(违者 FAIL),known_by 引用空圈 WARN;published 连续无空洞;必需标题节(§4);queue target 均存在;**半事务检出(P0-3)**——`state/txn/` 有 `done=false` journal → FAIL(上次 commit 中断,先按 §18 恢复)。
 
@@ -433,3 +433,11 @@ v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧�
 - stage consult <K-ID> [<K-ID>] --target <任务/节点> --reason <症状> 为有界跨阶段咨询，记录来源，不改维护归属。stage enter 只证明操作阶段，不替代人工验收。
 
 完整示例、迁移顺序和保证边界见 reliability.md。
+
+
+## 可选创作说明（本轮方法适配）
+
+任务卡 `creative_brief` 为可选文本/对象，编译时随完整任务进入简报 §0。可包含体验目标、情绪来处、读者状态假说、模式选择、自由度和方法小例；它不扩展事实授权。thread 回收设计、读者工作表不是新 CLI 类型，编排者把本章必需部分移入 creative_brief，并用 fact_refs/memory_refs 指向历史证据。
+
+
+`context_threads` 可列仅供历史/后果参考的 thread id，不向终态线发送推进 op。简报按目标章历史状态召回，并将选中线的“回收设计”单列为编辑计划，不能当成已发生真相；现有依赖哈希与预算纪律仍适用。
