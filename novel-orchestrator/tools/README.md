@@ -12,6 +12,7 @@ Python 3.10+ 标准库实现。入口是 novel.py；在小说目录外固定工�
 | review / receipts | 当前版本 checklist、逐项证据、内容哈希、冲突票与历史归档 |
 | narrative / knowledge | 叙事记忆、历史知情/读者揭示、关系与状态选择 |
 | brief / dependencies | 按依赖装包、字符预算、manifest 内容失效判断 |
+| creative | 精确提取书/卷/弧编辑意图，区分来源约定与已发生事实 |
 | journal / rollup / extract | 账本、摘要索引、文本与自报对账；rollup 仍为全量重算 |
 | checks / gate / serial_ops | 机械断言、统一批准/发布检查、连载状态 |
 | stagectl / consult / court | 阶段导航、按症状有界借阅、设计工作区 |
@@ -53,6 +54,7 @@ for suite in tools/tests/test_*.py; do python3 "$suite" || exit 1; done
 - test_matrix / test_stage：历史授予/圈成员、阶段闸门、默认知识池与引用对账。默认池仍保持不重不漏，但不禁止有记录的跨阶段使用。
 - test_integrity：故障注入、真实进程死亡恢复、并发锁、篡改/重放、评审绕过负例、历史泄漏、关系/情绪记忆与预算。
 - test_quickstart：直接抽取 README 的初始化代码，在空目录执行，不依赖 shell 当前目录暗约定。
+- test_decision_context：意图默认传递、非目标节隔离、目的优先召回、旧解释及后文重释整体投递、历史截止与预算保持。验证输入链路，不证明正文质量。
 
 support.py 隔离工作目录与测试 Git 身份，合成回执明确标记 synthetic。旧场景使用此夹具仅为测试流程；负例直接使用公开 CLI，不自动补票。每个 suite 可独立运行，CI 保留完整日志和精确源码快照。
 

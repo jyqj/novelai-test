@@ -12,6 +12,7 @@ from .narrative import (effective_knowers, entity_status, historical_log,
                         setting_blocks, thread_state_at)
 from .dependencies import brief_sources, file_hash
 from .evidence import recall_evidence
+from .creative import intent_sources
 
 
 def tail_chars(text, n):
@@ -77,6 +78,20 @@ def cmd_brief(args):
     # §0 任务卡（must）
     add("0 任务卡", "task.json",
         "```json\n" + json.dumps(task, ensure_ascii=False, indent=1) + "\n```", must=True)
+
+    # Preserve source intent even when the planner did not copy it into task.json.
+    # These are attributed editorial constraints/interpretations, not canon facts.
+    intent, missing_intent = intent_sources(proj, cur_vol, task.get("arc"))
+    for label, content, source, rev in intent:
+        add("5 弧内位置", "intent:" + label,
+            "### %s【编辑来源，非已发生事实】\n来源：%s\n%s\n"
+            "本章如何落实或有意偏离见 creative_brief；不要求逐项在本章兑现。"
+            % (label, source, content), must=True)
+        prov.append((source, rev, "§5 " + label))
+    if missing_intent:
+        add("5 弧内位置", "intent:missing",
+            "【创作意图待确认】未配置：%s。旧项目可继续；资料员核对是否需要补料，"
+            "不得把模板占位或自行猜测当作者约定。" % "、".join(missing_intent), must=True)
 
     # §1 文风：基准+禁忌 must；比喻/范文锚可裁
     style_p = proj.p("tree", "style.md")
@@ -301,10 +316,21 @@ def cmd_brief(args):
         prov.append((str(f.relative_to(proj.root)), "-", "§6 事实"))
         n_facts += 1
     for required, score, _, ref, memory in memory_recall(proj, task, num - 1):
+        context = memory.get("_interpretation_context", [])
+        history = ""
+        if context:
+            history = "\n解释沿革【各条是当时记录；后文修正不抹去旧经历，也不自动等于真相】：\n"
+            history += "\n".join("- %s [%s] %s\n  原文依据：%s\n  重释：%s" %
+                (mref, item["kind"], item["text"], item["evidence"],
+                 ", ".join(item.get("reinterprets", [])) or "无显式重释引用")
+                for mref, item in context)
         add("2 直接上文", "memory:" + ref,
-            "### 历史叙事记忆 %s [%s]\n%s\n原文依据：%s" %
-            (ref, memory["kind"], memory["text"], memory["evidence"]), 75 + score, must=required)
+            "### 历史叙事记忆 %s [%s]【历史解释，非自动真值】\n%s" %
+            (ref, memory["kind"], history if context else
+             memory["text"] + "\n原文依据：" + memory["evidence"]), 75 + score, must=required)
         prov.append(("chapters/%s.meta.json" % ref.split("#")[0], "-", "§2 叙事记忆"))
+        for mref, _ in context:
+            prov.append(("chapters/%s.meta.json" % mref.split("#")[0], "-", "§2 解释沿革"))
     world_p = proj.p("tree", "world.md")
     if world_p.is_file():
         wmeta, wbody = parse_frontmatter(read(world_p))

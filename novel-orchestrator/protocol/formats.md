@@ -132,7 +132,7 @@ frontmatter:`id: brief_ch_0212`, `kind: review` 除外——用 `kind: brief` �
 ## 2 直接上文          (前章尾 500 字+前 3 章 summary_after must;弧/卷 rollup 与 recap 可裁)
 ## 3 出场实体状态卡    (声纹速查块+现状+最近3事件 must;「设定要点」可裁——先裁非主角)
 ## 4 活跃线索          (任务卡 threads ∪ must_not_drop 线 must;scope/payoff 临近命中可裁)
-## 5 弧内位置          (弧因果链 + 前后章位置;可裁)
+## 5 弧内位置          (书级体验/本卷方向与 imports/本弧问题为编辑来源，must；弧因果链与前后章位置可裁)
 ## 6 相关事实与设定    (facts 实体键查逐条记分,superseded 者连带 retcon;spoiler 注
                         【读者未知】,known_by 注【知情仅】+【在场不知情】硬约束;world 规则;可裁)
 ## 7 写作提示          (route 选配纪律速记 + lessons 尾 5 条;可裁)
@@ -352,7 +352,7 @@ reconcile 汇总仍按 serial-ops §5 由编排者执行(`entity due` + `entity 
 
 | type | 输入 | 校验(全过才落盘) | 落盘动作 |
 |---|---|---|---|
-| write | `--chapter`(信封+##正文) `--writeback`(json) | `check --unit` 绿;task.json 存在;writeback schema;**引用越权=拒绝**(cast_actual/delta/thread_ops/power_delta 的实体线索必须已登记,thread 迁移必须合法);hooks_realized.close=true(config 网文默认);payoff_realized ⊆ quota 且章号匹配 | **事务包裹(txn_begin→…→txn_end)**:章 md(status=drafted)+meta.json;实体事件日志追加;**facts 登记**(自 continuity_delta 分配 fact_id 写 ledgers/facts/vol_NN.json);thread 推进日志+state+plant_ch 回填;payoff/timeline/power 台账(带 rev 列);ngram_cache(分层);rollup 重算;git commit |
+| write | `--chapter`(信封+##正文) `--writeback`(json) | `check --unit` 绿;task.json 存在;writeback schema;**引用越权=拒绝**(cast_actual/delta/thread_ops/power_delta 的实体线索必须已登记,thread 迁移必须合法);hooks_realized 如实记录，完整收束不强制 close=true;payoff_realized ⊆ quota 且章号匹配 | **事务包裹(txn_begin→…→txn_end)**:章 md(status=drafted)+meta.json;实体事件日志追加;**facts 登记**(自 continuity_delta 分配 fact_id 写 ledgers/facts/vol_NN.json);thread 推进日志+state+plant_ch 回填;payoff/timeline/power 台账(带 rev 列);ngram_cache(分层);rollup 重算;git commit |
 | revise | 同 write | 同 write;目标章非 published;**thread 迁移按撤销后剩余日志模拟**(本章旧 op 剔除再验) | 章 rev+1;**先撤销后重放(§9)**:实体事件日志/线索推进日志剔除本章旧行,facts 先剪后登,TSV 追加新 rev 行;余同 write |
 | design | `--file F ...`(节点 md;**可附带**裁决记录 dec_*.md、新实体卡、transcript) | **两遍制**:第一遍全部文件校验(主文件必需节齐全非空;信封合法;附带文件各按其 kind 校验),任一失败=零落盘;第二遍事务内写入。**`--draft`** 例外:跳过必需节校验,节点以 status=draft 部分落盘(书庭中间态持久化,不算定稿,不触发 stale) | 全部落盘(节点 committed;--draft 时 draft);git 一次提交 |
 | revise_design | `--file F ...` + task.evidence 非空 | 同上 + evidence | 落盘;**受影响下游沿 parent 链递归标 stale(卷→弧→章)**;git |
@@ -368,7 +368,7 @@ git 提交消息:`[t_000231] write(ch_0212): 摘要`。
 
 ## 17. check 断言集
 
-**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词 WARN;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);**known_by 有限定的事实被明写且在场角色不在有效知情集(个体+fac/loc/item 知情圈展开,v2)→ NEEDS_REVIEW(角色知识越界候选,P4-K——轻评裁定:改暗写/补获知场景后带章号 knowledge grant（仅入圈不等于获知）/删句)**;hooks_realized.close(route=web 强制,issues 说明降 WARN);payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
+**--unit <ch>**:字数 ∈ word_target±15%(任务卡可覆盖);style.md 禁忌命中=0(列出行);连续 3 句同首词 WARN;连续 3 段同首 WARN;章内字符级 4-gram 重复率 >2% WARN;末段总结化黑名单(「这一夜注定」「谁也没想到」类);**跨章分层指纹**——12-gram 精确重复(防句级套话,窗口内全量+窗口外归档采样,覆盖全史)WARN + 窗口内单章 8-gram 重合率 >6% WARN(撞梗/桥段自我复用嫌疑,深评抽查);meta.json schema 齐全 + continuity_delta 每条含 fact/entity_ids/spoiler;**引用越权 FAIL**(cast_actual/delta/thread_ops/power_delta 的实体线索未登记、thread 迁移非法——revise 按撤销后状态模拟);**facts 冲突扫描**(新 delta vs 既有未覆盖 facts:同实体同键矛盾或高相似文本 → NEEDS_REVIEW;同文异章 → WARN);**抽取器对账(P2-1 双记账)**——正文实测出场(aliases+实体卡别名命中)vs cast_actual:未申报出场 WARN、幽灵出场 WARN;引号内 ≥2 次未登记新专名 → NEEDS_REVIEW(简报外发明嫌疑);未揭示 spoiler 事实与正文句子高相似 → NEEDS_REVIEW(剧透泄漏候选);**known_by 有限定的事实被明写且在场角色不在有效知情集(个体+fac/loc/item 知情圈展开,v2)→ NEEDS_REVIEW(角色知识越界候选,P4-K——轻评裁定:改暗写/补获知场景后带章号 knowledge grant（仅入圈不等于获知）/删句)**;hooks_realized.close（未实现给诊断，不强制悬崖）;payoff_realized ⊆ quota 且 **id 章号 = 本章**。主观项(遮名指认/智商漂移/关键场面占比/爽点有效性/毒点)输出 NEEDS_REVIEW 交评审。支持 `--candidate/--writeback` 对未落盘产物执行。
 **--window [--since CH]**:三章/十章样例兑现统计只给诊断 WARN，不再作为普遍准出要求；promise 只报告未结总数（非读者焦点数），收束可归零；promise >15 章无推进;**power 台账近 10 章同实体 ≥3 次变动 WARN**;**故事日历(P2-2)**——elapsed 中文数值化(「2天」「三个时辰」→天数)非负 FAIL、story_date(ISO 或中文日期)按章序单调不倒流 FAIL、`ledger timeline` 视图输出累计天数;buffer 计数与章 status 一致。`--since` 限定窗口扫描起点(长连载增量检查)。台账读取一律 (chapter) 取最新 rev(§9)。
 **--leak <候选> --brief <简报>**:候选正文中出现、但简报未投递的**已登记专名**(aliases.json + 实体卡 aliases)→ FAIL(信息沙箱违规);未登记的新发明专名机器无法枚举 → NEEDS_REVIEW 交轻评(pipeline §5)。
 **--project**:信封键齐+枚举合法——**按 kind 分级**:内容资产(book/volume/arc/chapter/entity/thread/style/world)查全信封(id/kind/status/rev/updated_at,+parent 除 book);`decision` 查 §11 键集+四节存在+否决案行含 reopen_requires;`review` 查 §12 键集+depth/verdict 枚举+问题清单节;brief 用注释头不查信封。parent 存在;章三件套齐;cast/entity 引用可解析(经 aliases);must_not_drop ∧ dropped 无 decision 引用**或引用的 dec 文件不存在** → FAIL;facts schema + superseded 引用存在;**知情圈台账(v2)**——scopes.json 圈键须为已登记 fac/loc/item、成员须为已登记 char(违者 FAIL),known_by 引用空圈 WARN;published 连续无空洞;必需标题节(§4);queue target 均存在;**半事务检出(P0-3)**——`state/txn/` 有 `done=false` journal → FAIL(上次 commit 中断,先按 §18 恢复)。
@@ -441,3 +441,11 @@ v1→v2 术语与资产映射保留在 `protocol/glossary.md` §2,供迁移旧�
 
 
 `context_threads` 可列仅供历史/后果参考的 thread id，不向终态线发送推进 op。简报按目标章历史状态召回，并将选中线的“回收设计”单列为编辑计划，不能当成已发生真相；现有依赖哈希与预算纪律仍适用。
+
+## 创作意图与解释沿革
+
+brief §5 默认提取 book 的 `阅读体验契约`、当前 volume 的 `卷主旨与价值走向`/`imports`、当前 arc 的 `当前创作问题`（支持二/三级标题）。只读这些节，不投递书级其他秘密或本卷 exports；标注编辑来源，不宣称其为已发生事实。缺失/占位节提示待确认，不新增文学准入；已有块整体保留，沿用必需材料超预算时保留旧简报的行为。具体落实仍由 creative_brief 说明。
+
+叙事记忆排序：明确 memory_refs 优先；非强制候选先比较 memory_keywords 与 threads/context_threads 命中数，再比较人物相关数、时间；默认最多六组。不会自动把自然语言问题变成检索条件。
+
+可选 `narrative_memory[].reinterprets` 为旧记忆引用的字符串数组，如 `["ch_0001#0"]`；序号从零开始，只指向更早章节。它声明本条重释了旧记录，不自动将新观点判真或更新 knowledge。召回时将截止章内相关解释连接成一个完整预算条目，任一明确引用使整组必保留；不加载未来解释。相关但非强制组可整体裁剪，不能只保留旧解释而裁掉其修正。所选组的断链会报缺料；旧章返修重排数组仍需人工核对语义身份。

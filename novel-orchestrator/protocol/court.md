@@ -29,7 +29,7 @@
 | 卷庭 | 架构师×2 /「结构+安全」合并×1 + 读者×1 | 上卷 exports+卷报告(编排者据 `novel.py status` + `ledger payoff|promise|timeline` 汇编,见 serial-ops §4)+imports 预填;book.md/world.md;主线电缆当前位置;所选 rhythm 模板;rubrics/power.md、redline.md、payoff.md | vol_NN/volume.md 九节 + dec_*(session: volume) | 5(无 R4) |
 | 弧 | 架构师×1 / 合并评审×1(结构检查单+读者投票) | 卷蓝图(弧划分行)+前弧收尾摘要+active threads+payoff/promise 窗口(`novel.py ledger payoff|promise|timeline`)+所选 rhythm 模板检查单 | arc_NN_n.md 六节 + dec_*(简式) | 3 |
 
-注:读者代表**每场必到、必投票**(spec §4.3 R2)。「合并评审」=单次运行附两份角色文件与判据,产出分两节。安全审查在 S1 把题材红线、在 S4 签署书级与卷级「红线自查结论」节。
+注:设计庭的读者观察是提案预测，不是正文体验或市场投票；允许不确定。「合并评审」的两份输出不能冒充两名独立读者。安全审查在 S1 把题材红线、在 S4 签署书级与卷级「红线自查结论」节。
 
 ## 3. 回合协议 R0–R4(可执行伪代码)
 
@@ -51,7 +51,7 @@ court_session(场, node):
      for 架构师 i in 阵容: spawn(T-arch, stance_i, 简报)  # 互相独立,不见他案
      → 各返回一份完整提案(按目标节点必需标题节组织,F§4)
   R2 评审(并行,一轮,全评审角色 × 全部提案):
-     spawn 读者代表(T-reader): 每提案必给【弃读|追读】票 + 人设化理由
+     spawn 读者观察(T-reader): 提案只给体验预测、担忧与不确定；正文首次阅读另行隔离
      spawn 结构/设定/安全(T-critic): 逐提案缺陷清单,每条标 blocking|minor
   R3 主编合成(1 次,T-editor):
      输入 = 简报 + R1 全部提案 + R2 全部评审与读者票
@@ -59,10 +59,10 @@ court_session(场, node):
             (b) 裁决记录草稿(F§11 四节)——否决案每条必填 reopen_requires;
                 未采纳的评审意见逐条记 resolution: disagree_and_commit
   R4 定向修订(至多 1 轮;仅当 R3 留有 blocking 且预算未满):
-     spawn 单一对口角色(T-fix),只修 blocking 项 → 编排者把补丁合入主编稿 → 强制定稿
+     spawn 单一对口角色(T-fix),修 blocking 项 → 核对是否解决；未解保留草案，不自动定稿
   收尾(编排者):
      红线类 blocking 未解 → 升级用户,场挂起(task note 记「红线待人裁」,等用户当轮裁决)
-     预算耗尽仍有非红线 blocking → 以主编现稿定稿,写入 dec「## 异议」留痕
+     预算耗尽仍有核心 blocking → 保存草案与异议，缩小问题、试写或暂停交作者选择
      暂存三件: 节点稿 / dec_NNN 稿 / transcript(R1–R4 原文汇编)
      每场末向用户一页纸呈报(非阻塞;spec §10)
 ```
@@ -149,10 +149,10 @@ stance:<市场派|概念派|稳健派|体系派|代价派|人物派|冲突派>;�
 **T-reader 读者代表**
 ```
 你是读者代表。先读:roles/reader.md 与人设卡 personas/<卡名>.md;
-全程以该人设的弃读阈值/毒点权重/爽点偏好为唯一先验,不做通用文学评价。
+人设卡只提供口味假设，不按固定阈值强行投票；此处已看设计，只能做提案预测。
 本场议题:<同上>;待评提案 N 份。
 附件:设计简报 <路径>;提案 A/B[/C] <路径>
-产出:对每份提案给【弃读|追读】票 + ≤3 条人设化理由(引用提案原文定位);末行给出排序。
+产出:每份提案的预期体验、担忧、尚需试写的问题，引用提案位置；不宣称读者已经被打动。
 [通用尾注]
 ```
 

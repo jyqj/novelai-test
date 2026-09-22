@@ -46,10 +46,14 @@ def writeback_errors(wb, text=None):
         for key in ("text", "evidence"):
             if not isinstance(item.get(key), str) or not item[key].strip():
                 errors.append("叙事记忆必须有 " + key)
-        for key in ("entity_ids", "thread_ids", "keywords"):
+        for key in ("entity_ids", "thread_ids", "keywords", "reinterprets"):
             val = item.get(key, [])
             if not isinstance(val, list) or any(not isinstance(v, str) for v in val):
                 errors.append("叙事记忆 %s 必须为字符串数组" % key)
+        refs = item.get("reinterprets", [])
+        if isinstance(refs, list) and any(not isinstance(v, str) or
+                not re.fullmatch(r"ch_\d{4}#\d+", v) for v in refs):
+            errors.append("reinterprets 须引用 ch_NNNN#序号 的旧记忆")
         if text is not None and item.get("evidence") and item["evidence"] not in text:
             errors.append("叙事记忆 evidence 不在本章正文中；不得将计划冒充发生过的事")
     return errors
@@ -127,11 +131,18 @@ def historical_log(body, section, at_ch):
 
 
 def memory_recall(proj, task, at_ch, limit=6):
-    """Rank whole evidence-backed episodes, not only first/last arc sentences."""
+    """Retrieve by purpose before recency; keep linked interpretations together.
+
+    Links are editorial assertions, not truth judgments. Only written chapters
+    at/before the cutoff participate; old evidence is never erased by a new view.
+    """
     cast = {proj.resolve_entity(x) or x for x in task.get("cast", [])}
     cast |= set(task.get("context_entities", []))
     tags = set(task.get("memory_keywords", []))
     wanted = set(task.get("memory_refs", []))
+    threads = {v["id"] if isinstance(v, dict) else v for v in task.get("threads", [])}
+    threads |= set(task.get("context_threads", []))
+    memories, edges = {}, {}
     candidates = []
     for chapter in proj.chapters():
         cid = chapter["id"]
@@ -141,15 +152,51 @@ def memory_recall(proj, task, at_ch, limit=6):
         for i, item in enumerate(wb.get("narrative_memory", [])):
             ref = "%s#%d" % (cid, i)
             score = 4 * len(cast & set(item.get("entity_ids", [])))
-            score += 5 * len(tags & set(item.get("keywords", [])))
-            score += 3 * len({v["id"] if isinstance(v, dict) else v for v in task.get("threads", [])} & set(item.get("thread_ids", [])))
-            if ref in wanted or score:
-                candidates.append((ref in wanted, score, ch_num(cid), ref, item))
-    candidates.sort(key=lambda row: (row[0], row[1], row[2], row[3]), reverse=True)
-    selected = [c for c in candidates if c[0]] + [c for c in candidates if not c[0]][:limit]
-    missing = wanted - {c[3] for c in selected}
+            purpose = (len(tags & set(item.get("keywords", [])))
+                       + len(threads & set(item.get("thread_ids", []))))
+            memories[ref] = item
+            if ref in wanted or purpose or score:
+                candidates.append((ref in wanted, purpose, score, ch_num(cid), ref))
+    missing = wanted - set(memories)
     if missing:
         raise ValueError("必需叙事记忆不存在或来自未来：" + ", ".join(sorted(missing)))
+
+    # Undirected context edges let an old explicitly requested episode bring its
+    # later correction, and a new interpretation bring its actual antecedent.
+    invalid = {}
+    for ref, item in memories.items():
+        for old in item.get("reinterprets", []):
+            if old not in memories or ch_num(old.split("#")[0]) >= ch_num(ref.split("#")[0]):
+                invalid.setdefault(ref, []).append(old)
+                continue
+            edges.setdefault(ref, set()).add(old)
+            edges.setdefault(old, set()).add(ref)
+    candidates.sort(reverse=True)
+    selected, visited, optional = [], set(), 0
+    for required, purpose, score, chapter, ref in candidates:
+        if ref in visited or (not required and optional >= limit):
+            continue
+        group, pending = set(), [ref]
+        while pending:
+            member = pending.pop()
+            if member in group:
+                continue
+            group.add(member)
+            pending.extend(edges.get(member, set()) - group)
+        for member in group:
+            if member in invalid:
+                raise ValueError("重释引用不存在或不是更早章节：%s → %s" %
+                                 (member, ", ".join(invalid[member])))
+        visited.update(group)
+        item = dict(memories[ref])
+        if len(group) > 1:
+            item["_interpretation_context"] = [(mref, memories[mref]) for mref in
+                sorted(group, key=lambda r: (ch_num(r.split("#")[0]), int(r.split("#")[1])))]
+        # One context group is one budget item, never trim the correction alone.
+        # Preserve purpose-first ordering when brief.py applies its own budget.
+        priority = purpose * (4 * len(cast) + 1) + score
+        selected.append((required, priority, chapter, ref, item))
+        optional += not required
     return selected
 
 

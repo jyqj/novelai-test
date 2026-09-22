@@ -28,7 +28,7 @@
 | continuity_delta 实体已登记 | 每个 entity_id 去 `entities/` 与 aliases.json 里找 | 高 |
 | thread_ops 线索已登记+迁移合法 | 查 `threads/`；对照 formats §8 迁移表核状态 | 高 |
 | payoff_realized ⊆ quota 且章号匹配 | 数 quota 条数；核 id 中的章号 | 高 |
-| hooks_realized.close（web 强制） | 核 writeback；false 时 issues 必须说明 | 高 |
+| hooks_realized.close（如实记录） | 对照正文和本章约定；完整收束合法，不为通过而谎报钩子 | 高 |
 | published 连续性 | 排 chapters/ 目录，确认 published 无空洞 | 高 |
 | 时间线 elapsed 非负 | 查 `ledgers/timeline.tsv` elapsed 列 | 高 |
 | story_date 不倒流 | timeline.tsv 按章号排序，story_date 逐行只增不减 | 中 |
