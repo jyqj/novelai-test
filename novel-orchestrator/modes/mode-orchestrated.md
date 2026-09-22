@@ -1,3 +1,5 @@
+> 当前升级约定：按 `protocol/reliability.md`（同目录为 reliability.md）执行证据回执、历史视图和安全恢复；旧流程中的 pass 要附逐项证据，人工附笔需单独确认保存，不能假定后续 CLI 会替它进入事务。
+
 # mode-orchestrated — 多代理编排模式作业手册
 
 适用：产品可 spawn 子代理（Task/subagent 工具）。你（读到本文件的 agent）担任**编排者**，

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """review — 评审回执 CLI（P0-2）：轻/深评结论落盘 reviews/（approved 闸门唯一回执载体）。"""
 import datetime
+import json
+from .receipts import checklist, evidence_errors, subject_hash
 
 from .common import (ch_num, die, dump_frontmatter, git_autocommit,
                      parse_frontmatter, read, write)
@@ -11,6 +13,9 @@ from .stagectl import stage_guard
 def cmd_review(args):
     """评审回执 CLI 化：轻/深评结论落盘 reviews/（approved 闸门唯一认可的回执载体）。"""
     proj = Project(find_root(args))
+    if args.review_cmd == "checklist":
+        print(json.dumps(checklist(proj, args.ch_id), ensure_ascii=False, indent=2))
+        return 0
     if args.review_cmd == "list":
         for r in proj.reviews():
             m = r["meta"]
@@ -34,14 +39,29 @@ def cmd_review(args):
     if rev != cur_rev:
         print("[warn] rev_reviewed=%d ≠ 章当前 rev=%d——该回执不会被 approved 闸门认可"
               "（仅存证历史评审）" % (rev, cur_rev))
-    issues = args.issue or ["[全章] 无阻塞问题 → 通过"]
+    if not args.evidence:
+        die("必须提供 --evidence <逐项裁定.json>；用 review checklist 生成待评表，禁止默认通过", 1)
+    evidence = json.loads(read(args.evidence))
+    errors = evidence_errors(proj, ch_id, evidence, args.verdict)
+    if errors:
+        die("; ".join(errors), 1)
+    issues = args.issue or [evidence["summary"]]
     meta = {"id": "review_%s_%s" % (ch_id, args.depth), "kind": "review",
             "chapter": ch_id, "depth": args.depth, "verdict": args.verdict,
-            "rev_reviewed": rev, "date": datetime.date.today().isoformat()}
+            "rev_reviewed": rev, "date": datetime.date.today().isoformat(),
+            "subject_sha256": subject_hash(proj, ch_id) if rev == cur_rev else "historical-unbound"}
     body = "\n## 问题清单\n\n" + "\n".join("- %s" % i for i in issues) + "\n"
+    body += "\n## 逐项裁定\n\n" + json.dumps(evidence, ensure_ascii=False, indent=1) + "\n"
+    if evidence.get("strengths"):
+        body += "\n## 成功样本\n\n" + json.dumps(evidence["strengths"], ensure_ascii=False, indent=1) + "\n"
     if args.lesson:
         body += "\n## 教训\n\n- %s\n" % args.lesson
     out = proj.p("reviews", "%s.%s.md" % (ch_id, args.depth))
+    if out.is_file():
+        import hashlib
+        old = read(out)
+        history = proj.p("reviews", "history", out.stem + "." + hashlib.sha256(old.encode()).hexdigest()[:16] + ".md")
+        write(history, old)
     write(out, dump_frontmatter(meta) + body)
     git_autocommit(proj.root, "[review] %s %s=%s rev%d"
                    % (ch_id, args.depth, args.verdict, rev))

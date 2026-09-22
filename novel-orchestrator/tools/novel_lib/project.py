@@ -18,7 +18,10 @@ class Project:
 
     # ---- 路径
     def p(self, *parts):
-        return self.root.joinpath(*parts)
+        path = self.root.joinpath(*parts)
+        if not path.resolve().is_relative_to(self.root) or ".git" in path.relative_to(self.root).parts:
+            raise ValueError("项目路径越界：%s" % path)
+        return path
 
     # ---- 章
     def chapter_files(self):
@@ -72,7 +75,7 @@ class Project:
         m = re.match(r"^arc_(\d{2})_(\d+)$", node_id)
         if m:
             return self.p("tree", "vol_" + m.group(1), node_id + ".md")
-        if node_id.startswith("ch_"):
+        if re.fullmatch(r"ch_\d{4}", node_id):
             return self.p("chapters", node_id + ".md")
         return None
 
@@ -260,7 +263,7 @@ def find_root(args):
 
 def promote_blocked(q):
     """依赖已 done 的 blocked 任务自动解锁 → pending。返回被解锁的任务 id 列表。"""
-    done = {t["id"] for t in q["tasks"] if t["state"] == "done"}
+    done = {t["id"] for t in q["tasks"] if t["state"] == "done"} | set(q.get("completed_ids", []))
     changed = []
     for t in q["tasks"]:
         if t["state"] == "blocked" and all(b in done for b in t.get("blocked_on", [])):
@@ -281,7 +284,7 @@ def load_queue_promoted(proj):
 
 
 def next_task_id(q):
-    done = {t["id"] for t in q["tasks"] if t["state"] == "done"}
+    done = {t["id"] for t in q["tasks"] if t["state"] == "done"} | set(q.get("completed_ids", []))
     for t in q["tasks"]:
         if t["state"] == "pending" and all(b in done for b in t.get("blocked_on", [])):
             return t["id"]

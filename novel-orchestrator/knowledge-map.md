@@ -1,3 +1,5 @@
+> 维护归属与默认池不变；遇具体症状可由编排者 stage consult 有界借阅池外块（见 protocol/knowledge-orchestration.md），不改所有权，不将原文自动投入写手简报。
+
 # knowledge-map.md — 全部知识资产的**所有权台账**（每资产有且只有一个所有阶段）
 
 本 skill **没有任何「全库通用知识」**：每块知识（K-ID）、每张判据卡（rubrics/）、每张

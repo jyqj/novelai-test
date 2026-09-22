@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from support import legacy_fixture_invoke
 
 TOOLS = Path(__file__).resolve().parent.parent
 NOVEL = TOOLS / "novel.py"
@@ -27,8 +28,7 @@ STEP = [0]
 
 
 def run(args, cwd, expect=0):
-    r = subprocess.run([sys.executable, str(NOVEL)] + args,
-                       cwd=str(cwd), capture_output=True, text=True)
+    r = legacy_fixture_invoke(args, cwd)
     if r.returncode != expect:
         print("FAILED: novel.py %s\nexit=%d (期望 %d)\n--- stdout ---\n%s\n--- stderr ---\n%s"
               % (" ".join(args), r.returncode, expect, r.stdout, r.stderr))
@@ -123,17 +123,17 @@ def main():
         facts_p = proj / "ledgers/facts/vol_01.json"
         facts_p.parent.mkdir(parents=True, exist_ok=True)
         facts_p.write_text(json.dumps(FACTS, ensure_ascii=False), encoding="utf-8")
-        out = run(["knowledge", "grant", "fact_000001", "--to", "loc_capital"],
+        out = run(["knowledge", "grant", "fact_000001", "--to", "loc_capital", "--ch", "ch_0001"],
                   cwd=proj)
         must("知情圈为空" in out and "scope add loc_capital" in out,
              "M3 范围授予空圈 → 编圈提醒")
         run(["knowledge", "scope", "add", "loc_capital", "char_guard"], cwd=proj)
         run(["knowledge", "grant", "fact_000001", "--to", "影阁",
-             "--to", "char_linwan", "--ch", "ch_0002"], cwd=proj)
+             "--to", "char_linwan", "--ch", "ch_0001"], cwd=proj)
         out = run(["knowledge", "query", "--fact", "fact_000001"], cwd=proj)
-        must("fac_shadow圈(char_member)" in out and "loc_capital圈(char_guard)" in out
+        must("实际知情：char_linwan,char_member" in out and "来源=loc_capital；当时获知=loc_capital" in out
              and "char_linwan" in out,
-             "M3 query --fact 知情名单按圈展开显示")
+             "M3 query --fact 显示授予时快照（入圈不追溯知情）")
 
         # M4 query 展开：个体经圈 / 展开后不知情 / 群体视图
         out = run(["knowledge", "query", "--entity", "char_member"], cwd=proj)
@@ -141,7 +141,7 @@ def main():
              and "经 fac_shadow 圈" in out,
              "M4 个体经圈知情（标注来源圈）")
         out = run(["knowledge", "query", "--entity", "char_rival"], cwd=proj)
-        must("不知情 1 条" in out and "fac_shadow圈(char_member)" in out,
+        must("不知情 1 条" in out and "实际知情：char_linwan,char_member" in out,
              "M4 圈外个体展开后不知情")
         out = run(["knowledge", "query", "--entity", "fac_shadow"], cwd=proj)
         must("知情圈成员：char_member" in out and "知情 1 条" in out,
@@ -152,7 +152,7 @@ def main():
             json.dumps(TASK2, ensure_ascii=False, indent=1), encoding="utf-8")
         run(["brief", "ch_0002"], cwd=proj)
         brief = (proj / "briefs/ch_0002.brief.md").read_text(encoding="utf-8")
-        must("fac_shadow圈(char_member)" in brief,
+        must("知情仅:" in brief and "char_member" in brief,
              "M5 简报【知情仅】按圈展开显示")
         must("char_rival 不知情" in brief and "char_member 不知情" not in brief,
              "M5 在场不知情名单按展开计算（圈成员不误报）")
@@ -173,10 +173,13 @@ def main():
         run(["knowledge", "scope", "add", "fac_shadow", "char_rival"], cwd=proj)
         out = run(["extract", "ch_0002", "--candidate", str(cand),
                    "--writeback", str(wbf)], cwd=proj)
-        must("角色知识越界候选" not in out, "M6 scope add 入圈后越界候选消失")
+        must("角色知识越界候选" in out, "M6 入圈不等于获知历史秘密")
+        run(["knowledge", "grant", "fact_000001", "--to", "char_rival", "--ch", "ch_0002"], cwd=proj)
+        out = run(["extract", "ch_0002", "--candidate", str(cand), "--writeback", str(wbf)], cwd=proj)
+        must("角色知识越界候选" not in out, "M6 有场景的 grant 才消除越界")
 
         # M7 check --project：空圈 WARN；圈键/成员非法 FAIL
-        run(["knowledge", "grant", "fact_000002", "--to", "item_seal"], cwd=proj)
+        run(["knowledge", "grant", "fact_000002", "--to", "item_seal", "--ch", "ch_0002"], cwd=proj)
         out = run(["check", "--project"], cwd=proj)
         must("空知情圈" in out and "item_seal" in out,
              "M7 known_by 引用空知情圈 → WARN")

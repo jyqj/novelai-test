@@ -12,8 +12,10 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 ## 0. 一切工作的三条公理
 
 1. **文件即记忆**：上下文会丢，写进项目文件的才存在。一切共识（设定、决策、进度）落盘后才算发生。
-2. **commit 是唯一写路径**：任何产物先机检（`novel.py check`）后落盘（`novel.py commit`）；机检不绿不入库。`published` 章**永不改写**，修错走 retcon（`protocol/serial-ops.md` §3）。
-3. **没有全 skill 通用知识——每个知识资产归且只归一个阶段**：全生命周期切成 11 个阶段，每阶段有唯一配套知识包（`protocol/stages/`；总目录与硬规则=`protocol/knowledge-orchestration.md`），每块知识/判据卡/人设卡/节奏模板都有唯一所有阶段（台账=`knowledge-map.md`）——**进环节 = `novel.py stage enter <id>` + 读包**（进阶段写 `state/stage.json`，是各受辖操作的钥匙：court open/brief/commit/publish… 阶段不匹配即被闸门拒绝），按包内「必读/选读池/禁读」装载，不再自行翻库。可操作面已蒸馏进 rubrics/（带阈值判据），写作与评审只引用 rubrics；庭审附件从本场**专属** K 池挑 ≤4 块只取锚点段；仅 diag 阶段（诊断疑难/学理求教）经其包内症状路由按块读自有 33 块（≤2 块/次），读完即弃，不进简报。`novel.py stage current` 读持久化阶段与包路径。
+2. **CLI 是唯一自动写路径**：候选正文与设计产物先机检（`novel.py check`）后落盘（`novel.py commit`）；机检不绿不入库。`published` 章**永不改写**，修错走 retcon（`protocol/serial-ops.md` §3）。
+3. **唯一来源，不是唯一使用阶段**：阶段包给出默认最小输入，知识资产仍有唯一维护归属。具体症状需要池外方法时，编排者用 `stage consult <K-ID> --target <任务或节点> --reason <症状>` 借阅 1–2 块，预算与来源留痕；写手仍只读经审查的简报。禁止全库灌入，不禁止有理由的跨阶段咨询。
+
+**当前执行契约先读 `protocol/reliability.md`**：事务恢复、逐项评审证据、历史知情、创作提案与作者覆盖权。它替代旧版默认 pass、全工作区清理、把方法论数值当普遍硬规则等约定。阶段状态只证明已进入操作阶段，不证明所有文学退出判据已满足。
 
 ## 1. 能力探测（进入任务先答三问；四档剖面与降级矩阵详见 `modes/capability-profiles.md`）
 
@@ -31,7 +33,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 | 同上，**不可 spawn**（单代理产品） | solo | `modes/mode-solo.md`（帽子切换 + 庭审降级） |
 | 传统长篇/严肃文学/无连载发布 | traditional | `modes/route-traditional.md`（叠加在前两者之上的差分） |
 
-> traditional 是**差分层**：先按能力选 orchestrated/solo，再叠加 route-traditional 的覆盖规则（无 buffer/publish、细纲工序、classic24 全书节拍）。`config.json` 写 `"route": "traditional"`。
+> traditional 是**差分层**：先按能力选 orchestrated/solo，再叠加 route-traditional 的覆盖规则（无 buffer/publish、细纲工序、可选 classic24 或探索式规划）。`config.json` 写 `"route": "traditional"`。
 
 ## 3. 冷启动三步（新书）
 
@@ -69,7 +71,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 | 教训蒸馏进判据 | `protocol/workflow.md` §6 蒸馏回路（CLI：`task add revise_rubric style`） | `ledgers/lessons.md`、`tree/style.md` |
 | 存量旧稿收编/半途接管 | `protocol/adopt.md`（CLI：`novel.py adopt`；批量补录后 `novel.py rollup`） | `protocol/formats.md` §15 |
 | 冲突/翻案 | `protocol/court.md` §4（否决案台账） | 相关 `court/dec_*.md` |
-| 诊断疑难/学理深读 | `protocol/stages/diagnose.md`（诊断五步+预算+**包内**症状路由，只覆盖 diag 专属 33 块）→ `knowledge-blocks.md` 锚点按块读 | `knowledge-map.md`（全资产所有权台账） |
+| 诊断疑难/学理深读 | `protocol/stages/diagnose.md`（诊断五步+预算+**包内**症状路由，默认使用 diag 的 33 块，池外按 stage consult 留痕）→ `knowledge-blocks.md` 锚点按块读 | `knowledge-map.md`（全资产所有权台账） |
 | 术语歧义 | `protocol/glossary.md`（SSOT） | — |
 
 ## 5. 最小回应契约（所有角色/帽子通用）
@@ -85,7 +87,7 @@ description: 长篇小说全生命周期作业系统：写小说/网文/长篇/�
 遇下列情形**立即停手上报**（人在环）或**记 decision 后走保守默认**（unattended）：
 
 - 红线嫌疑（`rubrics/redline.md` 任一条命中）——安全审计员一票上报，无人可否决；
-- 需要翻已 commit 的书/卷级决策（先查 `court/` 否决案台账，无新证据不得重开）；
+- 需要翻已 commit 的书/卷级决策（先查 `court/` 否决案台账；作者显式覆盖时记录理由与影响，不能把旧规则当作否决作者的权限）；
 - `check --project` 出现无法自动修复的 FAIL（如 published 空洞、facts 断链）；
 - 同一目标 write/revise 失败 2 次（队列自动升级 revise_design，勿硬写第 3 次）。
 
@@ -117,7 +119,7 @@ rubrics/    11 张判据卡（运行期唯一评审依据；每卡有唯一所�
 personas/   9 张读者人设卡（所有权=s1）  rhythm/   5 张节奏模板（所有权=s4）
 templates/  全部资产模板（novel.py init/tree add 的源）
 tools/      novel.py(CLI 入口，实现在 novel_lib/) tests/(冒烟+重构回归+阶段/知识+长程) README.md(覆盖表)
-knowledge/ + knowledge-blocks.md   深读原文与锚点解析（无全库索引；进入只经所属阶段包）
+knowledge/ + knowledge-blocks.md   原文与锚点（默认阶段包，按症状有界咨询）
 ```
 
 （前身 `novel-writing-workflow`（v1）已随技术债清理移除；旧项目迁移对照 `protocol/glossary.md` §2。）

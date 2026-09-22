@@ -7,6 +7,10 @@ from .common import (NOW, TEMPLATES, THREAD_LIVE, ch_num, die, get_section,
                      git_autocommit, parse_frontmatter, read, write)
 from .project import Project, find_root
 from .stagectl import stage_guard
+from .narrative import (effective_knowers, entity_status, historical_log,
+                        memory_recall, reader_knows, related_facts,
+                        setting_blocks, thread_state_at)
+from .dependencies import brief_sources, file_hash
 
 
 def tail_chars(text, n):
@@ -39,7 +43,7 @@ BRIEF_SECTIONS = ("0 任务卡", "1 文风与禁忌", "2 直接上文", "3 出�
 PRIO = {"arc_chain": 62, "arc_rows": 58, "ent_setting_lead": 55, "ent_setting": 50,
         "thread_near": 48, "thread_scope": 45, "world_rules": 44, "rollup_arc": 42,
         "recap": 41, "style_imagery": 40, "rollup_vol": 38, "fact_base": 30,
-        "style_anchor": 29, "tips": 25, "lessons": 20}
+        "style_anchor": 72, "tips": 20, "lessons": 55}
 
 
 def cmd_brief(args):
@@ -51,7 +55,13 @@ def cmd_brief(args):
     task = proj.chapter_task(ch_id)
     if not task:
         die("缺任务卡 chapters/%s.task.json（先 tree add chapter + 排批补全）" % ch_id, 1)
+    for field in ("context_entities", "memory_keywords", "fact_refs", "memory_refs"):
+        value = task.get(field, [])
+        if not isinstance(value, list) or any(not isinstance(v, str) for v in value):
+            die("task.%s 必须为字符串数组" % field, 1)
     budget = proj.config.get("brief_budget_chars", 24000)
+    if not isinstance(budget, int) or budget <= 0:
+        die("brief_budget_chars 必须为正整数", 1)
     num = ch_num(ch_id)
     route = proj.config.get("route", "web")
     cur_vol = proj.vol_of_chapter(ch_id)
@@ -122,7 +132,8 @@ def cmd_brief(args):
         vol_lines = []
         for vid in sorted(rollup.get("volumes") or {}):
             for l in rollup["volumes"][vid]:
-                if not l.startswith(str(arc_id0)):
+                span = re.search(r"（(\d{4})[–-](\d{4})）", l)
+                if span and int(span.group(2)) < num and not l.startswith(str(arc_id0)):
                     vol_lines.append("%s ｜ %s" % (vid, l))
         if vol_lines:
             add("2 直接上文", "rollup:vol",
@@ -134,6 +145,9 @@ def cmd_brief(args):
     if recap_p.is_file():
         rl = [l for l in read(recap_p).splitlines()
               if l.strip() and not l.strip().startswith("#")]
+        if proj.cursor()["last_drafted"] >= num:
+            # Unversioned recap cannot be safely projected backward during revision.
+            rl = []
         if rl:
             add("2 直接上文", "recap",
                 "### 全局 recap（ledgers/recap.md 尾段）\n" + "\n".join(rl[-12:]),
@@ -154,17 +168,18 @@ def cmd_brief(args):
                 "- 【缺卡】%s（资料员应报缺料）" % ref, must=True)
             continue
         e = ents[eid]
-        status_sec = get_section(e["body"], "现状") or ""
-        log = get_section(e["body"], "事件日志") or ""
-        log_tail = "\n".join([l for l in log.splitlines()
-                              if l.strip().startswith("-")][-3:])
+        status_sec = entity_status(proj, eid, e, num - 1)
+        log_tail = "\n".join(historical_log(e["body"], "事件日志", num - 1)[-3:])
         add("3 出场实体状态卡", "ent:%s:卡" % eid,
             "### %s\n现状：\n%s\n\n最近事件：\n%s"
             % (eid, status_sec, log_tail or "（无）"), must=True)
-        setting = get_section(e["body"], "设定") or ""
-        setting = "\n".join(setting.splitlines()[:14])
+        blocks = setting_blocks(e["body"])
+        inner = "\n".join(v for k, v in blocks.items() if k in ("欲望", "需要", "洋葱五层", "关系"))
+        add("3 出场实体状态卡", "ent:%s:内在与关系" % eid,
+            "### 内在驱动与关系（设计约束，不等于当时已发生的变化）\n" + inner, must=True)
+        setting = "\n".join(v for k, v in blocks.items() if k not in ("欲望", "需要", "洋葱五层", "关系", "声纹"))
         add("3 出场实体状态卡", "ent:%s:设定" % eid,
-            "设定要点（超预算首裁，全文见 entities/%s.md）：\n%s" % (eid, setting),
+            "未来弧光计划（非历史事实，可裁；来源 entities/%s.md）：\n%s" % (eid, setting),
             PRIO["ent_setting_lead"] if idx == 0 else PRIO["ent_setting"])
         vb = voice_block(e["body"])
         if vb:
@@ -195,7 +210,8 @@ def cmd_brief(args):
     n_threads = 0
     for tid, th in threads.items():
         m = th["meta"]
-        live = m.get("state") in THREAD_LIVE
+        state_at = thread_state_at(th, num - 1)
+        live = state_at in THREAD_LIVE
         scope_hit = cur_vol in (m.get("volume_scope") or [])
         near = payoff_near(m)
         pinned = tid in listed or (live and m.get("must_not_drop"))
@@ -203,9 +219,7 @@ def cmd_brief(args):
         if not relevant:
             continue
         stmt = get_section(th["body"], "陈述") or ""
-        log = get_section(th["body"], "推进日志") or ""
-        log_tail = "\n".join([l for l in log.splitlines()
-                              if l.strip().startswith("-")][-2:])
+        log_tail = "\n".join(historical_log(th["body"], "推进日志", num - 1)[-2:])
         tags = ""
         if m.get("must_not_drop"):
             tags += "【must_not_drop】"
@@ -213,7 +227,7 @@ def cmd_brief(args):
             tags += "【payoff 临近：%s】" % m.get("payoff_planned")
         add("4 活跃线索", "thread:%s" % tid,
             "- **%s** [%s/%s]%s：%s\n  最近推进：%s"
-            % (tid, m.get("thread_kind"), m.get("state"), tags,
+            % (tid, m.get("thread_kind"), state_at, tags,
                stmt.splitlines()[0] if stmt else "", log_tail or "（无）"),
             PRIO["thread_near"] if near else PRIO["thread_scope"], must=pinned)
         prov.append(("threads/%s.md" % tid, m.get("rev"), "§4 线索"))
@@ -243,49 +257,33 @@ def cmd_brief(args):
 
     # §6 相关事实与设定：逐 fact 一条（按 时近+键位+retcon 连带 记分），世界规则单列
     cast_ids = {proj.resolve_entity(r) for r in task.get("cast", [])} - {None}
-    scopes_reg = proj.scopes()
     n_facts = 0
-    for f in proj.facts_files():
-        data = json.loads(read(f))
-        retcons = {r.get("old_fact_id"): r for r in data.get("retcons", [])}
-        for fact in data.get("facts", []):
-            if not (set(fact.get("entity_ids", [])) & cast_ids):
-                continue
-            spoiler = "【读者未知，只可潜台词】" if fact.get("spoiler") else ""
-            # P4-K/v2 知识矩阵注入：知情名单（fac/loc/item 范围按知情圈展开）
-            # + 本章在场不知情者（写手的硬约束）
-            known = fact.get("known_by") or []
-            if known:
-                shown = []
-                for k in known:
-                    if k.startswith(Project.GROUP_PREFIXES):
-                        mem = scopes_reg.get(k, [])
-                        shown.append("%s圈(%s)" % (k, ",".join(mem) if mem else "空"))
-                    else:
-                        shown.append(k)
-                spoiler += "【知情仅:%s】" % ",".join(shown)
-                unaware = sorted(cast_ids - proj.expand_knowers(known))
-                if unaware:
-                    spoiler += "【本章出场 %s 不知情——不得由其说破或表现知情】" \
-                               % ",".join(unaware)
-            sup = fact.get("superseded_by")
-            line = "- %s%s（%s，ch%s）" % (spoiler, fact.get("fact"),
-                                           fact.get("id"), fact.get("revealed_ch"))
-            prio = PRIO["fact_base"]
-            rc = fact.get("revealed_ch")
-            if isinstance(rc, int) and num - rc <= 30:
-                prio += 10
-            if fact.get("key"):
-                prio += 3
-            if sup:
-                r = retcons.get(fact.get("id"), {})
-                line += "\n  ↳【已被覆盖】新事实：%s（策略 %s，%s）" % (
-                    r.get("new_fact", "?"), r.get("strategy", "?"),
-                    r.get("decision_ref", "?"))
-                prio += 5
-            add("6 相关事实与设定", "fact:%s" % fact.get("id"), line, prio)
-            n_facts += 1
+    for fact, f in related_facts(proj, task, num - 1):
+        spoiler = "【读者未知，只可潜台词】" if not reader_knows(fact, num - 1) else ""
+        known = fact.get("known_by") or []
+        if known:
+            effective = effective_knowers(proj, fact, num - 1)
+            spoiler += "【知情仅:%s】" % ",".join(sorted(effective))
+            if "knowledge_events" not in fact:
+                spoiler += "【旧账无历史快照，知情时点待核验】"
+            unaware = sorted(cast_ids - effective)
+            if unaware:
+                spoiler += "【本章出场 %s 不知情——不得由其说破或表现知情】" % ",".join(unaware)
+        line = "- %s%s（%s，ch%s）" % (spoiler, fact.get("fact"), fact.get("id"), fact.get("revealed_ch"))
+        if fact.get("superseded_by") and num >= fact.get("superseded_at", 0):
+            data = json.loads(read(f))
+            retcon = next((r for r in data.get("retcons", []) if r.get("old_fact_id") == fact["id"]), {})
+            label = "本章待执行兼容修正，非既往事实" if num == fact.get("superseded_at") else "已被覆盖"
+            line += "\n  ↳【%s】新事实：%s（%s）" % (label, retcon.get("new_fact", "?"), str(retcon.get("strategy", "?")) + ", " + str(retcon.get("decision_ref", "?")))
+        add("6 相关事实与设定", "fact:%s" % fact.get("id"), line, 65,
+            must=fact.get("id") in task.get("fact_refs", []))
         prov.append((str(f.relative_to(proj.root)), "-", "§6 事实"))
+        n_facts += 1
+    for required, score, _, ref, memory in memory_recall(proj, task, num - 1):
+        add("2 直接上文", "memory:" + ref,
+            "### 历史叙事记忆 %s [%s]\n%s\n原文依据：%s" %
+            (ref, memory["kind"], memory["text"], memory["evidence"]), 75 + score, must=required)
+        prov.append(("chapters/%s.meta.json" % ref.split("#")[0], "-", "§2 叙事记忆"))
     world_p = proj.p("tree", "world.md")
     if world_p.is_file():
         wmeta, wbody = parse_frontmatter(read(world_p))
@@ -303,15 +301,15 @@ def cmd_brief(args):
             "- 按细纲逐拍执行（beats 6–10 拍；scene_intents 标场景/过场）",
             "- 每章必有价值翻转（task.json 的 turn 字段；正负极性要兑现）",
             "- 章尾钩为建议级：close 缺席须在 issues 说明 turn 已落实",
-            "- 关键场面禁概述体；每 500 字 ≥1 个新信息或价值变化",
+            "- 场景、概述和静态描写的比例由本书审美与叙述目的决定",
             "- 禁发明简报外专名；缺料写 issues，不脑补",
         ]
     else:
         tips = [
             "核心纪律速记（全文见 rubrics/prose-disease.md）：",
-            "- 每 500 字 ≥1 个新信息或价值变化；章尾钩落最后 150 字内，钩前收束 ≤1 句",
-            "- 开篇 300 字内反预期信号；不原地复述上章钩子",
-            "- 关键场面禁概述体；打斗远中近推拉、交锋段均句长 ≤15 字",
+            "- 检查场景是否改变人物处境或读者理解；数字节奏是建议，不是通用合格线",
+            "- 承接上章而不重复上章；有意留白、迟缓与复沓可说明艺术理由",
+            "- 关键戏按作品的叙述距离完成；动作句长服从清晰度与节奏",
             "- 禁发明简报外专名；缺料写 issues，不脑补",
         ]
     add("7 写作提示", "tips", "\n".join(tips), PRIO["tips"])
@@ -370,13 +368,18 @@ def cmd_brief(args):
     while len(text) > budget:
         droppable = [it for it in active if not it["must"]]
         if not droppable:
-            break  # must-not-drop 集已到底线，超预算如实交付
+            die("必需上下文 %d 字符仍超过预算 %d；保留上版简报，须压缩任务/拆场或明确提高预算" % (len(text), budget), 1)
         victim = min(enumerate(droppable),
                      key=lambda x: (x[1]["prio"], -x[0]))[1]
         active.remove(victim)
         trimmed.append((victim["sec"], victim["key"]))
         text = render(active)
     write(prev_brief, text)
+    manifest = {"schema_version": 1, "chapter": ch_id, "brief_rev": brief_rev,
+                "brief_sha256": file_hash(prev_brief), "sources": brief_sources(proj, ch_id),
+                "budget_chars": budget, "actual_chars": len(text),
+                "retained": [it["key"] for it in active], "trimmed": trimmed}
+    write(proj.p("briefs", ch_id + ".manifest.json"), json.dumps(manifest, ensure_ascii=False, indent=1))
     git_autocommit(proj.root, "[brief] %s rev%d（保证 spawn 前基线干净）" % (ch_id, brief_rev))
     print("简报已生成：briefs/%s.brief.md（%d 字符 / 预算 %d%s）"
           % (ch_id, len(text), budget,

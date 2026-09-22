@@ -13,12 +13,13 @@ from .rollup import update_rollup
 
 def cmd_init(args):
     root = Path(args.dir).resolve()
-    if (root / "config.json").exists():
+    if root.exists() and any(root.iterdir()):
         die("目标已是项目：%s" % root)
     for d in ("tree", "chapters", "briefs", "entities", "threads", "ledgers/facts",
               "court/transcripts", "reviews", "data/feedback", "data/compliance",
               "tasks", "state/court", "state/reports", "state/txn", "corpus"):
         (root / d).mkdir(parents=True, exist_ok=True)
+    write(root / ".gitignore", "state/txn/\n*.tmp\n")
     cfg = json.loads(read(TEMPLATES / "config.json"))
     cfg["name"] = args.name or root.name
     write(root / "config.json", json.dumps(cfg, ensure_ascii=False, indent=2))
@@ -36,8 +37,10 @@ def cmd_init(args):
     write(root / "entities/aliases.json", "{}\n")
     write(root / "tasks/queue.json", json.dumps({"next_seq": 1, "tasks": []}))
     if git(root, "init", "-q"):
-        git_autocommit(root, "[init] 项目脚手架")
-        print("git 仓库已初始化并完成首次提交")
+        paths = [str(p.relative_to(root)) for p in root.rglob("*")
+                 if p.is_file() and ".git" not in p.relative_to(root).parts]
+        committed = git_autocommit(root, "[init] 项目脚手架", paths=paths)
+        print("git 仓库已初始化" + ("并完成首次提交" if committed else "（尚未提交）"))
     else:
         print("[warn] git 不可用，跳过版本化（单写者纪律降级为原子写入）")
     print("项目已创建：%s" % root)

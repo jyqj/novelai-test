@@ -18,6 +18,8 @@ def cmd_entity(args):
         m = re.match(r"^(char|item|loc|fac)_[a-z0-9_]+$", args.id)
         if not m:
             die("实体 id 应为 {char|item|loc|fac}_{slug}")
+        if proj.p("entities", args.id + ".md").exists():
+            die("实体卡已存在，拒绝覆盖", 1)
         etype = m.group(1)
         rep = {"[%s_slug]" % etype: args.id, "[YYYY-MM-DDTHH:MM:SSZ]": NOW()}
         write(proj.p("entities", args.id + ".md"),
@@ -42,6 +44,10 @@ def cmd_entity(args):
         print(get_section(ent["body"], "事件日志") or "（空）")
         return 0
     if sub == "update":
+        hp = proj.p("entities", "history", args.id + ".json")
+        history = json.loads(read(hp)) if hp.is_file() else []
+        old_at = int(ent["meta"].get("last_reconcile_ch") or 0)
+        history.append({"chapter": old_at, "status": get_section(ent["body"], "现状") or ""})
         new_text = re.sub(r"^##\s*现状\s*\n+", "", read(args.file).strip())
         out = []
         for t, c in split_sections(ent["body"]):
@@ -51,6 +57,8 @@ def cmd_entity(args):
         meta["updated_at"] = NOW()
         meta["rev"] = (meta.get("rev") or 1) + 1
         write(ent["path"], dump_frontmatter(meta) + "\n\n" + "\n\n".join(out) + "\n")
+        history.append({"chapter": meta["last_reconcile_ch"], "status": new_text})
+        write(hp, json.dumps(history, ensure_ascii=False, indent=1))
         print("现状节已替换，last_reconcile_ch=%d" % meta["last_reconcile_ch"])
         return 0
     return 2
@@ -60,6 +68,8 @@ def cmd_thread(args):
     proj = Project(find_root(args))
     if not re.match(r"^thread_[a-z0-9_]+$", args.id):
         die("线索 id 应为 thread_{slug}")
+    if proj.p("threads", args.id + ".md").exists():
+        die("线索卡已存在，拒绝覆盖", 1)
     rep = {"[thread_slug]": args.id, "[YYYY-MM-DDTHH:MM:SSZ]": NOW()}
     text = instantiate("thread.md", rep)
     if args.kind:
@@ -161,6 +171,10 @@ def register_facts(proj, ch_id, wb, rev=1):
         if d.get("known_by"):
             rec["known_by"] = sorted({proj.resolve_entity(r) or r
                                       for r in d["known_by"]})
+        if rec.get("known_by"):
+            rec["knowledge_events"] = [{"chapter": num,
+                "knowers": sorted(proj.expand_knowers(rec["known_by"])),
+                "via": rec["known_by"][:]}]
         data.setdefault("facts", []).append(rec)
         added.append(rec["id"])
         seq += 1

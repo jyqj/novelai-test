@@ -15,7 +15,7 @@ STAGES = (
     ("s4", "书庭S4·分卷庭", "分卷草案/卷1蓝图/style 定稿", "protocol/stages/s4-volumes.md"),
     ("vol", "卷庭", "卷蓝图九节", "protocol/stages/vol-court.md"),
     ("arc", "弧规划", "弧六节+细纲(traditional)", "protocol/stages/arc-plan.md"),
-    ("write", "章循环", "排批→简报→写→机检→轻评→commit(零知识装载)",
+    ("write", "章循环", "排批→简报→写→机检→轻评→commit(默认轻量，按症状咨询)",
      "protocol/stages/write-loop.md"),
     ("review", "周期回路", "深评采样/实体对账/knowledge 欠账", "protocol/stages/review-cycle.md"),
     ("ops", "连载运营", "buffer/publish/卷末结账/读者反馈", "protocol/stages/ops-serial.md"),
@@ -74,7 +74,7 @@ def infer_stage(proj):
     队首任务类型。返回 (stage_id, 依据一句话)。阶段本身以 state/stage.json 为准。"""
     base = proj.p("state", "court")
     if base.is_dir():
-        sessions = [d.name for d in sorted(base.iterdir()) if d.is_dir()]
+        sessions = [d.name for d in sorted(base.iterdir()) if d.is_dir() and any(f.is_file() for f in d.rglob("*"))]
         for sid in ("S4", "S3", "S2", "S1"):          # 书庭进行中：最深场次优先
             if sid in sessions:
                 return sid.lower(), "庭审工作区有进行中场次 %s（court status 盘点回合）" % sid

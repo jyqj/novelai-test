@@ -1,3 +1,5 @@
+> 当前升级约定：按 `protocol/reliability.md`（同目录为 reliability.md）执行证据回执、历史视图和安全恢复；旧流程中的 pass 要附逐项证据，人工附笔需单独确认保存，不能假定后续 CLI 会替它进入事务。
+
 # court.md — 设计庭运行协议(Phase A · 编排者操作手册)
 
 > 依据 spec §4;文件格式与 CLI 一律以 `protocol/formats.md`(下记 F§n)为准,本文零重复、只指针。
@@ -95,16 +97,16 @@ R0 设计简报、R1 各提案、R2 各评审与读者票、R3 主编稿、R4 �
 
 | 情形 | 处置 |
 |---|---|
-| 运行数触顶仍有 blocking | 以主编现稿定稿;blocking 与反对意见写入 dec「## 异议」(disagree_and_commit),不加轮 |
+| 运行数触顶仍有 blocking | 保留当前草案与异议；核心 blocking 未解不自动定稿，缩小范围或暂停，交作者选择 |
 | 红线类 blocking(rubrics/redline.md 命中) | 不得自动定稿;升级用户(task note 记「红线待人裁」),用户裁决前不推进该任务 |
 | 评审全否全部提案且无可合成 | 视为 blocking;按上两行处置(用户可决定重开一场,计新预算) |
 | 场间用户变卦 | 未定稿场次作废重跑;已 committed 节点走下方重开纪律 |
 
-**否决案台账拦截(X7)**——任何人(含用户)重提设计变更时:
+**否决案台账(X7)**——避免模型无理由反复横跳，但不剥夺作者覆盖权:
 
 ```
 1 编排者先查目标节点全部 dec_* 的「## 否决案」节
-2 命中且无满足 reopen_requires 的新证据 → 拒绝重提,回引 dec_id 与所需证据类型
+2 模型重提且无新证据 → 回引 dec_id；作者显式改意 → 记录 author_override、理由与影响，允许重开
 3 有新证据 → novel.py task add revise_design <node> --evidence "<新证据,引用 dec_id>"
      # --evidence 必填;novel.py 创建时提示比对 court/ 否决案(F§10)
 4 开庭前编排者出影响面报告(模板见下): 依 state/index.json 的 parent 链与实体/线索引用,

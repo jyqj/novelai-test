@@ -1,3 +1,5 @@
+> 当前升级约定：按 `protocol/reliability.md`（同目录为 reliability.md）执行证据回执、历史视图和安全恢复；旧流程中的 pass 要附逐项证据，人工附笔需单独确认保存，不能假定后续 CLI 会替它进入事务。
+
 # manual-check.md — 无 shell 环境的人工自查清单（诚实降级协议）
 
 > 适用：产品无法运行 `python3 tools/novel.py` 时。本文件回答两个问题：

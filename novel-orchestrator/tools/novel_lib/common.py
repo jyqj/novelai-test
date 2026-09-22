@@ -50,9 +50,9 @@ REVIEW_KEYS = ("id", "kind", "chapter", "depth", "verdict", "rev_reviewed", "dat
 
 # 章级 NEEDS_REVIEW 项（必须由评审角色执行的主观判定；对应 rubrics）
 UNIT_NEEDS_REVIEW = [
-    "人设声纹遮名指认 ≥4/5（rubrics/voice.md §二）",
+    "人物声音与行为是否可辨认（按作品审美，不以统一识别率代替判断）",
     "智商漂移两问（rubrics/prose-disease.md §六）",
-    "关键场面对话+动作占比 ≥60%（rubrics/prose-disease.md §五）",
+    "关键场面是否完成其戏剧与情感任务（允许有意概述、留白与静态描写）",
     "爽点兑现有效性：触发条件成立、非空转（rubrics/payoff.md §一/§六）",
     "毒点七问与负面节拍降档（rubrics/toxicity.md）",
     "与前章尾 500 字的衔接、与后章任务卡是否顶牛（roles/critic-light.md 四）",
@@ -156,11 +156,25 @@ def read(path):
 
 
 def write(path, text):
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(p.suffix + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(p)
+    from . import transactions
+    data = text.encode("utf-8")
+    if transactions.ACTIVE is not None:
+        transactions.ACTIVE.write(path, data)
+    else:
+        transactions.atomic_bytes(path, data)
+
+
+def remove(path):
+    from . import transactions
+    if transactions.ACTIVE is not None:
+        transactions.ACTIVE.write(path, None)
+    else:
+        Path(path).unlink(missing_ok=True)
+
+
+def append(path, text):
+    path = Path(path)
+    write(path, (read(path) if path.is_file() else "") + text)
 
 
 def ch_num(ch_id):
@@ -200,11 +214,34 @@ def git_out(root, *args):
         return ""
 
 
-def git_autocommit(root, msg):
+def git_autocommit(root, msg, paths=None):
+    from . import transactions
+    if transactions.ACTIVE is not None:
+        transactions.ACTIVE.message = msg
+        return True
     if not (Path(root) / ".git").exists():
-        return
-    git(root, "add", "-A")
-    git(root, "commit", "-m", msg, "-q")
+        return False
+    # Never absorb unrelated staged files. Caller supplies the precise write set.
+    if paths is None:
+        print("[warn] 未提供写入清单，跳过自动 Git 提交；请自行检查 git diff")
+        return False
+    paths = [p for p in paths if not str(p).startswith("state/txn/")]
+    if not paths:
+        return True
+    # Identity is not invented, and a failed commit must not leave staged changes.
+    if not git_out(root, "var", "GIT_AUTHOR_IDENT"):
+        print("[warn] 未配置 Git 身份；文件已安全写入，未暂存。请配置后自行提交")
+        return False
+    if git_out(root, "diff", "--cached", "--name-only"):
+        print("[warn] 存在作者已暂存改动；跳过自动提交，未改索引")
+        return False
+    if not git(root, "add", "--", *paths):
+        return False
+    ok = git(root, "commit", "-m", msg, "-q", "--only", "--", *paths)
+    if not ok:
+        git(root, "reset", "-q", "--", *paths)
+        print("[warn] Git 提交失败；文件已安全写入，已撤回本次暂存")
+    return ok
 
 
 def instantiate(template_name, replacements):

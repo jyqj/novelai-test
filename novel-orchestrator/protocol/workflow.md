@@ -1,3 +1,5 @@
+> 当前升级约定：按 `protocol/reliability.md`（同目录为 reliability.md）执行证据回执、历史视图和安全恢复；旧流程中的 pass 要附逐项证据，人工附笔需单独确认保存，不能假定后续 CLI 会替它进入事务。
+
 # workflow.md — 全生命周期作业主线（L1 总装图）
 
 > 定位：`SKILL.md`（L0 薄路由）之下、各专项协议（court/pipeline/serial-ops/adopt）之上的**主循环脊柱**。
@@ -45,7 +47,7 @@ init ──书庭 S1–S4──> book/world/style/vol_01 committed          （�
 | 书庭 S1–S4 | s1–s4 | s1-concept / s2-world / s3-cast / s4-volumes | R0 按包装配；庭审附件从包内 K 池挑 ≤4 块、只取锚点段 |
 | 卷庭 | vol | vol-court.md | 上卷报告+K 池 6 块 |
 | 弧规划/细纲 | arc | arc-plan.md | 节奏模板检查单+K 池 3 块 |
-| 章循环（§3） | write | write-loop.md | **零知识**：写手=简报，轻评=三张判据卡 |
+| 章循环（§3） | write | write-loop.md | **默认轻量，可有界咨询**：写手=简报，轻评=三张判据卡 |
 | 周期回路（§4） | review | review-cycle.md | 深评=判据卡 only；欠账盘点走 `knowledge query` CLI，不读库 |
 | 发布/卷末（§4–5） | ops | ops-serial.md | 零 K；反馈归因转 diag |
 | traditional 差分 | trad | trad-overlay.md | 叠加层：判据卡置换（scene-value/theme/imagery），无 knowledge 豁免 |
@@ -82,7 +84,7 @@ enter 正确阶段（`state/stage.json` history 留痕）。典型迁移链:`s1�
 | 4 | 双产出 → 抽取器/机检 | `check --unit ch --candidate --writeback`（含抽取器对账+知识越界+facts 冲突，F§17；C/D 档由 extractor 帽按 `roles/extractor.md` 手工对账） | 机器：0 FAIL；NEEDS_REVIEW 打包传下一棒 | FAIL → 修订循环（P§2，计一次） |
 | 5 | 机检 → 轻评（T3/轻评帽） | 候选 + 简报 + 前章尾 + NEEDS_REVIEW 清单 | 轻评六判（roles/critic-light.md）：逐条裁定机检主观项 + verdict | revise → P§2；escalate → P§3 |
 | 6 | 轻评 pass → commit | `novel.py commit <t> --chapter --writeback` | 机器：check 复跑 + 引用越权拒绝 + 事务包裹（F§16）；副作用=台账/日志/facts/ngram/**rollup** 自动回写 | 拒绝 → 修订循环 |
-| 7 | commit → 回执 → approved | `review add ch --depth light --verdict pass` → `gate approve ch` → `tree set-status ch approved` | 机器：drafted + 回执 rev 匹配 + 机检绿；FAIL 附下一步 | 回执过期（章已 revise）→ 复评 |
+| 7 | commit → 回执 → approved | `review checklist ch` → 填写逐项证据 → `review add ch --depth light --verdict pass --evidence F` → `gate approve ch` → `tree set-status ch approved` | 机器：drafted + 回执 rev 匹配 + 机检绿；FAIL 附下一步 | 回执过期（章已 revise）→ 复评 |
 | 8 | 弧内收尾 | 每 5 章 `check --window`；深评采样（P§4）；lessons 附笔 | 窗口断言绿 | 欠账 → gate next 会顶到队首 |
 
 - **修订**：未发布章 `task add revise` 走同链路（rev+1，撤销重放零双计，旧回执自动失效须复评，F§9/§16）；write/revise 同目标失败 ×2 → 队列自动升级 revise_design（F§10）。**published 章不可 revise**——走 §6 retcon。

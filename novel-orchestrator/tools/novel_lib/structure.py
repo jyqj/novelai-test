@@ -9,32 +9,7 @@ from .project import (Project, find_root, load_queue_promoted, next_task_id,
                       promote_blocked)
 
 
-def approval_receipt(proj, ch_id):
-    """P0-2（收紧）：drafted→approved 仅认 reviews/ 落盘回执——verdict=pass 且
-    rev_reviewed == 章当前 rev。任务 note 自证通道（light=pass 正则）已删除：
-    评审结论必须落盘（novel.py review add），闸门不接受口头/note 自我盖章。"""
-    p = proj.p("chapters", ch_id + ".md")
-    cur_rev = 1
-    if p.is_file():
-        meta, _ = parse_frontmatter(read(p))
-        cur_rev = (meta or {}).get("rev") or 1
-    stale = []
-    for depth in ("light", "deep"):
-        f = proj.p("reviews", "%s.%s.md" % (ch_id, depth))
-        if not f.is_file():
-            continue
-        meta, _ = parse_frontmatter(read(f))
-        meta = meta or {}
-        if meta.get("verdict") != "pass":
-            continue
-        if meta.get("rev_reviewed") != cur_rev:
-            stale.append("reviews/%s.%s.md rev_reviewed=%s ≠ 章 rev=%s"
-                         % (ch_id, depth, meta.get("rev_reviewed"), cur_rev))
-            continue
-        return "reviews/%s.%s.md verdict=pass rev_reviewed=%s" % (ch_id, depth, cur_rev)
-    for s in stale:
-        print("[warn] 回执过期：%s（章已 revise，须对当前 rev 复评）" % s)
-    return None
+from .receipts import approval_receipt
 
 
 def cmd_tree(args):
@@ -71,7 +46,19 @@ def cmd_tree(args):
         table = legal["chapter"] if kind == "chapter" else legal["node"]
         if (old, new) not in table:
             die("非法迁移：%s %s→%s（合法表见 protocol/formats.md §3）" % (args.id, old, new), 1)
+        if kind == "chapter" and new == "published":
+            die("发布只能经 novel.py publish（统一连续性、评审与存稿闸门）", 1)
+        if kind == "chapter" and new == "planned" and proj.chapter_meta_json(args.id):
+            die("已有正文回写的章节不能降为 planned；请使用 revise", 1)
         if kind == "chapter" and new == "approved":
+            from .gate import gate_approve
+            from .common import Report
+            from .stagectl import stage_guard
+            stage_guard(proj, ("write", "review"), "tree set-status approved")
+            report = Report()
+            gate_approve(proj, args.id, report)
+            if report.render("批准前置检查"):
+                return 1
             receipt = approval_receipt(proj, args.id)
             if not receipt:
                 die("approved 需落盘评审回执：reviews/%s.light|deep.md（verdict=pass 且 "
@@ -88,6 +75,12 @@ def cmd_tree(args):
 
     # tree add
     kind, nid, parent = args.kind, args.id, args.parent
+    existing = proj.node_path(nid)
+    if existing and existing.exists():
+        die("目标已存在，拒绝覆盖：%s" % nid, 1)
+    if kind == "chapter" and any(proj.p("chapters", nid + ext).exists()
+                                  for ext in (".task.json", ".meta.json")):
+        die("章节已有配套数据，拒绝重新创建：%s" % nid, 1)
     rep = {"[YYYY-MM-DDTHH:MM:SSZ]": NOW()}
     if kind == "volume":
         if not re.match(r"^vol_\d{2}$", nid):
@@ -99,12 +92,14 @@ def cmd_tree(args):
         if not m:
             die("arc id 应为 arc_NN_n")
         vol = parent or ("vol_" + m.group(1))
+        if vol != "vol_" + m.group(1):
+            die("弧 id 与所属卷不一致", 1)
         rep.update({"[arc_01_1]": nid, "[vol_01]": vol})
         write(proj.p("tree", vol, nid + ".md"), instantiate("arc.md", rep))
     elif kind == "chapter":
         if not re.match(r"^ch_\d{4}$", nid):
             die("chapter id 应为 ch_NNNN")
-        if not parent:
+        if not parent or not re.fullmatch(r"arc_\d{2}_\d+", parent):
             die("chapter 需 --parent arc_NN_n")
         rep.update({"[ch_0001]": nid, "[arc_01_1]": parent})
         write(proj.p("chapters", nid + ".md"), instantiate("chapter.md", rep))
@@ -171,6 +166,8 @@ def cmd_task(args):
 
     if sub == "archive":
         keep = args.keep
+        if keep < 0:
+            die("keep 不得为负数", 1)
         done = [t for t in q["tasks"] if t["state"] == "done"]
         if len(done) <= keep:
             print("done 任务 %d 条 ≤ keep=%d，无需归档" % (len(done), keep))
@@ -181,6 +178,8 @@ def cmd_task(args):
         arch = json.loads(read(arch_p)) if arch_p.is_file() else {"tasks": []}
         arch["tasks"].extend(move)
         write(arch_p, json.dumps(arch, ensure_ascii=False, indent=1))
+        q.setdefault("completed_ids", [])
+        q["completed_ids"] = sorted(set(q["completed_ids"]) | move_ids)
         q["tasks"] = [t for t in q["tasks"] if t["id"] not in move_ids]
         proj.save_queue(q)
         print("已归档 %d 条 done 任务 → tasks/archive.json（队列余 %d 条）"
@@ -192,6 +191,8 @@ def cmd_task(args):
     if not t:
         die("任务不存在：%s" % args.id)
     if sub == "start":
+        if t["state"] not in ("pending", "running") or t.get("commit_fingerprint"):
+            die("不能启动已消费/完成/阻塞任务；请创建新任务", 1)
         t["state"] = "running"
     elif sub == "done":
         t["state"] = "done"

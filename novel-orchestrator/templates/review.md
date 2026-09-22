@@ -4,6 +4,7 @@ kind: review
 chapter: [ch_0001]
 depth: [light]
 verdict: [pass]
+subject_sha256: [来自review-checklist，不手编]
 rev_reviewed: 1
 date: [YYYY-MM-DD]
 ---
@@ -17,3 +18,7 @@ date: [YYYY-MM-DD]
 ## 教训
 
 [可选。结论性教训一句话,编排者摘一行入 ledgers/lessons.md,资料员在简报写作提示节选用]
+
+## 逐项裁定
+
+[粘贴 review checklist 输出的完整 JSON 并逐项裁定；此占位不得作为通过票]

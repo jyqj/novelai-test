@@ -8,6 +8,7 @@ from .brief import cmd_brief
 from .checks import check_project, cmd_check
 from .commitflow import cmd_commit
 from .court import cmd_court
+from .consult import cmd_consult
 from .extract import cmd_extract
 from .gate import cmd_gate
 from .journal import cmd_entity, cmd_facts, cmd_ledger, cmd_thread
@@ -19,6 +20,7 @@ from .serial_ops import cmd_checkpoint, cmd_publish, cmd_report, cmd_retcon
 from .stagectl import cmd_stage
 from .status import cmd_status
 from .structure import cmd_task, cmd_tree
+from .transactions import cmd_recover, execute
 
 
 def main(argv=None):
@@ -41,6 +43,8 @@ def main(argv=None):
 
     sub.add_parser("status", help="重算 index/dashboard 并打印（可恢复断点；章级增量）")
     sub.add_parser("fsck", help="= check --project")
+    p = sub.add_parser("recover", help="列出未完成事务；按前镜像安全回退")
+    p.add_argument("--rollback", action="store_true")
 
     p = sub.add_parser("tree", help="树节点：add/show/set-status")
     ts = p.add_subparsers(dest="tree_cmd", required=True)
@@ -145,10 +149,12 @@ def main(argv=None):
     q.add_argument("--depth", required=True, choices=list(REVIEW_DEPTHS))
     q.add_argument("--verdict", required=True, choices=list(REVIEW_VERDICTS))
     q.add_argument("--rev", type=int, help="被评审的章 rev（默认=章当前 rev）")
-    q.add_argument("--issue", action="append",
-                   help="问题清单行（可多值；缺省写「无阻塞问题 → 通过」）")
+    q.add_argument("--issue", "--note", dest="issue", action="append", help="评审摘要（--note 为兼容别名）")
+    q.add_argument("--evidence", help="review checklist 产生并经评审逐项填写的 JSON 文件")
     q.add_argument("--lesson", help="教训一行（可选，编排者摘入 lessons）")
     ts.add_parser("list")
+    q = ts.add_parser("checklist", help="输出未裁定的结构化评审清单；不会自动通过")
+    q.add_argument("ch_id")
 
     p = sub.add_parser("knowledge",
                        help="知识矩阵 v2（fact×角色/范围×读者）：grant/reveal/scope/query")
@@ -157,7 +163,7 @@ def main(argv=None):
     q.add_argument("fact_id")
     q.add_argument("--to", action="append", required=True,
                    help="知情实体（可多次；char 个体或 fac/loc/item 群体，须已登记）")
-    q.add_argument("--ch", help="获知场景章号（记入 git 消息，便于审计）")
+    q.add_argument("--ch", help="获知场景章号（必填，保存不可变知情快照）")
     q = ts.add_parser("reveal", help="读者揭示：spoiler 1→0（悬念销账）")
     q.add_argument("fact_id")
     q.add_argument("--ch", required=True, help="揭示章号（记 revealed_reader_ch）")
@@ -172,6 +178,7 @@ def main(argv=None):
     q = ts.add_parser("query", help="矩阵视图：--fact/--entity（个体或群体）/默认盘点读者未知欠账")
     q.add_argument("--fact", dest="fact_id")
     q.add_argument("--entity")
+    q.add_argument("--at", help="截至此章的知识视图（包含该章）")
 
     p = sub.add_parser("rollup", help="手动重算摘要卷积（批量改 meta.json/adopt 补录后）")
 
@@ -210,6 +217,11 @@ def main(argv=None):
     q.add_argument("stage_id")
     ss.add_parser("current", help="读持久化阶段 + 启发式核对（未进入任何阶段时 exit 1）")
 
+    q = ss.add_parser("consult", help="按症状跨阶段借阅 1–2 个知识块并留痕")
+    q.add_argument("ids", nargs="+")
+    q.add_argument("--reason", required=True)
+    q.add_argument("--target", required=True)
+
     p = sub.add_parser("court", help="庭审工作区：open/status/close（state/court/ 机械管理）")
     cs = p.add_subparsers(dest="court_cmd", required=True)
     q = cs.add_parser("open")
@@ -233,7 +245,14 @@ def main(argv=None):
         "checkpoint": cmd_checkpoint, "adopt": cmd_adopt, "review": cmd_review,
         "facts": cmd_facts, "extract": cmd_extract, "gate": cmd_gate,
         "court": cmd_court, "knowledge": cmd_knowledge, "rollup": cmd_rollup,
-        "stage": cmd_stage,
+        "stage": cmd_consult if args.cmd == "stage" and args.stage_cmd == "consult" else cmd_stage, "recover": cmd_recover,
         "fsck": lambda a: check_project(Project(find_root(a))).render("fsck"),
     }
-    return dispatch[args.cmd](args)
+    try:
+        if args.cmd in ("init", "recover", "fsck", "check", "extract", "ledger", "gate") \
+                or (args.cmd == "stage" and args.stage_cmd not in ("enter", "consult")):
+            return dispatch[args.cmd](args)
+        return execute(find_root(args), args.cmd, lambda: dispatch[args.cmd](args))
+    except (ValueError, OSError, RuntimeError) as exc:
+        from .common import die
+        die(str(exc), 1)
